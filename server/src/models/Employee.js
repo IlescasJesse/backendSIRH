@@ -2,7 +2,7 @@ const { Schema, model } = require("mongoose");
 
 const employeeSchemma = new Schema(
   {
-    _id: String,
+    _id: { type: Schema.Types.ObjectId, auto: true },
     CONSEC: Number,
     CLAVE: Number,
     DEPARTAMENTO: String,
