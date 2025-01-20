@@ -1,6 +1,6 @@
 const offEmployeeController = {};
 
-const { query } = require("../config/mongo");
+const { query, updateOne } = require("../config/mongo");
 const fs = require("fs");
 const path = require("path");
 const PizZip = require("pizzip");
@@ -10,7 +10,7 @@ const { querysql } = require("../config/mysql");
 const { insertOne } = require("../config/mongo");
 offEmployeeController.getVacants = async (req, res) => {
   try {
-    const vacants = await query("plantilla_humanos", { status: 2 });
+    const vacants = await query("PLANTILLA_2025", { status: 2 });
     res.json(vacants);
   } catch (error) {
     console.error(error);
@@ -58,9 +58,9 @@ offEmployeeController.getDatatoOff = async (req, res) => {
         });
       }
 
-      empleados = await query("plantilla_humanos", { $or: regexQueries });
+      empleados = await query("PLANTILLA_2025", { $or: regexQueries });
     } else {
-      empleados = await query("plantilla_humanos", {});
+      empleados = await query("PLANTILLA_2025", {});
     }
     const arrayUnires = await querysql("SELECT * FROM UNIDAD_RESPONSABLE");
     const arrayCategorias = await querysql("SELECT * FROM CATEGORIAS_CATALOGO");
@@ -97,8 +97,85 @@ offEmployeeController.getDatatoOff = async (req, res) => {
 
 offEmployeeController.saveDataOff = async (req, res) => {
   const { data } = req.body;
+  const currentYear = new Date().getFullYear();
+  console.log(data);
+
   try {
-    await insertOne("backupPersonalBajas", data);
+    const { _id, ...dataWithoutId } = data;
+    await insertOne(`BAJAS_${currentYear}`, dataWithoutId);
+    const plaza = await query(`PLAZAS_${currentYear}`, { NUMPLA: data.NUMPLA });
+    if (plaza.length > 0) {
+      await updateOne(
+        `PLAZAS_${currentYear}`,
+        { NUMPLA: data.NUMPLA },
+        {
+          $push: {
+            previousOcuppants: {
+              NOMBRE: data.NOMBRE,
+              FECHA: data.discharge_date,
+              FECHA_BAJA: data.discharge_date,
+              MOTIVO_BAJA: data.reason,
+            },
+          },
+        }
+      );
+    } else {
+      res.status(404).json({ message: "Plaza no encontrada" });
+      return;
+    }
+    const { ObjectId } = require("mongodb");
+    const employee = await query("PLANTILLA_2025", {
+      _id: new ObjectId(data._id),
+    });
+    if (employee.length > 0) {
+      await updateOne(
+        "PLANTILLA_2025",
+        { _id: new ObjectId(data._id) },
+        {
+          $set: {
+            CONSEC: null,
+            CLAVE: null,
+            CURP: null,
+            RFC: null,
+            AFILIACI: null,
+            NUMEMP: null,
+            SUELDO_GRV: 0,
+            NUMQUIN: 0,
+            GUARDE: 0,
+            GASCOM: 0,
+            FECHA_INGRESO: null,
+            SANGRE: null,
+            AVISAR: null,
+            TEL_EMERGENCIA1: null,
+            TEL_EMERGENCIA2: null,
+            NUMTARJETA: null,
+            TURNOMAT: null,
+            TURNOVES: null,
+            SABADO: null,
+            SEXO: null,
+            FECHA_NAC: null,
+            LUGARNAC: null,
+            CP: null,
+            TEL_PERSONAL: null,
+            ALERGIA: null,
+            TIPOPAG: null,
+            BANCO: null,
+            CUENTA: null,
+            NOMINA: null,
+            EMAIL: null,
+            DOMICILIO: null,
+            PROFES: null,
+            APE_PAT: null,
+            APE_MAT: "VACANTE",
+            NOMBRES: null,
+            status: 2,
+          },
+        }
+      );
+      console.log("Empleado dado de baja");
+    } else {
+      console.log(`Empleado con ID ${data._id} no fue encontrado`);
+    }
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error al guardar los datos" });
@@ -244,6 +321,28 @@ offEmployeeController.saveDataOff = async (req, res) => {
     res.status(500).json({ message: "Error al generar el documento" });
     return;
   }
+};
+//Funcino para obtener las bajas recientes
+offEmployeeController.getRecentCasualties = async (req, res) => {
+  const currentYear = new Date().getFullYear();
+  try {
+    const casualties = await query(`BAJAS_${currentYear}`, {});
+    res.json(casualties);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Error al recuperar las bajas" });
+  }
+};
+//Funcion para descargar el documento de baja
+offEmployeeController.downloadBaja = async (req, res) => {
+  const { curp } = req.params;
+  const filePath = path.resolve(__dirname, `../docs/bajas/${curp}.docx`);
+  res.setHeader("Content-Disposition", `attachment; filename=${curp}.docx`);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+  res.status(200).sendFile(filePath);
 };
 
 module.exports = offEmployeeController;
