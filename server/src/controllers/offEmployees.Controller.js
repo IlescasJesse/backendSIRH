@@ -62,8 +62,8 @@ offEmployeeController.getDatatoOff = async (req, res) => {
     } else {
       empleados = await query("PLANTILLA_2025", {});
     }
-    const arrayUnires = await querysql("SELECT * FROM UNIDAD_RESPONSABLE");
-    const arrayCategorias = await querysql("SELECT * FROM CATEGORIAS_CATALOGO");
+    const arrayUnires = await querysql("SELECT * FROM unidad_responsable");
+    const arrayCategorias = await querysql("SELECT * FROM categorias_catalogo");
 
     const formattedEmployees = empleados.map((emp) => ({
       _id: emp._id,
@@ -115,6 +115,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
               FECHA: data.discharge_date,
               FECHA_BAJA: data.discharge_date,
               MOTIVO_BAJA: data.reason,
+              status: 2,
             },
           },
         }
@@ -303,7 +304,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
     const buf = doc.getZip().generate({ type: "nodebuffer" });
     const outputPath = path.resolve(
       __dirname,
-      `../docs/bajas/${data.CURP}.docx`
+      `../docs/bajas/BAJA_${data.CURP}.docx`
     );
     fs.writeFileSync(outputPath, buf);
 
@@ -336,8 +337,11 @@ offEmployeeController.getRecentCasualties = async (req, res) => {
 //Funcion para descargar el documento de baja
 offEmployeeController.downloadBaja = async (req, res) => {
   const { curp } = req.params;
-  const filePath = path.resolve(__dirname, `../docs/bajas/${curp}.docx`);
-  res.setHeader("Content-Disposition", `attachment; filename=${curp}.docx`);
+  const filePath = path.resolve(__dirname, `../docs/bajas/BAJA_${curp}.docx`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=BAJA_${curp}.docx`
+  );
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

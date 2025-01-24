@@ -40,6 +40,19 @@ async function updateOne(collectionName, filter, update) {
     await client.close();
   }
 }
+async function deleteOne(collectionName, filter) {
+  const client = new MongoClient(process.env.MONGO_URI);
+
+  try {
+    await client.connect();
+    const database = client.db(process.env.DB);
+    const collection = database.collection(collectionName);
+    const result = await collection.deleteOne(filter);
+    return result;
+  } finally {
+    await client.close();
+  }
+}
 
 async function ping() {
   const client = new MongoClient(process.env.MONGO_URI);
@@ -54,4 +67,4 @@ async function ping() {
   }
 }
 
-module.exports = { query, ping, insertOne, updateOne };
+module.exports = { query, ping, insertOne, updateOne, deleteOne };

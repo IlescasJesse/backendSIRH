@@ -45,137 +45,136 @@ employeeController.getProfileData = async (req, res) => {
     switch (employee[0].TIPONOM) {
       case "B":
         percepciones = await querysql(
-          `SELECT * FROM CAT_BASE WHERE nivel = ?`,
+          `SELECT * FROM catalogo_base  WHERE nivel = ?`,
           [employee[0].NIVEL]
         );
         percepciones = percepciones[0];
         const isrDataB = await querysql(
-          "SELECT * FROM CAT_ISR WHERE ? > LIMITE_INFERIOR AND ? < LIMITE_SUPERIOR",
-          [percepciones.SUELDO_BASE, percepciones.SUELDO_BASE]
+          "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
+          [percepciones.sueldo_base, percepciones.sueldo_base]
         );
         const isrObjectB = isrDataB[0];
         deducciones.ISR = (
-          ((parseFloat(percepciones.SUELDO_BASE) -
-            parseFloat(isrObjectB.LIMITE_INFERIOR)) *
-            parseFloat(isrObjectB.PORCENTAJE_LIMITE_INFERIOR)) /
+          ((parseFloat(percepciones.sueldo_base) -
+            parseFloat(isrObjectB.limite_inf)) *
+            parseFloat(isrObjectB.porcentajeliminf)) /
             100 +
-          parseFloat(isrObjectB.CUOTA_FIJA)
+          parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
         const FONDO_PENSIONES = (
-          parseFloat(percepciones.SUELDO_BASE) * 0.09
+          parseFloat(percepciones.sueldo_base) * 0.09
         ).toFixed(2);
         deducciones.CUOTA_SINDICAL = (
-          parseFloat(percepciones.SUELDO_BASE) * 0.01
+          parseFloat(percepciones.sueldo_base) * 0.01
         ).toFixed(2);
         deducciones.IMSS = (
-          parseFloat(percepciones.SUELDO_BASE) * 0.041219
+          parseFloat(percepciones.sueldo_base) * 0.041219
         ).toFixed(2);
 
         if (employee[0].NUMQUIN > 0) {
           const quinquenio = await querysql(
-            `SELECT QUINQUENIO_${employee[0].NUMQUIN} FROM CAT_QUINQUENIOS_BASE WHERE NIVEL = ?`,
+            `SELECT quin_${employee[0].NUMQUIN} FROM quin_base WHERE NIVEL = ?`,
             [employee[0].NIVEL]
           );
           percepciones[`QUINQUENIOS: ${employee[0].NUMQUIN}`] =
-            quinquenio[0][`QUINQUENIO_${employee[0].NUMQUIN}`];
+            quinquenio[0][`quin_${employee[0].NUMQUIN}`];
         }
         break;
 
       case "CN":
       case "CC":
         percepciones = await querysql(
-          `SELECT * FROM CAT_CONTRATO WHERE NIVEL = ?`,
+          `SELECT * FROM catalogo_contrato WHERE nivel = ?`,
           [employee[0].NIVEL]
         );
         percepciones = percepciones[0];
         const sueldoGravable = (
-          parseFloat(percepciones.SUELDO_BASE) +
-          parseFloat(percepciones.ESTIMULO)
+          parseFloat(percepciones.sueldo_base) +
+          parseFloat(percepciones.estimulo)
         ).toFixed(2);
         const isrDataCC = await querysql(
-          "SELECT * FROM CAT_ISR WHERE ? > LIMITE_INFERIOR AND ? < LIMITE_SUPERIOR",
+          "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
           [sueldoGravable, sueldoGravable]
         );
         const isrObjectCC = isrDataCC[0];
         deducciones.ISR = (
-          ((parseFloat(sueldoGravable) -
-            parseFloat(isrObjectCC.LIMITE_INFERIOR)) *
-            parseFloat(isrObjectCC.PORCENTAJE_LIMITE_INFERIOR)) /
+          ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
+            parseFloat(isrObjectCC.porcentajeliminf)) /
             100 +
-          parseFloat(isrObjectCC.CUOTA_FIJA)
+          parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
-          "SELECT * FROM SUBSIDIO_ISR WHERE ID = 1"
+          "SELECT * FROM subsidio_isr WHERE id = 1"
         );
         if (
-          parseFloat(sueldoGravable) <
-          parseFloat(limiteSubsidio[0].LIMITE_SUPERIOR)
+          parseFloat(sueldoGravable) < parseFloat(limiteSubsidio[0].lim_sup)
         ) {
-          deducciones.ISR = Math.max(
-            0,
-            parseFloat(deducciones.ISR) - parseFloat(limiteSubsidio[0].SUBSIDIO)
-          );
+          const isrValue = parseFloat(deducciones.ISR);
+          const subsidioValue = parseFloat(limiteSubsidio[0].SUBSIDIO);
+          if (!isNaN(isrValue) && !isNaN(subsidioValue)) {
+            deducciones.ISR = Math.max(0, isrValue - subsidioValue).toFixed(2);
+          } else {
+            deducciones.ISR = "0.00";
+          }
         }
         deducciones.IMSS = (
-          parseFloat(percepciones.SUELDO_BASE) * 0.041219
+          parseFloat(percepciones.sueldo_base) * 0.041219
         ).toFixed(2);
         if (employee[0].NUMQUIN > 0 && employee[0].TIPONOM === "CN") {
           const quinquenio = await querysql(
-            `SELECT QUINQUENIO_${employee[0].NUMQUIN} FROM CAT_QUINQUENIOS_CONFIANZA WHERE NIVEL = ?`,
+            `SELECT quin_${employee[0].NUMQUIN} FROM quin_confianza WHERE nivel = ?`,
             [employee[0].NIVEL]
           );
           percepciones[`QUINQUENIOS: ${employee[0].NUMQUIN}`] =
-            quinquenio[0][`QUINQUENIO_${employee[0].NUMQUIN}`];
+            quinquenio[0][`quin_${employee[0].NUMQUIN}`];
         }
         break;
 
       case "MM":
         percepciones = await querysql(
-          `SELECT * FROM CAT_MANDOS_MEDIOS WHERE NIVEL = ?`,
+          `SELECT * FROM catalogo_mandosmedios WHERE nivel = ?`,
           [employee[0].NIVEL]
         );
         percepciones = percepciones[0];
 
         const sueldoGravableMM = (
-          parseFloat(percepciones.RDL) +
-          parseFloat(percepciones.SUELDO_BASE) +
-          parseFloat(percepciones.COMPENSACION_FIJA)
+          parseFloat(percepciones.rdl) +
+          parseFloat(percepciones.sueldo_base) +
+          parseFloat(percepciones.comp_fija_garan)
         ).toFixed(2);
 
         const isrObjectMM = await querysql(
-          "SELECT * FROM CAT_ISR WHERE ? > LIMITE_INFERIOR AND ? < LIMITE_SUPERIOR",
+          "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
           [sueldoGravableMM, sueldoGravableMM]
         );
         const CAT_SEGURO = await querysql(
-          "SELECT * FROM CAT_SEGURO WHERE NIVEL = ?",
+          "SELECT * FROM seg_vida WHERE nivel = ?",
           [employee[0].NIVEL]
         );
 
         deducciones.ISR = (
           ((parseFloat(sueldoGravableMM) -
-            parseFloat(isrObjectMM[0].LIMITE_INFERIOR)) *
-            isrObjectMM[0].PORCENTAJE_LIMITE_INFERIOR) /
+            parseFloat(isrObjectMM[0].limite_inf)) *
+            isrObjectMM[0].porcentajeliminf) /
             100 +
-          parseFloat(isrObjectMM[0].CUOTA_FIJA)
+          parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
-        deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].SEGURO_VIDA).toFixed(
-          2
-        );
+        deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
         deducciones.FONDO_PEN = (
-          parseFloat(percepciones.SUELDO_BASE) * 0.09
+          parseFloat(percepciones.sueldo_base) * 0.09
         ).toFixed(2);
         deducciones.ISR =
-          parseFloat(deducciones.ISR) - parseFloat(percepciones.ISR_RDL);
+          parseFloat(deducciones.ISR) - parseFloat(percepciones.isr_rdl);
 
-        delete percepciones.ISR_RDL;
-        delete percepciones.RDL;
+        delete percepciones.isr_rdl;
+        delete percepciones.rdl;
         if (employee[0].NUMQUIN > 0 && employee[0].TIPONOM === "CN") {
           const quinquenio = await querysql(
-            `SELECT QUINQUENIO_${employee[0].NUMQUIN} FROM CAT_QUINQUENIOS_MANDOS_MEDIOS WHERE NIVEL = ?`,
+            `SELECT quin_${employee[0].NUMQUIN} FROM quin_mandosmedios WHERE nivel = ?`,
             [employee[0].NIVEL]
           );
           percepciones[`QUINQUENIOS: ${employee[0].NUMQUIN}`] =
-            quinquenio[0][`QUINQUENIO_${employee[0].NUMQUIN}`];
+            quinquenio[0][`quin_${employee[0].NUMQUIN}`];
         }
 
         break;
@@ -184,8 +183,8 @@ employeeController.getProfileData = async (req, res) => {
           .status(400)
           .json({ message: "Tipo de nómina no reconocido" });
     }
-    delete percepciones.ID;
-    delete percepciones.NIVEL;
+    delete percepciones.id;
+    delete percepciones.nivel;
 
     // Agregar percepciones, deducciones y estado de plaza al empleado
     employee[0].percepciones = percepciones;

@@ -6,7 +6,7 @@ async function querysql(sql, params) {
     host: process.env.HOSTSQL,
     user: process.env.USERSQL,
     password: process.env.PWDSQL,
-    database: process.env.DB,
+    database: process.env.SQLDB,
     port: process.env.SQLPORT,
   });
 
@@ -23,7 +23,7 @@ async function ping() {
     host: process.env.HOSTSQL,
     user: process.env.USERSQL,
     password: process.env.PWDSQL,
-    database: process.env.DB,
+    database: process.env.SQLDB,
     port: process.env.SQLPORT,
   });
 
