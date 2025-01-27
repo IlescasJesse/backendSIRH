@@ -146,7 +146,7 @@ employeeController.dataPlaza = async (req, res) => {
 };
 
 // Función para guardar un empleado
-employeeController.saveEmployee = async (req, res) => {
+employeeController.makeProposal = async (req, res) => {
   const { data } = req.body;
   const today = new Date();
   const options = {
@@ -227,7 +227,7 @@ employeeController.saveEmployee = async (req, res) => {
       LEVEL5 = adscripciones[0].level5 || "";
     } catch (error) {
       console.error("Error obteniendo adscripciones:", error);
-      res
+      return res
         .status(500)
         .json({ message: "Error obteniendo adscripciones", error });
     }
@@ -248,6 +248,7 @@ employeeController.saveEmployee = async (req, res) => {
   const NOMBRE_MAMA = data.NOMBRE_MAMA ? data.NOMBRE_MAMA : "";
   const APEPAT_MAMA = data.APEPAT_MAMA ? data.APEPAT_MAMA : "";
   const APEMAT_MAMA = data.APEMAT_MAMA ? data.APEMAT_MAMA : "";
+  const UNI_RESPO = data.UNI_RESPO ? data.UNI_RESPO : "";
   const NUM_UNI_MED_FAM = data.NUM_UNI_MED_FAM ? data.NUM_UNI_MED_FAM : "";
   const FECHA_INGRESO_IMSS = data.FECHA_INGRESO_IMSS
     ? data.FECHA_INGRESO_IMSS
@@ -271,9 +272,10 @@ employeeController.saveEmployee = async (req, res) => {
     APE_PAT_OCUPANT,
     APE_MAT_OCUPANT,
     NOM_OCUPANT,
-    UNI_EJECU,
     PROYECTO,
     C_TRABAJO,
+    UNI_EJECU,
+    UNI_RESPO,
     OBRA_ACT,
     CLAVECAT,
     NOMCATE,
@@ -304,24 +306,6 @@ employeeController.saveEmployee = async (req, res) => {
     ID_PLAZA,
     FECHA_IMSS_FORMATTED,
   };
-  try {
-    console.log(data.NUMPLA);
-
-    await updateOne(
-      "PLANTILLA_2025",
-      { NUMPLA: data.NUMPLA },
-      { $set: { status: 3, templateData } }
-    );
-    await updateOne(
-      "PLAZAS_2025",
-      { NUMPLA: data.NUMPLA },
-      { $set: { status: 3 } }
-    );
-  } catch (error) {
-    console.error("Error updating PLANTILLA_2025:", error);
-    res.status(500).json({ message: "Error updating PLANTILLA_2025", error });
-    return;
-  }
 
   const content = fs.readFileSync(
     path.resolve(__dirname, "../templates/altaTemplate.docx"),
@@ -331,6 +315,27 @@ employeeController.saveEmployee = async (req, res) => {
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
   try {
+    const updatePlantillaResult = await updateOne(
+      "PLANTILLA_2025",
+      { NUMPLA: data.NUMPLA },
+      { $set: { status: 3, templateData } }
+    );
+    if (updatePlantillaResult.matchedCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "No matching document found in PLANTILLA_2025" });
+    }
+
+    const updatePlazasResult = await updateOne(
+      "PLAZAS_2025",
+      { NUMPLA: data.NUMPLA },
+      { $set: { status: 3 } }
+    );
+    if (updatePlazasResult.matchedCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "No matching document found in PLAZAS_2025" });
+    }
     doc.render(templateData);
     const buf = doc.getZip().generate({ type: "nodebuffer" });
     const outputPath = path.resolve(
@@ -350,11 +355,8 @@ employeeController.saveEmployee = async (req, res) => {
     res.status(200).sendFile(outputPath);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error al generar el documento" });
-    return;
+    return res.status(500).json({ message: "Error al generar el documento" });
   }
-
-  // console.log(data);
 
   res.status(200).json({ message: "Employee saved" });
 };
@@ -376,12 +378,17 @@ employeeController.getDataTemplate = async (req, res) => {
   const data = req.body;
   console.log(data.NUMPLA);
   const employee = await query("PLANTILLA_2025", { NUMPLA: data.NUMPLA });
+  if (!employee || employee.length === 0) {
+    return res.status(404).json({ message: "Employee not found" });
+  }
   const templateData = employee[0].templateData;
   res.json(templateData);
 };
 
 employeeController.saveEmployee = async (req, res) => {
-  const data = req.body;
+  const { data } = req.body;
+  console.log(data);
+
   try {
     await updateOne(
       "PLANTILLA_2025",
@@ -401,4 +408,28 @@ employeeController.saveEmployee = async (req, res) => {
     res.status(500).json({ message: "Error saving employee", error });
   }
 };
+employeeController.updateEmployee = async (req, res) => {
+  const { data } = req.body;
+  console.log(data);
+
+  try {
+    await updateOne(
+      "PLANTILLA_2025",
+      { NUMPLA: data.NUMPLA },
+      { $set: { ...data, status: 1 } }
+    );
+    await updateOne(
+      "PLANTILLA_2025",
+      { NUMPLA: data.NUMPLA },
+      { $unset: { templateData: "" } }
+    );
+    res
+      .status(200)
+      .json({ message: "Employee saved and templateData removed" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Error saving employee", error });
+  }
+};
+
 module.exports = employeeController;

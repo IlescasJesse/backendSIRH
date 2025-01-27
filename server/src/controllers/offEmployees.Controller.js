@@ -115,10 +115,14 @@ offEmployeeController.saveDataOff = async (req, res) => {
               FECHA: data.discharge_date,
               FECHA_BAJA: data.discharge_date,
               MOTIVO_BAJA: data.reason,
-              status: 2,
             },
           },
         }
+      );
+      await updateOne(
+        `PLAZAS_${currentYear}`,
+        { NUMPLA: data.NUMPLA },
+        { $set: { status: 2 } }
       );
     } else {
       res.status(404).json({ message: "Plaza no encontrada" });
