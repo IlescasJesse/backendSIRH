@@ -203,7 +203,7 @@ employeeController.makeProposal = async (req, res) => {
   const MUNICIPIO = data.MUNICIPIO ? data.MUNICIPIO : "";
   const COLONIA = data.COLONIA ? data.COLONIA : "";
   const DOMICILIO = data.DOMICILIO ? data.DOMICILIO : "";
-
+  const NUM_EXT = data.NUM_EXT ? data.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
   const FECHA_FORMATTED = `${day} DE ${
     months[parseInt(month, 10) - 1]
@@ -295,6 +295,7 @@ employeeController.makeProposal = async (req, res) => {
     MUNICIPIO,
     COLONIA,
     DOMICILIO,
+    NUM_EXT,
     DIRECCION_COMPLETA,
     NOMBRE_PAPA,
     APEPAT_PAPA,
@@ -382,6 +383,23 @@ employeeController.getDataTemplate = async (req, res) => {
     return res.status(404).json({ message: "Employee not found" });
   }
   const templateData = employee[0].templateData;
+  if (!templateData.LEVEL1) {
+    templateData.ADSCRIPCION =
+      templateData.LEVEL5 ||
+      templateData.LEVEL4 ||
+      templateData.LEVEL3 ||
+      templateData.LEVEL2 ||
+      "";
+  } else if (!templateData.LEVEL2) {
+    templateData.ADSCRIPCION =
+      templateData.LEVEL5 || templateData.LEVEL4 || templateData.LEVEL3 || "";
+  } else if (!templateData.LEVEL3) {
+    templateData.ADSCRIPCION = templateData.LEVEL5 || templateData.LEVEL4 || "";
+  } else if (!templateData.LEVEL4) {
+    templateData.ADSCRIPCION = templateData.LEVEL5 || "";
+  } else {
+    templateData.ADSCRIPCION = templateData.LEVEL5;
+  }
   res.json(templateData);
 };
 
