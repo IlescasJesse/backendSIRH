@@ -8,12 +8,7 @@ app.set("port", process.env.PORT || 3000);
 app.use(morgan("dev"));
 app.use(
   cors({
-    origin: [
-      "http://172.17.90.108:3000",
-      "https://0.0.0.0:3000",
-      "https://localhost:3000",
-      "https://q-sirh.finanzasoaxaca.gob.mx/",
-    ], // Allow all origins
+    origin: ["*"], // Allow all origins
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   })
 );
