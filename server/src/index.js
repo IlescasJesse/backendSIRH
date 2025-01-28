@@ -1,7 +1,5 @@
 const app = require("./app");
-require("./config/mongo");
-require("./config/mysql");
-
+require("dotenv").config();
 const { ping: pingMySQL } = require("./config/mysql");
 const { ping: pingMongo } = require("./config/mongo");
 
@@ -9,12 +7,8 @@ async function startServer() {
   try {
     await pingMySQL();
     await pingMongo();
-    const host = "localhost";
-    const port = app.get("port");
-
-    console.log(`Server running at http://${host}:${port}`);
-    app.listen(port, host, () => {
-      console.log(`Server on port ${port}`);
+    app.listen(app.get("port"), "0.0.0.0", () => {
+      console.log("Server running at http://0.0.0.0:" + app.get("port"));
     });
   } catch (err) {
     console.error("Error starting server:", err);

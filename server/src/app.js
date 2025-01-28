@@ -10,7 +10,7 @@ app.use(
   cors({
     origin: [
       "https://0.0.0.0:3000",
-      "httos://localhost:3000",
+      "https://localhost:3000",
       "https://q-sirh.finanzasoaxaca.gob.mx/",
     ], // Allow all origins
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
@@ -20,10 +20,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Servir archivos estáticos de la carpeta dist/sirh/browser
-
-// Rutas de la API
 app.use(express.static(path.join(__dirname, "dist/sirh/browser")));
 
+// Rutas de la API
 app.use("/api", require("./routes/employees.routes"));
 app.use("/api", require("./routes/login.routes"));
 app.use("/api", require("./routes/register.routes"));
