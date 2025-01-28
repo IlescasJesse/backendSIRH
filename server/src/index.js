@@ -9,9 +9,12 @@ async function startServer() {
   try {
     await pingMySQL();
     await pingMongo();
-    console.log("Server running at http://0.0.0.0:" + app.get("port"));
-    app.listen(app.get("port"), "0.0.0.0", () => {
-      console.log("Server on port", app.get("port"));
+    const host = "localhost";
+    const port = app.get("port");
+
+    console.log(`Server running at http://${host}:${port}`);
+    app.listen(port, host, () => {
+      console.log(`Server on port ${port}`);
     });
   } catch (err) {
     console.error("Error starting server:", err);
