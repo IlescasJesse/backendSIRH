@@ -25,7 +25,6 @@ app.use("/api", require("./routes/register.routes"));
 app.use("/api", require("./routes/offEmpployees.routes"));
 app.use("/api", require("./routes/addEmployee.routes"));
 
-// Redirigir todas las demás rutas al archivo index.html de Angular
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist/sirh/browser", "index.html"));
 });
