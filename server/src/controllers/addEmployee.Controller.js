@@ -416,7 +416,7 @@ employeeController.updateEmployee = async (req, res) => {
     await updateOne(
       "PLANTILLA_2025",
       { NUMPLA: data.NUMPLA },
-      { $set: { ...data, status: 1 } }
+      { $set: { ...data } }
     );
     await updateOne(
       "PLANTILLA_2025",
