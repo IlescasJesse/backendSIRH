@@ -1,4 +1,3 @@
-const { parse } = require("path");
 const { query } = require("../config/mongo");
 const { querysql } = require("../config/mysql");
 const employeeController = {};
@@ -29,6 +28,13 @@ employeeController.getProfileData = async (req, res) => {
       return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
+    if (employee[0].DIRECCION) {
+      employee[0].DIRECCION_COMPLETA = `${employee[0].DIRECCION.DOMICILIO} ${employee[0].DIRECCION.NUM_EXT}, ${employee[0].DIRECCION.COLONIA}, ${employee[0].DIRECCION.MUNICIPIO} ${employee[0].DIRECCION.ESTADO}.`;
+      employee[0].CP = employee[0].DIRECCION.CP;
+    } else {
+      employee[0].DIRECCION_COMPLETA = employee[0].DOMICILIO;
+    }
+
     // Buscar el estado de la plaza del empleado
     const status_plaza = await query("PLAZAS_2025", {
       NUMPLA: employee[0].NUMPLA,
@@ -41,6 +47,18 @@ employeeController.getProfileData = async (req, res) => {
     let percepciones,
       deducciones = {};
 
+    //obtener las entradas de su bitácora personal
+    try {
+      const bitacora = await query("BITACORA_2025", {
+        id_plantilla: employee[0]._id,
+      });
+      employee[0].bitacora = bitacora;
+    } catch (error) {
+      console.error("Error retrieving bitacora:", error);
+      return res
+        .status(500)
+        .json({ message: "Error retrieving bitacora", error });
+    }
     // Calcular percepciones y deducciones según el tipo de nómina
     switch (employee[0].TIPONOM) {
       case "B":
@@ -190,8 +208,9 @@ employeeController.getProfileData = async (req, res) => {
     employee[0].percepciones = percepciones;
     employee[0].deducciones = deducciones;
     employee[0].status_plaza = status_plaza;
-    console.log(employee[0]);
+
     // Enviar la respuesta con los datos del empleado
+
     res.json(employee[0]);
   } catch (error) {
     console.error(error);
@@ -240,9 +259,11 @@ employeeController.getEmployee = async (req, res) => {
         });
       }
 
-      empleados = await query("PLANTILLA_2025", { $or: regexQueries });
+      empleados = await query("PLANTILLA_2025", {
+        $and: [{ $or: regexQueries }, { status: 1 }],
+      });
     } else {
-      empleados = await query("PLANTILLA_2025", {});
+      empleados = await query("PLANTILLA_2025", { status: 1 });
     }
 
     const formattedEmployees = empleados.map((emp) => ({
@@ -250,8 +271,8 @@ employeeController.getEmployee = async (req, res) => {
       NOMBRE: `${emp.APE_PAT} ${emp.APE_MAT} ${emp.NOMBRES}`,
       CURP: emp.CURP,
       RFC: emp.RFC,
-      CLAVECAT: emp.CLAVECAT,
       PROYECTO: emp.PROYECTO,
+      NUMPLA: emp.NUMPLA,
     }));
 
     res.json(formattedEmployees);

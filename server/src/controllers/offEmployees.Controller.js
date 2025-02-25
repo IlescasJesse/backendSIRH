@@ -20,7 +20,7 @@ offEmployeeController.getVacants = async (req, res) => {
 
 offEmployeeController.getDatatoOff = async (req, res) => {
   const { query: searchQuery } = req.params;
-  console.log(searchQuery);
+
   try {
     let empleados;
     const queryDivided = searchQuery.split(" ");
@@ -83,10 +83,11 @@ offEmployeeController.getDatatoOff = async (req, res) => {
         arrayUnires.find((uni) => uni.PROYECTO === emp.PROYECTO)
           ?.UNIDAD_RESPONSABLE || "No encontrado",
       REL_LAB: emp.TIPONOM,
+      SEXO: emp.SEXO,
+      FECHA_INGRESO: emp.FECHA_INGRESO,
     }));
 
     res.json(formattedEmployees);
-    console.log(formattedEmployees);
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error al recuperar los datos" });
@@ -98,7 +99,6 @@ offEmployeeController.getDatatoOff = async (req, res) => {
 offEmployeeController.saveDataOff = async (req, res) => {
   const { data } = req.body;
   const currentYear = new Date().getFullYear();
-  console.log(data);
 
   try {
     const { _id, ...dataWithoutId } = data;

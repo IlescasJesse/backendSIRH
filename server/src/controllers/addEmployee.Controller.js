@@ -1,10 +1,12 @@
-const { query, updateOne } = require("../config/mongo");
+const { query, updateOne, insertOne } = require("../config/mongo");
+const { ObjectId } = require("mongodb");
 const { querysql } = require("../config/mysql");
-const getAdscripciones = require("../libs/adscriptions");
+const { getAdscripciones } = require("../libs/adscriptions");
 const fs = require("fs");
 const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
+const { console } = require("inspector");
 
 employeeController = {};
 
@@ -81,11 +83,29 @@ employeeController.internalInformation = async (req, res) => {
     const level5 = await querysql(
       "SELECT NOMBRE, CODIGO_INTERNO, NIVEL FROM adsc_level5"
     );
+    const base = categorias.filter(
+      (categoria) =>
+        categoria.T_NOMINA === "M51" || categoria.T_NOMINA === "F51"
+    );
 
+    const contrato = categorias.filter(
+      (categoria) =>
+        categoria.T_NOMINA === "F53" ||
+        categoria.T_NOMINA === "CCT" ||
+        categoria.T_NOMINA === "CCO" ||
+        categoria.T_NOMINA === "M53"
+    );
+
+    const mandosMedios = categorias.filter(
+      (categoria) =>
+        categoria.T_NOMINA === "MMS" || categoria.T_NOMINA === "FMM"
+    );
+
+    const categorizedCategorias = { base, contrato, mandosMedios };
     const departamentos = level3
       .filter((item) => item.NIVEL === 5)
       .concat(level4.filter((item) => item.NIVEL === 5))
-      .concat(level5.filter((item) => item.NIVEL === 5));
+      .concat(level5);
 
     const unidades = level4
       .filter((item) => item.NIVEL === 4)
@@ -104,23 +124,41 @@ employeeController.internalInformation = async (req, res) => {
       departamentos,
     ];
 
-    const unidad_ejecutora = Object.values(
-      unity_ejecutor.reduce((acc, item) => {
-        const { UNIDAD_EJECUTORA, UNIDAD_RESPONSABLE, ...rest } = item;
-        if (!acc[UNIDAD_EJECUTORA]) {
-          acc[UNIDAD_EJECUTORA] = {
-            UNIDAD_EJECUTORA,
-            UNIDADES_RESPONSABLES: [],
-          };
-        }
-        acc[UNIDAD_EJECUTORA].UNIDADES_RESPONSABLES.push({
-          UNIDAD_RESPONSABLE,
-          ...rest,
-        });
-        return acc;
-      }, {})
-    );
-    const internalInformation = { unidad_ejecutora, categorias, adscripciones };
+    let unidad_ejecutora = [];
+    unity_ejecutor.forEach((item) => {
+      let unidad = unidad_ejecutora.find(
+        (ue) => ue.nombre === item.UNIDAD_EJECUTORA
+      );
+      if (!unidad) {
+        unidad = {
+          nombre: item.UNIDAD_EJECUTORA,
+          proyectos: [],
+        };
+        unidad_ejecutora.push(unidad);
+      }
+
+      let proyecto = unidad.proyectos.find(
+        (proyecto) => proyecto.nombre === item.PROYECTO
+      );
+      if (!proyecto) {
+        proyecto = {
+          no_proyecto: item.PROYECTO,
+          obras_actividades: [],
+        };
+        unidad.proyectos.push(proyecto);
+      }
+
+      proyecto.obras_actividades.push({
+        obra_actividad: item.OBRA_ACTIVIDAD,
+        unidad_responsable: item.UNIDAD_RESPONSABLE,
+      });
+    });
+
+    const internalInformation = {
+      unidad_ejecutora,
+      categorizedCategorias,
+      adscripciones,
+    };
 
     res.status(200).json(internalInformation);
   } catch (err) {
@@ -192,6 +230,7 @@ employeeController.makeProposal = async (req, res) => {
   const NOM_OCUPANT = data.SUSTITUYE_A.split(" ").slice(2).join(" ");
   const UNI_EJECU = data.UNI_EJECU ? data.UNI_EJECU : "";
   const PROYECTO = data.PROYECTO ? data.PROYECTO : "";
+  const CLAVE_PRESUPUESTAL = data.PROYECTO.slice(0, -2);
   const C_TRABAJO = data.PROYECTO.slice(-2);
   const OBRA_ACT = data.OBRA_ACT ? data.OBRA_ACT : "";
   const CLAVECAT = data.CLAVECAT ? data.CLAVECAT : "";
@@ -208,7 +247,7 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_FORMATTED = `${day} DE ${
     months[parseInt(month, 10) - 1]
   } DE ${year}`;
-  console.log(data);
+
   let templateData = {};
   let LEVEL1 = "";
   let LEVEL2 = "";
@@ -220,11 +259,32 @@ employeeController.makeProposal = async (req, res) => {
     try {
       const adscripciones = await getAdscripciones(data.ADSCRIPCION);
 
-      LEVEL1 = adscripciones[0].level1;
-      LEVEL2 = adscripciones[0].level2 || "";
-      LEVEL3 = adscripciones[0].level3 || "";
-      LEVEL4 = adscripciones[0].level4 || "";
-      LEVEL5 = adscripciones[0].level5 || "";
+      if (adscripciones.length === 0) {
+        console.error("Adscripciones is empty");
+        return res.status(500).json({ message: "Adscripciones is empty" });
+      }
+
+      adscripciones.forEach((adscription) => {
+        switch (adscription.nivel) {
+          case 1:
+            LEVEL1 = adscription.nombre;
+            break;
+          case 2:
+            LEVEL2 = adscription.nombre;
+            break;
+          case 3:
+            LEVEL3 = adscription.nombre;
+            break;
+          case 4:
+            LEVEL4 = adscription.nombre;
+            break;
+          case 5:
+            LEVEL5 = adscription.nombre;
+            break;
+          default:
+            console.error("Nivel desconocido:", adscription.nivel);
+        }
+      });
     } catch (error) {
       console.error("Error obteniendo adscripciones:", error);
       return res
@@ -234,11 +294,14 @@ employeeController.makeProposal = async (req, res) => {
   } else {
     console.log("No hay departamento");
   }
+
+  const ESTADONAC = data.ESTADONAC ? data.ESTADONAC : "";
   const LUGARNAC = data.LUGARNAC ? data.LUGARNAC : "";
   const fecha_nacimiento = new Date(data.FECHA_NAC);
   const NAC_DAY = fecha_nacimiento.getDate();
   const NAC_MONTH = fecha_nacimiento.getMonth() + 1; // Months are zero-based
   const NAC_YEAR = fecha_nacimiento.getFullYear();
+  const FECHA_NAC = data.FECHA_NAC ? data.FECHA_NAC : "";
   const DIRECCION_COMPLETA = data.DIRECCION_COMPLETA
     ? data.DIRECCION_COMPLETA
     : "";
@@ -249,14 +312,26 @@ employeeController.makeProposal = async (req, res) => {
   const APEPAT_MAMA = data.APEPAT_MAMA ? data.APEPAT_MAMA : "";
   const APEMAT_MAMA = data.APEMAT_MAMA ? data.APEMAT_MAMA : "";
   const UNI_RESPO = data.UNI_RESPO ? data.UNI_RESPO : "";
-  const NUM_UNI_MED_FAM = data.NUM_UNI_MED_FAM ? data.NUM_UNI_MED_FAM : "";
+  const REFERENCIA = data.REFERENCIA ? data.REFERENCIA : "";
+  const TIPONOM = data.TIPONOM ? data.TIPONOM : "";
+  const NIVEL = data.NIVEL ? data.NIVEL : "";
+
+  const NUM_UNI_MED_FAM = data.NUM_UNI_MED_FAM ?? "DESCONOCIDO";
+
+  let dayIMSS, monthIMSS, yearIMSS;
+  let FECHA_IMSS_FORMATTED;
   const FECHA_INGRESO_IMSS = data.FECHA_INGRESO_IMSS
     ? data.FECHA_INGRESO_IMSS
-    : "";
-  const [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-  const FECHA_IMSS_FORMATTED = `${dayIMSS} DE ${
-    months[parseInt(monthIMSS, 10) - 1]
-  } DE ${yearIMSS}`;
+    : null;
+  if (FECHA_INGRESO_IMSS === null) {
+    FECHA_IMSS_FORMATTED = "DESCONOCIDO";
+  } else {
+    [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
+      months[parseInt(monthIMSS, 10) - 1]
+    } DE ${parseInt(yearIMSS, 10)}`;
+  }
+
   const SEXO = data.SEXO ? data.SEXO : "";
   templateData = {
     FECHA_HOY,
@@ -273,6 +348,7 @@ employeeController.makeProposal = async (req, res) => {
     APE_MAT_OCUPANT,
     NOM_OCUPANT,
     PROYECTO,
+    CLAVE_PRESUPUESTAL,
     C_TRABAJO,
     UNI_EJECU,
     UNI_RESPO,
@@ -306,6 +382,11 @@ employeeController.makeProposal = async (req, res) => {
     NUM_UNI_MED_FAM,
     ID_PLAZA,
     FECHA_IMSS_FORMATTED,
+    ESTADONAC,
+    REFERENCIA,
+    TIPONOM,
+    NIVEL,
+    FECHA_NAC,
   };
 
   const content = fs.readFileSync(
@@ -361,6 +442,7 @@ employeeController.makeProposal = async (req, res) => {
 
   res.status(200).json({ message: "Employee saved" });
 };
+//Funcion para descargar el formato de alta
 employeeController.downloadAlta = async (req, res) => {
   const { curp } = req.params;
 
@@ -375,37 +457,30 @@ employeeController.downloadAlta = async (req, res) => {
   );
   res.status(200).sendFile(filePath);
 };
+//funcion para obtener la plantilla de un empleado pre guardada de una propuesta
 employeeController.getDataTemplate = async (req, res) => {
   const data = req.body;
-  console.log(data.NUMPLA);
+
   const employee = await query("PLANTILLA_2025", { NUMPLA: data.NUMPLA });
   if (!employee || employee.length === 0) {
     return res.status(404).json({ message: "Employee not found" });
   }
   const templateData = employee[0].templateData;
-  if (!templateData.LEVEL1) {
-    templateData.ADSCRIPCION =
-      templateData.LEVEL5 ||
-      templateData.LEVEL4 ||
-      templateData.LEVEL3 ||
-      templateData.LEVEL2 ||
-      "";
-  } else if (!templateData.LEVEL2) {
-    templateData.ADSCRIPCION =
-      templateData.LEVEL5 || templateData.LEVEL4 || templateData.LEVEL3 || "";
-  } else if (!templateData.LEVEL3) {
-    templateData.ADSCRIPCION = templateData.LEVEL5 || templateData.LEVEL4 || "";
-  } else if (!templateData.LEVEL4) {
-    templateData.ADSCRIPCION = templateData.LEVEL5 || "";
-  } else {
-    templateData.ADSCRIPCION = templateData.LEVEL5;
+  if (!templateData) {
+    return res.status(404).json({ message: "Template data not found" });
+  }
+  const levels = ["LEVEL5", "LEVEL4", "LEVEL3", "LEVEL2", "LEVEL1"];
+  for (const level of levels) {
+    if (templateData[level]) {
+      templateData.ADSCRIPCION = templateData[level];
+      break;
+    }
   }
   res.json(templateData);
 };
-
+//funcion para guardar un empleado en la plantilla
 employeeController.saveEmployee = async (req, res) => {
   const { data } = req.body;
-  console.log(data);
 
   try {
     await updateOne(
@@ -426,9 +501,9 @@ employeeController.saveEmployee = async (req, res) => {
     res.status(500).json({ message: "Error saving employee", error });
   }
 };
+//funcion para actualizar un empleado en la plantilla
 employeeController.updateEmployee = async (req, res) => {
   const { data } = req.body;
-  console.log(data);
 
   try {
     await updateOne(
@@ -449,5 +524,142 @@ employeeController.updateEmployee = async (req, res) => {
     res.status(500).json({ message: "Error saving employee", error });
   }
 };
+//funcion para crear una nueva plaza en la plantilla
+employeeController.newPlaza = async (req, res) => {
+  const { data } = req.body;
 
+  data.NUMPLA = Number(data.NUMPLA);
+
+  if (!data || !data.NUMPLA) {
+    return res.status(400).json({ message: "NUMPLA is required" });
+  }
+  const existingPlaza = await query("PLAZAS_2025", { NUMPLA: data.NUMPLA });
+  if (existingPlaza.length > 0) {
+    return res.status(409).json({ message: "Plaza ya existente" });
+  }
+
+  try {
+    await insertOne("PLAZAS_2025", {
+      ...data,
+      status: 2,
+      previousOcuppants: [
+        {
+          NOMBRE: "PLAZA DE NUEVA CREACION",
+          FECHA: null,
+          FECHA_BAJA: null,
+          MOTIVO_BAJA: null,
+        },
+      ],
+    });
+
+    const plantillaResult = await insertOne("PLANTILLA_2025", {
+      NUMPLA: data.NUMPLA,
+      NOMBRES: "PLAZA DE NUEVA CREACION",
+      PROYECTO: data.PROYECTO,
+      DEPARTAMENTO: data.DEPARTAMENTO,
+      TIPONOM: data.TIPONOM,
+      status: 2,
+    });
+    const bitacoraResult = await insertOne("BITACORA_2025", {
+      plantilla_id: plantillaResult.insertedId,
+      created_at: new Date(),
+      personal: [
+        {
+          autor: "Sistema",
+          comentario: "Creación de plaza",
+          fecha: new Date().toLocaleString("es-MX", {
+            timeZone: "America/Mexico_City",
+          }),
+        },
+      ],
+      incidencias: [],
+      nomina: [],
+      archivo: [],
+      tramites: [],
+      capacitaciones: [],
+    });
+
+    await updateOne(
+      "PLANTILLA_2025",
+      { _id: plantillaResult.insertedId },
+      { $set: { bitacora_id: bitacoraResult.insertedId } }
+    );
+    res.status(200).json({ message: "Plaza saved" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Error saving plaza", error });
+  }
+};
+//funcion para añadira un comentario a la bitacora del empleado en la plantilla
+employeeController.addCommit = async (req, res) => {
+  console.log("addCommit function called"); // Verificar que la función se está ejecutando
+  const { data } = req.body;
+  console.log(data); // Imprimir la data del request en la consola
+  const updateFields = {};
+  const newEntry = {
+    autor: data.AUTOR,
+    comentario: data.COMENTARIO,
+    fecha: new Date().toLocaleString("es-MX", {
+      timeZone: "America/Mexico_City",
+    }),
+  };
+
+  if (data.FILE) {
+    try {
+      const outputPath = path.join(
+        __dirname,
+        "../docs/commits",
+        `${Date.now()}.pdf`
+      );
+
+      // Decodificar el archivo base64
+      const pdfBytes = Buffer.from(data.FILE, "base64");
+
+      // Guardar el PDF sin comprimir
+      fs.writeFileSync(outputPath, pdfBytes);
+
+      newEntry.filePath = outputPath;
+    } catch (error) {
+      console.log(error);
+      return res
+        .status(500)
+        .json({ message: "Error al guardar el PDF", error });
+    }
+  }
+
+  switch (data.MODULO) {
+    case "PRS":
+      updateFields["personal"] = newEntry;
+      break;
+    case "INC":
+      updateFields["incidencias"] = newEntry;
+      break;
+    case "NOM":
+      updateFields["nomina"] = newEntry;
+      break;
+    case "ARCH":
+      updateFields["archivo"] = newEntry;
+      break;
+    case "TRM":
+      updateFields["tramites"] = newEntry;
+      break;
+    case "CAP":
+      updateFields["capacitaciones"] = newEntry;
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid MODULO" });
+  }
+
+  try {
+    await updateOne(
+      "BITACORA_2025",
+      { _id: new ObjectId(data.id_bitacora) },
+      { $push: updateFields }
+    );
+    res.status(200).json({ message: "Commit added successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Error adding commit", error });
+  }
+};
 module.exports = employeeController;

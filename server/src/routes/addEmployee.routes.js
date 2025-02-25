@@ -14,4 +14,7 @@ router.post("/getDataTemplate", addEmployeeController.getDataTemplate);
 router.post("/saveEmployee", addEmployeeController.saveEmployee);
 router.post("/updateEmployee", addEmployeeController.updateEmployee);
 router.post("/download-alta/:curp", addEmployeeController.downloadAlta);
+router.post("/addPlaza", addEmployeeController.newPlaza);
+router.post("/addCommit", addEmployeeController.addCommit);
+
 module.exports = router;

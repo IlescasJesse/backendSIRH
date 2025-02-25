@@ -1,148 +1,69 @@
 const { querysql } = require("../config/mysql");
 
-async function getAdscripciones(departamento) {
-  // Consulta para obtener adscripciones de nivel 5
-  const level5Query = `
-    SELECT 
-        l5.nombre AS level5,
-        l4.nombre AS level4,
-        l3.nombre AS level3,
-        l2.nombre AS level2,
-        l1.nombre AS level1
-    FROM 
-        adsc_level5 l5
-    LEFT JOIN 
-        adsc_level4 l4 ON l5._4from = l4.nombre
-    LEFT JOIN 
-        adsc_level3 l3 ON l4._3from = l3.nombre
-    LEFT JOIN 
-        adsc_level2 l2 ON l3._2from = l2.nombre
-    LEFT JOIN 
-        adsc_level1 l1 ON l2._1from = l1.nombre
-    WHERE 
-        l5.nombre = ?
-  `;
-  const level5Adscripciones = await querysql(level5Query, [departamento]);
+async function getAdscripciones(nombre) {
+  const levels = [5, 4, 3, 2, 1];
+  let adscriptions = [];
 
-  if (level5Adscripciones.length > 0) {
-    return level5Adscripciones.map((adsc) => ({
-      level5: adsc.level5,
-      level4: adsc.level4,
-      level3: adsc.level3,
-      level2: adsc.level2,
-      level1: adsc.level1,
-    }));
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i];
+    const fromColumn = level > 1 ? `_${level - 1}from` : null;
+    const query = `
+      SELECT 
+        l${level}.nombre AS nombre,
+        ${level} AS nivel,
+        ${
+          fromColumn
+            ? `l${level}.${fromColumn} AS from_nombre`
+            : "NULL AS from_nombre"
+        }
+      FROM 
+        adsc_level${level} l${level}
+      WHERE 
+        l${level}.nombre = ?
+    `;
+    const result = await querysql(query, [nombre]);
+    if (result.length > 0) {
+      const adscription = result[0];
+      adscriptions.push({
+        nombre: adscription.nombre,
+        nivel: adscription.nivel,
+      });
+
+      // Buscar en los niveles superiores
+      let currentFromNombre = adscription.from_nombre;
+      for (let j = level - 1; j >= 1 && currentFromNombre; j--) {
+        const upperFromColumn = j > 1 ? `_${j - 1}from` : null;
+        const upperQuery = `
+          SELECT 
+            l${j}.nombre AS nombre,
+            ${j} AS nivel,
+            ${
+              upperFromColumn
+                ? `l${j}.${upperFromColumn} AS from_nombre`
+                : "NULL AS from_nombre"
+            }
+          FROM 
+            adsc_level${j} l${j}
+          WHERE 
+            l${j}.nombre = ?
+        `;
+        const upperResult = await querysql(upperQuery, [currentFromNombre]);
+        if (upperResult.length > 0) {
+          const upperAdscription = upperResult[0];
+          adscriptions.push({
+            nombre: upperAdscription.nombre,
+            nivel: upperAdscription.nivel,
+          });
+          currentFromNombre = upperAdscription.from_nombre;
+        } else {
+          currentFromNombre = null;
+        }
+      }
+      break; // Salir del bucle principal si se encontró el nombre
+    }
   }
 
-  // Consulta para obtener adscripciones de nivel 4
-  const level4Query = `
-    SELECT 
-        NULL AS level5,
-        l4.nombre AS level4,
-        l3.nombre AS level3,
-        l2.nombre AS level2,
-        l1.nombre AS level1
-    FROM 
-        adsc_level4 l4
-    LEFT JOIN 
-        adsc_level3 l3 ON l4._3from = l3.nombre
-    LEFT JOIN 
-        adsc_level2 l2 ON l3._2from = l2.nombre
-    LEFT JOIN 
-        adsc_level1 l1 ON l2._1from = l1.nombre
-    WHERE 
-        l4.nombre = ?
-  `;
-  const level4Adscripciones = await querysql(level4Query, [departamento]);
-
-  if (level4Adscripciones.length > 0) {
-    return level4Adscripciones.map((adsc) => ({
-      level5: null,
-      level4: adsc.level4,
-      level3: adsc.level3,
-      level2: adsc.level2,
-      level1: adsc.level1,
-    }));
-  }
-
-  // Consulta para obtener adscripciones de nivel 3
-  const level3Query = `
-    SELECT 
-        NULL AS level5,
-        NULL AS level4,
-        l3.nombre AS level3,
-        l2.nombre AS level2,
-        l1.nombre AS level1
-    FROM 
-        adsc_level3 l3
-    LEFT JOIN 
-        adsc_level2 l2 ON l3._2from = l2.nombre
-    LEFT JOIN 
-        adsc_level1 l1 ON l2._1from = l1.nombre
-    WHERE 
-        l3.nombre = ?
-  `;
-  const level3Adscripciones = await querysql(level3Query, [departamento]);
-
-  if (level3Adscripciones.length > 0) {
-    return level3Adscripciones.map((adsc) => ({
-      level5: null,
-      level4: null,
-      level3: adsc.level3,
-      level2: adsc.level2,
-      level1: adsc.level1,
-    }));
-  }
-
-  // Consulta para obtener adscripciones de nivel 2
-  const level2Query = `
-    SELECT 
-        NULL AS level5,
-        NULL AS level4,
-        NULL AS level3,
-        l2.nombre AS level2,
-        l1.nombre AS level1
-    FROM 
-        adsc_level2 l2
-    LEFT JOIN 
-        adsc_level1 l1 ON l2._1from = l1.nombre
-    WHERE 
-        l2.nombre = ?
-  `;
-  const level2Adscripciones = await querysql(level2Query, [departamento]);
-
-  if (level2Adscripciones.length > 0) {
-    return level2Adscripciones.map((adsc) => ({
-      level5: null,
-      level4: null,
-      level3: null,
-      level2: adsc.level2,
-      level1: adsc.level1,
-    }));
-  }
-
-  // Consulta para obtener adscripciones de nivel 1
-  const level1Query = `
-    SELECT 
-        NULL AS level5,
-        NULL AS level4,
-        NULL AS level3,
-        NULL AS level2,
-        l1.nombre AS level1
-    FROM 
-        adsc_level1 l1
-    WHERE 
-        l1.nombre = ?
-  `;
-  const level1Adscripciones = await querysql(level1Query, [departamento]);
-
-  return level1Adscripciones.map((adsc) => ({
-    level5: null,
-    level4: null,
-    level3: null,
-    level2: null,
-    level1: adsc.level1,
-  }));
+  return adscriptions;
 }
 
-module.exports = getAdscripciones;
+module.exports = { getAdscripciones };
