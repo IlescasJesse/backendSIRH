@@ -27,6 +27,8 @@ async function getAdscripciones(nombre) {
       adscriptions.push({
         nombre: adscription.nombre,
         nivel: adscription.nivel,
+        proyecto: adscription.proyecto || null,
+        clave: adscription.clave || null,
       });
 
       // Buscar en los niveles superiores
@@ -53,6 +55,8 @@ async function getAdscripciones(nombre) {
           adscriptions.push({
             nombre: upperAdscription.nombre,
             nivel: upperAdscription.nivel,
+            proyecto: upperAdscription.proyecto,
+            clave: upperAdscription.clave,
           });
           currentFromNombre = upperAdscription.from_nombre;
         } else {
