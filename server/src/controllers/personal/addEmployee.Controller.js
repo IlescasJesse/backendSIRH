@@ -111,7 +111,8 @@ employeeController.internalInformation = async (req, res) => {
 
     const unidades = level4
       .filter((item) => item.NIVEL === 4)
-      .concat(level3.filter((item) => item.NIVEL === 4));
+      .concat(level3.filter((item) => item.NIVEL === 4))
+      .concat(level2.filter((item) => item.NIVEL === 4));
 
     const direcciones = level3
       .filter((item) => item.NIVEL === 3)
