@@ -30,8 +30,20 @@ incidenciasController.getEmployee = async (req, res) => {
         },
       ],
     };
-  } else if (/^[a-zA-Z]+$/.test(queryParam)) {
-    // Si contiene solo letras, buscar por NOMBRES, APE_PAT, APE_MAT o combinación de ellos
+  } else if (/^[a-zA-Z0-9]+$/.test(queryParam)) {
+    // Si contiene una mezcla de números y letras, buscar por RFC o CURP
+    searchCriteria = {
+      $and: [
+        {
+          $or: [
+            { RFC: { $regex: `^${queryParam}`, $options: "i" } },
+            { CURP: { $regex: `^${queryParam}`, $options: "i" } },
+          ],
+        },
+      ],
+    };
+  } else if (/^[a-zA-Z\s]+$/.test(queryParam)) {
+    // Si contiene solo letras o espacios, buscar por nombres y apellidos por separado
     searchCriteria = {
       $or: [
         { NOMBRES: { $regex: queryParam, $options: "i" } },
@@ -48,17 +60,16 @@ incidenciasController.getEmployee = async (req, res) => {
             },
           },
         },
-      ],
-    };
-  } else if (/^[a-zA-Z0-9]+$/.test(queryParam)) {
-    // Si contiene una mezcla de números y letras, buscar por RFC o CURP
-    searchCriteria = {
-      $and: [
         {
-          $or: [
-            { RFC: { $regex: `^${queryParam}`, $options: "i" } },
-            { CURP: { $regex: `^${queryParam}`, $options: "i" } },
-          ],
+          $expr: {
+            $regexMatch: {
+              input: {
+                $concat: ["$APE_PAT", " ", "$APE_MAT"],
+              },
+              regex: queryParam,
+              options: "i",
+            },
+          },
         },
       ],
     };
@@ -66,6 +77,7 @@ incidenciasController.getEmployee = async (req, res) => {
     // Si no cumple con ninguno de los criterios, devolver un error
     return res.status(404).send({ error: "Invalid search query", data: [] });
   }
+
   let currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
   try {
     const user = req.user;
@@ -74,20 +86,15 @@ incidenciasController.getEmployee = async (req, res) => {
       return res.status(404).send({ error: "No data found" });
     }
 
-    const data = result[0];
     const userAction = {
       username: user.username,
       module: "AEI-PRO",
-      action: `CONSULTÓ LA INFORMACION DE   "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+      action: `CONSULTÓ LA INFORMACION DE ${result.length} EMPLEADO(S)`,
       timestamp: currentDateTime,
     };
     await insertOne("USER_ACTIONS", userAction);
 
-    if (result.length === 0) {
-      res.status(404).send({ error: "No data found" });
-    } else {
-      res.send(result);
-    }
+    res.send(result);
   } catch (error) {
     console.error("Error fetching employee:", error);
     res.status(500).send({ error: "An error occurred while fetching data" });

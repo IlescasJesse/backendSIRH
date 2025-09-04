@@ -313,40 +313,32 @@ employeeController.getEmployee = async (req, res) => {
     res.status(500).json({ message: "Error al recuperar los datos" });
   }
 };
-
 employeeController.updateProyect = async (req, res) => {
   const { _id, PROYECTO, ADSCRIPCION } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
+
   try {
+    // Verificar si el empleado existe
     const employee = await query("PLANTILLA", { _id: new ObjectId(_id) });
     if (!employee || employee.length === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });
     }
+
     const fullName = `${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}`;
-    userAction.action = `ACTUALIZÓ EL PROYECTO DE: "${fullName}" A "${PROYECTO}"`;
-  } catch (error) {
-    console.error("Error retrieving employee:", error);
-    return res
-      .status(500)
-      .json({ message: "Error retrieving employee", error });
-  }
-  const userAction = {
-    username: user.username,
-    module: "PSL-CE",
-    action: `ACTUALIZÓ EL PROYECTO DE: "${fullName}" A "${PROYECTO}"`,
-    timestamp: currentDateTime,
-  };
-  try {
+
+    // Actualizar el proyecto y/o adscripción del empleado
     const result = await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
       { $set: { PROYECTO, ADSCRIPCION } }
     );
-    const data = { _id };
-    await insertOne("USER_ACTIONS", userAction);
+
+    if (!result || result.matchedCount === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
 
     if (result.modifiedCount === 0) {
       return res
@@ -354,11 +346,20 @@ employeeController.updateProyect = async (req, res) => {
         .json({ message: "Empleado no encontrado o sin cambios" });
     }
 
+    // Registrar la acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "PSL-CE",
+      action: `MODIFICÓ EL PROYECTO Y/O ADSCRIPCIÓN A "${PROYECTO} - ${ADSCRIPCION}" DEL EMPLEADO: "${fullName}"`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
     res
       .status(200)
       .json({ message: "Empleado actualizado correctamente", _id });
   } catch (error) {
-    console.error(error);
+    console.error("Error al actualizar el empleado:", error);
     res.status(500).json({ message: "Error al actualizar el empleado", error });
   }
 };

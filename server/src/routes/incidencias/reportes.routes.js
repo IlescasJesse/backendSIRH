@@ -20,17 +20,19 @@ router.get(
   reportesIncidenciasController.printIncidenciasAuditoria
 );
 router.get(
-  "/printAsistenceCards/:quincena",
-  asistenceCards.printAsistenceCards
-);
-router.get(
-  "/printInasistencias/:id",
+  "/printInasistenciasCentral/:quincena",
   verifyToken,
   reportesIncidenciasController.printInasistenciasCentral
 );
-// router.get(
-//   "/printInasistenciasCentral/:id",
-//   verifyToken,
-//   asistenceCards.printAsistenceCardsById
-// );
+router.get(
+  "/printInasistenciasAuditoria/:quincena",
+  verifyToken,
+  reportesIncidenciasController.printInasistenciasAuditoria
+);
+
+router.get("/printAsistenceCards", asistenceCards.printAsistenceCards);
+router.get(
+  "/printSingleAsistenceCard/:numtar",
+  asistenceCards.printSingleAsistenceCard
+);
 module.exports = router;
