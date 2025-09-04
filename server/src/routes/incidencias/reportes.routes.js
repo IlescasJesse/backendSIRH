@@ -35,4 +35,10 @@ router.get(
   "/printSingleAsistenceCard/:numtar",
   asistenceCards.printSingleAsistenceCard
 );
+
+router.post(
+  "/getDataPersonalizada",
+  verifyToken,
+  reportesIncidenciasController.getDataPersonalizada
+);
 module.exports = router;
