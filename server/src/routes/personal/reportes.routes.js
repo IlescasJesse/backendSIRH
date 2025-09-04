@@ -15,4 +15,10 @@ router.get(
     reportesPersonalController.getReportLicenses
 );
 
+router.post(
+    "/getDataPersonalizada",
+    verifyToken,
+    reportesPersonalController.getDataPersonalizada
+);
+
 module.exports = router;
