@@ -28,6 +28,8 @@ incidenciasController.getEmployee = async (req, res) => {
             { NUMTARJETA: { $regex: `^${paramNumTarjeta}`, $options: "i" } },
           ],
         },
+
+        { status: 1 },
       ],
     };
   } else if (/^[a-zA-Z0-9]+$/.test(queryParam)) {
@@ -75,7 +77,7 @@ incidenciasController.getEmployee = async (req, res) => {
     };
   } else {
     // Si no cumple con ninguno de los criterios, devolver un error
-    return res.status(404).send({ error: "Invalid search query", data: [] });
+    return res.status(200).send({ error: "Invalid search query", data: [] });
   }
 
   let currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");

@@ -30,9 +30,12 @@ router.get(
   reportesIncidenciasController.printInasistenciasAuditoria
 );
 
-router.get("/printAsistenceCards", asistenceCards.printAsistenceCards);
-router.get(
-  "/printSingleAsistenceCard/:numtar",
-  asistenceCards.printSingleAsistenceCard
+router.post(
+  "/printAsistenceCards/:area_resp",
+  asistenceCards.printAsistenceCards
 );
+// router.get(
+//   "/printSingleAsistenceCard/:area_resp",
+//   asistenceCards.printSingleAsistenceCard
+// );
 module.exports = router;
