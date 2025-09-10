@@ -82,7 +82,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(percepciones.sueldo_base) -
             parseFloat(isrObjectB.limite_inf)) *
             parseFloat(isrObjectB.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
         const FONDO_PENSIONES = (
@@ -127,7 +127,7 @@ employeeController.getProfileData = async (req, res) => {
         deducciones.ISR = (
           ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
             parseFloat(isrObjectCC.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
@@ -184,7 +184,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(sueldoGravableMM) -
             parseFloat(isrObjectMM[0].limite_inf)) *
             isrObjectMM[0].porcentajeliminf) /
-            100 +
+          100 +
           parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
@@ -363,6 +363,66 @@ employeeController.updateProyect = async (req, res) => {
     res.status(500).json({ message: "Error al actualizar el empleado", error });
   }
 };
+employeeController.recategorizeEmployee = async (req, res) => {
+  const { _id, CLAVECAT, NOMCATE, NIVEL, TIPONOM } = req.body;
+  const { user } = req;
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/Mexico_City",
+  });
+
+  try {
+    // Verificar si el empleado existe
+    const employee = await query("PLANTILLA", { _id: new ObjectId(_id) });
+    if (!employee || employee.length === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
+    const fullName = `${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}`;
+
+    // Actualizar el proyecto y/o adscripción del empleado
+    const result = await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(_id) },
+      { $set: { CLAVECAT, NOMCATE, NIVEL, TIPONOM } }
+    );
+
+    if (!result || result.matchedCount === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
+    if (result.modifiedCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "Empleado no encontrado o sin cambios" });
+    }
+
+    // Registrar la acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "PSL-CE",
+      action: `RECATEGORIZÓ A "${NOMCATE} - ${CLAVECAT}" AL EMPLEADO: "${fullName}"`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
+    res
+      .status(200)
+      .json({ message: "Empleado actualizado correctamente", _id });
+  } catch (error) {
+    console.error("Error al actualizar el empleado:", error);
+    res.status(500).json({ message: "Error al actualizar el empleado", error });
+  }
+};
+employeeController.getUserActions = async (req, res) => {
+  try {
+    const actions = await query("USER_ACTIONS", {});
+    res.send(actions);
+  } catch (error) {
+    console.error("Error fetching incidencias:", error);
+    res.status(500).send({ error: "An error occurred while fetching data" });
+  }
+}
+
 
 // Exportamos el controlador de empleados
 module.exports = employeeController;

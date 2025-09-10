@@ -253,9 +253,8 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${
-    data?.DIRECCION.COLONIA || ""
-  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
+    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.CALLE || "";
@@ -263,9 +262,8 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${
-    months[parseInt(month, 10) - 1]
-  } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
+    } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -354,9 +352,8 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
-      months[parseInt(monthIMSS, 10) - 1]
-    } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
+      } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -666,11 +663,13 @@ employeeController.addCommit = async (req, res) => {
   console.log(data); // Imprimir la data del request en la consola
   const updateFields = {};
   const newEntry = {
+    _id: new ObjectId(),
     autor: data.AUTOR,
     comentario: data.COMENTARIO,
     fecha: new Date().toLocaleString("es-MX", {
       timeZone: "America/Mexico_City",
     }),
+    id_user: data.ID_USER,
   };
 
   if (data.FILE) {
@@ -722,7 +721,7 @@ employeeController.addCommit = async (req, res) => {
   try {
     await updateOne(
       "BITACORA",
-      { _id: new ObjectId(data.id_bitacora) },
+      { _id: new ObjectId(data.ID_BITACORA) },
       { $push: updateFields }
     );
     res.status(200).json({ message: "Commit added successfully" });
@@ -731,4 +730,118 @@ employeeController.addCommit = async (req, res) => {
     res.status(500).json({ message: "Error adding commit", error });
   }
 };
+employeeController.updateCommit = async (req, res) => {
+  const data = req.body.data || req.body;
+  const { ID_BITACORA, ID_COMENTARIO, MODULO, AUTOR, COMENTARIO, ID_USER } = data;
+  const commitId = ID_COMENTARIO;
+  const currentDateTime = new Date().toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+  });
+
+  let arrayField;
+  switch (MODULO) {
+    case "PSL":
+      arrayField = "personal";
+      break;
+    case "AEI":
+      arrayField = "incidencias";
+      break;
+    case "SDO":
+      arrayField = "nomina";
+      break;
+    case "ARD":
+      arrayField = "archivo";
+      break;
+    case "TRM":
+      arrayField = "tramites";
+      break;
+    case "CAP":
+      arrayField = "capacitaciones";
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid MODULO" });
+  }
+
+  if (!commitId) {
+    return res.status(400).json({ message: "id_commit is required" });
+  }
+
+  try {
+    const result = await query("BITACORA", {
+      _id: new ObjectId(ID_BITACORA),
+      [`${arrayField}._id`]: new ObjectId(commitId),
+    });
+
+    if (!result || result.length === 0) {
+      return res.status(404).json({ message: "Comentario no encontrado" });
+    }
+
+    await updateOne(
+      "BITACORA",
+      {
+        _id: new ObjectId(ID_BITACORA),
+        [`${arrayField}._id`]: new ObjectId(commitId),
+      },
+      {
+        $set: {
+          [`${arrayField}.$.autor`]: AUTOR,
+          [`${arrayField}.$.comentario`]: COMENTARIO,
+          [`${arrayField}.$.fecha`]: currentDateTime,
+          [`${arrayField}.$.id_user`]: ID_USER,
+        },
+      }
+    );
+
+    res.status(200).json({ message: "Commit updated successfully" });
+  } catch (error) {
+    console.error("Error updating commit:", error);
+    res.status(500).json({ message: "Error updating commit", error });
+  }
+};
+employeeController.deleteCommit = async (req, res) => {
+  const data = req.body.data || req.body;
+  const { ID_BITACORA, ID_COMENTARIO, MODULO } = data;
+
+  let arrayField;
+  switch (MODULO) {
+    case "PSL":
+      arrayField = "personal";
+      break;
+    case "AEI":
+      arrayField = "incidencias";
+      break;
+    case "SDO":
+      arrayField = "nomina";
+      break;
+    case "ARD":
+      arrayField = "archivo";
+      break;
+    case "TRM":
+      arrayField = "tramites";
+      break;
+    case "CAP":
+      arrayField = "capacitaciones";
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid MODULO" });
+  }
+
+  try {
+    const result = await updateOne(
+      "BITACORA",
+      { _id: new ObjectId(ID_BITACORA) },
+      { $pull: { [arrayField]: { _id: new ObjectId(ID_COMENTARIO) } } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: "Comentario no encontrado o ya eliminado" });
+    }
+
+    res.status(200).json({ message: "Comentario eliminado correctamente" });
+  } catch (error) {
+    console.error("Error eliminando comentario:", error);
+    res.status(500).json({ message: "Error eliminando comentario", error });
+  }
+};
+
 module.exports = employeeController;

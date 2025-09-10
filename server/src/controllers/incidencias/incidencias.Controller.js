@@ -32,18 +32,6 @@ incidenciasController.getEmployee = async (req, res) => {
         { status: 1 },
       ],
     };
-  } else if (/^[a-zA-Z0-9]+$/.test(queryParam)) {
-    // Si contiene una mezcla de números y letras, buscar por RFC o CURP
-    searchCriteria = {
-      $and: [
-        {
-          $or: [
-            { RFC: { $regex: `^${queryParam}`, $options: "i" } },
-            { CURP: { $regex: `^${queryParam}`, $options: "i" } },
-          ],
-        },
-      ],
-    };
   } else if (/^[a-zA-Z\s]+$/.test(queryParam)) {
     // Si contiene solo letras o espacios, buscar por nombres y apellidos por separado
     searchCriteria = {
@@ -72,6 +60,18 @@ incidenciasController.getEmployee = async (req, res) => {
               options: "i",
             },
           },
+        },
+      ],
+    };
+  } else if (/^[a-zA-Z0-9]+$/.test(queryParam)) {
+    // Si contiene una mezcla de números y letras, buscar por RFC o CURP
+    searchCriteria = {
+      $and: [
+        {
+          $or: [
+            { RFC: { $regex: `^${queryParam}`, $options: "i" } },
+            { CURP: { $regex: `^${queryParam}`, $options: "i" } },
+          ],
         },
       ],
     };
@@ -175,7 +175,7 @@ incidenciasController.getEmployebyArea = async (req, res) => {
     const userAction = {
       username: user.username,
       module: "AEI-PRO",
-      action: `CONSULTÓ LA INFORMACION DE   "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+      action: `CONSULTÓ LA INFORMACION DE "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
       timestamp: currentDateTime,
     };
     await insertOne("USER_ACTIONS", userAction);
@@ -525,6 +525,7 @@ incidenciasController.newJustification = async (req, res) => {
       OBSERVACIONES,
       NUMTARJETA,
       FOLIO,
+      TIPO_COMPROBANTE
     } = req.body;
 
     // Crear el nuevo justificante
@@ -538,6 +539,7 @@ incidenciasController.newJustification = async (req, res) => {
       AÑO: moment(FECHA).year(),
       NUMTARJETA,
       FOLIO,
+      TIPO_COMPROBANTE
     };
     // Obtener justificantes existentes del empleado en el año actual
     const userAction = {
@@ -662,12 +664,14 @@ incidenciasController.saveIncidencia = async (req, res) => {
 incidenciasController.newExtPermit = async (req, res) => {
   const user = req.user;
 
-  const { DESDE, HASTA, NUM_DIAS, ID_CTRL_ASIST, NUMTARJETA } = req.body;
+  const { _id, DESDE, HASTA, NUM_DIAS, OBSERVACIONES, ID_CTRL_ASIST, NUMTARJETA } = req.body;
   // Crear el nuevo registro de permiso extraordinario
   const extPermitData = {
+    id_empoyee: _id,
     DESDE,
     HASTA,
     NUM_DIAS,
+    OBSERVACIONES,
     ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
     AÑO: moment(DESDE).year(),
   };
@@ -957,7 +961,6 @@ incidenciasController.updateInability = async (req, res) => {
       message: "Inability updated successfully",
       data: employee,
     });
-    res.status(200).send({ message: "Inability updated successfully" });
   } catch (error) {
     console.error("Error updating inability:", error);
     res
@@ -965,6 +968,7 @@ incidenciasController.updateInability = async (req, res) => {
       .send({ error: "An error occurred while updating the inability" });
   }
 };
+
 
 incidenciasController.updateExtPermit = async (req, res) => {
   const { _id, ...updateData } = req.body;
@@ -983,7 +987,7 @@ incidenciasController.updateExtPermit = async (req, res) => {
       { _id: new ObjectId(_id) },
       { $set: updateData }
     );
-    res.status(200).send({ message: "External permit updated successfully" });
+    res.status(200).send({ message: "External permit updated successfully", data: result});
   } catch (error) {
     console.error("Error updating external permit:", error);
     const employee = result[0];
@@ -1156,7 +1160,7 @@ incidenciasController.getIncidencias = async (req, res) => {
   }
 };
 incidenciasController.asignarTarjeta = async (req, res) => {
-  const { _id, NUMTARJETA } = req.body;
+  const { _id, NUMTARJETA, TURNOMAT, TURNOVES } = req.body;
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
   const employee = await query("PLANTILLA", {
@@ -1175,7 +1179,7 @@ incidenciasController.asignarTarjeta = async (req, res) => {
     await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
-      { $set: { NUMTARJETA } }
+      { $set: { NUMTARJETA, TURNOMAT, TURNOVES } }
     );
     await insertOne("USER_ACTIONS", userAction);
     res.status(200).send({
@@ -1213,4 +1217,15 @@ incidenciasController.deleteIncidencia = async (req, res) => {
       .send({ error: "An error occurred while deleting the incidence" });
   }
 };
+incidenciasController.getAllIncidencias = async (req, res) => {
+  try {
+    const incidencias = await query("INCIDENCIAS", {});
+    console.log("Incidencias data:", incidencias);
+    res.send(incidencias);
+  } catch (error) {
+    console.error("Error fetching incidencias:", error);
+    res.status(500).send({ error: "An error occurred while fetching data" });
+  }
+};
+
 module.exports = incidenciasController;

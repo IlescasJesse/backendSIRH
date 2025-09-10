@@ -3,13 +3,13 @@ const router = Router();
 const reportesPersonalController = require("../../controllers/personal/reportesPersonal.Controller");
 const verifyToken = require("../../middleware/authMiddleware");
 
-router.get(
+router.post(
     "/getReportVacants/:queryParam",
     verifyToken,
     reportesPersonalController.getReportVacants
 );
 
-router.get(
+router.post(
     "/getReportLicenses",
     verifyToken,
     reportesPersonalController.getReportLicenses

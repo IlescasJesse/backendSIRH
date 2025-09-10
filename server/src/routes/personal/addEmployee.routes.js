@@ -25,5 +25,8 @@ router.post(
 router.post("/download-alta/:curp", addEmployeeController.downloadAlta);
 router.post("/addPlaza", verifyToken, addEmployeeController.newPlaza);
 router.post("/addCommit", verifyToken, addEmployeeController.addCommit);
+router.put("/updateCommit", verifyToken, addEmployeeController.updateCommit);
+router.put("/deleteCommit", verifyToken, addEmployeeController.deleteCommit);
+
 
 module.exports = router;

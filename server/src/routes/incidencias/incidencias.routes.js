@@ -93,5 +93,11 @@ router.delete(
   verifyToken,
   incidenciasController.deleteIncidencia
 );
+router.get(
+  "/getAllIncidencias",
+  verifyToken,
+  incidenciasController.getAllIncidencias
+);
+
 
 module.exports = router;

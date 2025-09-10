@@ -117,7 +117,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
   const currentYear = new Date().getFullYear();
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
-  });
+  });  
   let relacionB = false;
   let relacionCN = false;
   let relacionCC = false;

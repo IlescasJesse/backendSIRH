@@ -21,5 +21,7 @@ router.post(
 //     incidenciasController.getEmployee
 //   );
 router.put("/updateProyect", verifyToken, employeeController.updateProyect);
+router.put("/recategorizeEmployee", verifyToken, employeeController.recategorizeEmployee);
+router.get("/getUserActions", verifyToken, employeeController.getUserActions);
 
 module.exports = router;
