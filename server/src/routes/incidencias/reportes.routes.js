@@ -38,4 +38,9 @@ router.post(
 //   "/printSingleAsistenceCard/:area_resp",
 //   asistenceCards.printSingleAsistenceCard
 // );
+router.post(
+  "/getReportStatus/:status",
+  verifyToken,
+  reportesIncidenciasController.getReportStatus
+);
 module.exports = router;
