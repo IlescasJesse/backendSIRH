@@ -21,7 +21,12 @@ router.post(
 //     incidenciasController.getEmployee
 //   );
 router.put("/updateProyect", verifyToken, employeeController.updateProyect);
-router.put("/recategorizeEmployee", verifyToken, employeeController.recategorizeEmployee);
+router.put(
+  "/recategorizeEmployee",
+  verifyToken,
+  employeeController.recategorizeEmployee
+);
 router.get("/getUserActions", verifyToken, employeeController.getUserActions);
+router.post("/addCategory", verifyToken, employeeController.addCategory);
 
 module.exports = router;

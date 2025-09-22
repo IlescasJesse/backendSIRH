@@ -27,6 +27,10 @@ router.post("/addPlaza", verifyToken, addEmployeeController.newPlaza);
 router.post("/addCommit", verifyToken, addEmployeeController.addCommit);
 router.put("/updateCommit", verifyToken, addEmployeeController.updateCommit);
 router.put("/deleteCommit", verifyToken, addEmployeeController.deleteCommit);
-
+router.post(
+  "/reinstallEmployee",
+  verifyToken,
+  addEmployeeController.reinstallEmployee
+);
 
 module.exports = router;

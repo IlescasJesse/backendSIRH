@@ -117,7 +117,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
   const currentYear = new Date().getFullYear();
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
-  });  
+  });
   let relacionB = false;
   let relacionCN = false;
   let relacionCC = false;
@@ -190,9 +190,17 @@ offEmployeeController.saveDataOff = async (req, res) => {
       id_employee: data.id_employee,
       id_licencia: data.id_licencia || null,
     };
+    console.log(licenseData);
+    delete licenseData._id;
+
     if (data.reason === "L-SS" || data.reason === "L-IBASE") {
       try {
+        licenseData.status = 1;
         await insertOne("LICENCIAS", licenseData);
+        await insertOne("HSY_LICENCIAS", {
+          ...licenseData,
+          id_employee: new ObjectId(data.id_employee),
+        });
       } catch (error) {
         console.error(
           "Error al procesar el motivo de baja por licencia",
@@ -204,7 +212,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
         return;
       }
     } else if (data.reason === "L-PRRO") {
-      L_PRRO = true;
       await updateOne(
         "LICENCIAS",
         { _id: new ObjectId(data.id_licencia) },
@@ -463,7 +470,7 @@ offEmployeeController.getDataLicenses = async (req, res) => {
 };
 offEmployeeController.getLicenses = async (req, res) => {
   try {
-    const licenses = await query("LICENCIAS", {});
+    const licenses = await query("LICENCIAS", { status: 1 });
     if (licenses.length > 0) {
       res.status(200).json(licenses);
     } else {

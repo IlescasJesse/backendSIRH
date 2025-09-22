@@ -16,6 +16,7 @@ employeeController.getEmployees = async (req, res) => {
     res.status(500).json({ message: "Error retrieving employees", error: err });
   }
 };
+let historial;
 
 employeeController.getProfileData = async (req, res) => {
   const { id } = req.params;
@@ -25,6 +26,25 @@ employeeController.getProfileData = async (req, res) => {
   });
 
   try {
+    const hsy_proyectos = await query("HSY_PROYECTOS", {
+      id_employee: new ObjectId(id),
+    });
+    const hsy_licencias = await query("HSY_LICENCIAS", {
+      id_employee: new ObjectId(id),
+    });
+    const hsy_recategorizaciones = await query("HSY_RECATEGORIZACIONES", {
+      id_employee: new ObjectId(id),
+    });
+    const hsy_status = await query("HSY_STATUS_EMPLEADO", {
+      id_employee: new ObjectId(id),
+    });
+
+    historial = {
+      hsy_licencias,
+      hsy_proyectos,
+      hsy_recategorizaciones,
+      hsy_status,
+    };
     // Buscar el empleado por su ID
     const employee = await query("PLANTILLA", {
       _id: new ObjectId(id),
@@ -82,7 +102,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(percepciones.sueldo_base) -
             parseFloat(isrObjectB.limite_inf)) *
             parseFloat(isrObjectB.porcentajeliminf)) /
-          100 +
+            100 +
           parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
         const FONDO_PENSIONES = (
@@ -127,7 +147,7 @@ employeeController.getProfileData = async (req, res) => {
         deducciones.ISR = (
           ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
             parseFloat(isrObjectCC.porcentajeliminf)) /
-          100 +
+            100 +
           parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
@@ -184,7 +204,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(sueldoGravableMM) -
             parseFloat(isrObjectMM[0].limite_inf)) *
             isrObjectMM[0].porcentajeliminf) /
-          100 +
+            100 +
           parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
@@ -215,6 +235,7 @@ employeeController.getProfileData = async (req, res) => {
     delete percepciones.nivel;
 
     // Agregar percepciones, deducciones y estado de plaza al empleado
+    employee[0].historial = historial;
     employee[0].percepciones = percepciones;
     employee[0].deducciones = deducciones;
     employee[0].status_plaza = status_plaza;
@@ -319,6 +340,7 @@ employeeController.updateProyect = async (req, res) => {
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
+  console.log(req.body);
 
   try {
     // Verificar si el empleado existe
@@ -328,13 +350,19 @@ employeeController.updateProyect = async (req, res) => {
     }
 
     const fullName = `${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}`;
-
+    const hsy_data = {
+      ...req.body,
+      currentDateTime,
+      id_employee: new ObjectId(_id),
+    };
+    delete hsy_data._id;
     // Actualizar el proyecto y/o adscripción del empleado
     const result = await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
       { $set: { PROYECTO, ADSCRIPCION } }
     );
+    await insertOne("HSY_PROYECTOS", hsy_data);
 
     if (!result || result.matchedCount === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });
@@ -385,6 +413,11 @@ employeeController.recategorizeEmployee = async (req, res) => {
       { _id: new ObjectId(_id) },
       { $set: { CLAVECAT, NOMCATE, NIVEL, TIPONOM } }
     );
+    await insertOne("HSY_RECATEGORIZACIONES", {
+      ...req.body,
+      currentDateTime,
+      id_employee: new ObjectId(_id),
+    });
 
     if (!result || result.matchedCount === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });
@@ -421,8 +454,37 @@ employeeController.getUserActions = async (req, res) => {
     console.error("Error fetching incidencias:", error);
     res.status(500).send({ error: "An error occurred while fetching data" });
   }
-}
+};
+employeeController.addCategory = async (req, res) => {
+  const { CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA } = req.body;
+  console.log(req.body);
 
+  try {
+    // Validar que los campos requeridos no sean undefined
+    if (!CLAVE_CATEGORIA || !DESCRIPCION || !NIVEL || !T_NOMINA) {
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son obligatorios" });
+    }
+
+    // Insertar la nueva categoría en la base de datos
+    const result = await querysql(
+      `INSERT INTO categorias_catalogo (CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA) VALUES (?, ?, ?, ?)`,
+      [CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA]
+    );
+
+    res.status(201).json({ message: "Categoría agregada correctamente" });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      res.status(403).json({ message: "La categoría ya existe" });
+    } else if (error.code === "ER_BAD_FIELD_ERROR") {
+      res.status(404).json({ message: "No se pudo agregar la categoría" });
+    } else {
+      console.error("Error adding category:", error);
+      res.status(500).json({ message: "Error interno del servidor", error });
+    }
+  }
+};
 
 // Exportamos el controlador de empleados
 module.exports = employeeController;

@@ -67,7 +67,6 @@ app.use(
   "/api/control-asistencia",
   require("./routes/incidencias/incidencias.routes")
 );
-// rutas para reportes de incidencias
 app.use(
   "/api/control-asistencia",
   require("./routes/incidencias/reportes.routes")

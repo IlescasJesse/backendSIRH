@@ -83,7 +83,15 @@ incidenciasController.getEmployee = async (req, res) => {
   let currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
   try {
     const user = req.user;
-    const result = await query("PLANTILLA", { ...searchCriteria, status: 1 });
+    const resultPlantilla = await query("PLANTILLA", {
+      ...searchCriteria,
+      status: 1,
+    });
+    const resultForanea = await query("PLANTILLA_FORANEA", {
+      ...searchCriteria,
+      status: 1,
+    });
+    const result = [...resultPlantilla, ...resultForanea];
     if (result.length === 0) {
       return res.status(404).send({ error: "No data found" });
     }
@@ -292,6 +300,7 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
   const user = req.user;
   console.log(data);
   const STATUS_EMPLEADO = {
+    FOLIO: data.FOLIO || "",
     STATUS: data.STATUS,
     LUGAR_COMISIONADO: data.LUGAR_COMISIONADO,
     DESDE: data.DESDE,
@@ -314,6 +323,10 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     if (!result || result.length === 0) {
       return res.status(404).send({ error: "Employee not found" });
     }
+    await insertOne("HSY_STATUS_EMPLEADO", {
+      ...STATUS_EMPLEADO,
+      id_employee: new ObjectId(data._id),
+    });
 
     await updateOne(
       "PLANTILLA",
@@ -525,7 +538,7 @@ incidenciasController.newJustification = async (req, res) => {
       OBSERVACIONES,
       NUMTARJETA,
       FOLIO,
-      TIPO_COMPROBANTE
+      TIPO_COMPROBANTE,
     } = req.body;
 
     // Crear el nuevo justificante
@@ -539,7 +552,7 @@ incidenciasController.newJustification = async (req, res) => {
       AÑO: moment(FECHA).year(),
       NUMTARJETA,
       FOLIO,
-      TIPO_COMPROBANTE
+      TIPO_COMPROBANTE,
     };
     // Obtener justificantes existentes del empleado en el año actual
     const userAction = {
@@ -664,7 +677,15 @@ incidenciasController.saveIncidencia = async (req, res) => {
 incidenciasController.newExtPermit = async (req, res) => {
   const user = req.user;
 
-  const { _id, DESDE, HASTA, NUM_DIAS, OBSERVACIONES, ID_CTRL_ASIST, NUMTARJETA } = req.body;
+  const {
+    _id,
+    DESDE,
+    HASTA,
+    NUM_DIAS,
+    OBSERVACIONES,
+    ID_CTRL_ASIST,
+    NUMTARJETA,
+  } = req.body;
   // Crear el nuevo registro de permiso extraordinario
   const extPermitData = {
     id_empoyee: _id,
@@ -969,7 +990,6 @@ incidenciasController.updateInability = async (req, res) => {
   }
 };
 
-
 incidenciasController.updateExtPermit = async (req, res) => {
   const { _id, ...updateData } = req.body;
 
@@ -987,7 +1007,9 @@ incidenciasController.updateExtPermit = async (req, res) => {
       { _id: new ObjectId(_id) },
       { $set: updateData }
     );
-    res.status(200).send({ message: "External permit updated successfully", data: result});
+    res
+      .status(200)
+      .send({ message: "External permit updated successfully", data: result });
   } catch (error) {
     console.error("Error updating external permit:", error);
     const employee = result[0];
@@ -1221,7 +1243,7 @@ incidenciasController.getAllIncidencias = async (req, res) => {
   try {
     const incidencias = await query("INCIDENCIAS", {});
     console.log("Incidencias data:", incidencias);
-    res.send(incidencias);
+    res.status(200).send(incidencias);
   } catch (error) {
     console.error("Error fetching incidencias:", error);
     res.status(500).send({ error: "An error occurred while fetching data" });

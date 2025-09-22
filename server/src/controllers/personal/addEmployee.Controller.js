@@ -116,6 +116,7 @@ employeeController.internalInformation = async (req, res) => {
 
     const direcciones = level3
       .filter((item) => item.NIVEL === 3)
+
       .concat(level2.filter((item) => item.NIVEL === 3));
 
     const subsecretarias = level2.filter((item) => item.NIVEL === 2);
@@ -253,8 +254,9 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
-    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${
+    data?.DIRECCION.COLONIA || ""
+  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.CALLE || "";
@@ -262,8 +264,9 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
-    } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${
+    months[parseInt(month, 10) - 1]
+  } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -352,8 +355,9 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
-      } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
+      months[parseInt(monthIMSS, 10) - 1]
+    } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -732,7 +736,8 @@ employeeController.addCommit = async (req, res) => {
 };
 employeeController.updateCommit = async (req, res) => {
   const data = req.body.data || req.body;
-  const { ID_BITACORA, ID_COMENTARIO, MODULO, AUTOR, COMENTARIO, ID_USER } = data;
+  const { ID_BITACORA, ID_COMENTARIO, MODULO, AUTOR, COMENTARIO, ID_USER } =
+    data;
   const commitId = ID_COMENTARIO;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
@@ -834,7 +839,9 @@ employeeController.deleteCommit = async (req, res) => {
     );
 
     if (result.modifiedCount === 0) {
-      return res.status(404).json({ message: "Comentario no encontrado o ya eliminado" });
+      return res
+        .status(404)
+        .json({ message: "Comentario no encontrado o ya eliminado" });
     }
 
     res.status(200).json({ message: "Comentario eliminado correctamente" });
@@ -843,5 +850,36 @@ employeeController.deleteCommit = async (req, res) => {
     res.status(500).json({ message: "Error eliminando comentario", error });
   }
 };
+employeeController.reinstallEmployee = async (req, res) => {
+  const { data } = req.body;
+  const user = req.user;
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/Mexico_City",
+  });
+  const userAction = {
+    username: user.username,
+    module: "PSL-REIN",
+    action: `REINGRESO DE EMPLEADO:  "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+    timestamp: currentDateTime,
+  };
+  data.status = 1;
 
+  try {
+    await updateOne(
+      "PLANTILLA",
+      { NUMPLA: data.NUMPLA },
+      { $set: { ...data } }
+    );
+    await updateOne(
+      "LICENCIAS",
+      { NUMPLA: data.NUMPLA },
+      { $set: { status: 2 } }
+    );
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).json({ message: "Empleado reingresado correctamente" });
+  } catch (error) {
+    console.error("Error reingresando empleado:", error);
+    res.status(500).json({ message: "Error reingresando empleado", error });
+  }
+};
 module.exports = employeeController;
