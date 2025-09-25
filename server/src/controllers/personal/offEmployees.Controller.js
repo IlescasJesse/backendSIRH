@@ -199,6 +199,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
         await insertOne("LICENCIAS", licenseData);
         await insertOne("HSY_LICENCIAS", {
           ...licenseData,
+          currentDateTime,
           id_employee: new ObjectId(data.id_employee),
         });
       } catch (error) {

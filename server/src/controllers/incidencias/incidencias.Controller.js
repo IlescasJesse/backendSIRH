@@ -308,7 +308,9 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     OBSERVACIONES: data.OBSERVACIONES,
     PROYECTO: data.PROYECTO || "N/A",
   };
-  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+  const currentDateTime = new Date().toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+  });
   const userAction = {
     username: user.username,
     module: "AEI-EE",
@@ -325,6 +327,7 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     }
     await insertOne("HSY_STATUS_EMPLEADO", {
       ...STATUS_EMPLEADO,
+      currentDateTime,
       id_employee: new ObjectId(data._id),
     });
 
@@ -369,6 +372,7 @@ incidenciasController.newEconomicPermit = async (req, res) => {
     QUINCENA,
     NOMBRE,
   } = req.body;
+
   const userAction = {
     username: user.username,
     module: "AEI-PE",
@@ -378,6 +382,14 @@ incidenciasController.newEconomicPermit = async (req, res) => {
 
   const maxDaysPerQuarter = 4;
   const maxAccumulatedDays = 6;
+
+  // Función personalizada para calcular el cuatrimestre
+  const getCustomQuarter = (date) => {
+    const month = moment(date, "YYYY-MM-DD").month() + 1; // Obtener el mes (1-12)
+    if (month >= 1 && month <= 4) return 1; // Enero - Abril
+    if (month >= 5 && month <= 8) return 2; // Mayo - Agosto
+    return 3; // Septiembre - Diciembre
+  };
 
   try {
     // Validar que no exista un permiso con las mismas fechas
@@ -394,8 +406,8 @@ incidenciasController.newEconomicPermit = async (req, res) => {
     }
 
     // Validar que las fechas DESDE y HASTA no crucen cuatrimestres
-    const desdeQuarter = moment(DESDE, "YYYY-MM-DD").quarter();
-    const hastaQuarter = moment(HASTA, "YYYY-MM-DD").quarter();
+    const desdeQuarter = getCustomQuarter(DESDE);
+    const hastaQuarter = getCustomQuarter(HASTA);
     const desdeYear = moment(DESDE, "YYYY-MM-DD").year();
     const hastaYear = moment(HASTA, "YYYY-MM-DD").year();
 
@@ -404,6 +416,8 @@ incidenciasController.newEconomicPermit = async (req, res) => {
         error: "Las fechas DESDE y HASTA no pueden cruzar cuatrimestres.",
       });
     }
+
+    console.log(desdeQuarter);
 
     // Obtener permisos existentes del empleado en el año actual
     const currentQuarter = desdeQuarter;

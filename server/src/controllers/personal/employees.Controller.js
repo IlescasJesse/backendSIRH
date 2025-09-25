@@ -353,6 +353,8 @@ employeeController.updateProyect = async (req, res) => {
     const hsy_data = {
       ...req.body,
       currentDateTime,
+      last_proyect: employee[0].PROYECTO,
+      last_adscripcion: employee[0].ADSCRIPCION,
       id_employee: new ObjectId(_id),
     };
     delete hsy_data._id;
@@ -394,7 +396,7 @@ employeeController.updateProyect = async (req, res) => {
 employeeController.recategorizeEmployee = async (req, res) => {
   const { _id, CLAVECAT, NOMCATE, NIVEL, TIPONOM } = req.body;
   const { user } = req;
-  const currentDateTime = new Date().toLocaleString("en-US", {
+  const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
 
@@ -406,18 +408,19 @@ employeeController.recategorizeEmployee = async (req, res) => {
     }
 
     const fullName = `${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}`;
-
+    const hsy_data = {
+      ...req.body,
+      currentDateTime,
+      id_employee: new ObjectId(_id),
+    };
+    delete hsy_data._id;
     // Actualizar el proyecto y/o adscripción del empleado
     const result = await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
       { $set: { CLAVECAT, NOMCATE, NIVEL, TIPONOM } }
     );
-    await insertOne("HSY_RECATEGORIZACIONES", {
-      ...req.body,
-      currentDateTime,
-      id_employee: new ObjectId(_id),
-    });
+    await insertOne("HSY_RECATEGORIZACIONES", hsy_data);
 
     if (!result || result.matchedCount === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });
