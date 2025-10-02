@@ -95,6 +95,8 @@ employeeController.internalInformation = async (req, res) => {
         categoria.T_NOMINA === "F53" ||
         categoria.T_NOMINA === "CCT" ||
         categoria.T_NOMINA === "CCO" ||
+        categoria.T_NOMINA === "FCO" ||
+        categoria.T_NOMINA === "511" ||
         categoria.T_NOMINA === "M53"
     );
 
@@ -651,7 +653,15 @@ employeeController.newPlaza = async (req, res) => {
     await updateOne(
       "PLANTILLA",
       { _id: plantillaResult.insertedId },
-      { $set: { bitacora_id: bitacoraResult.insertedId } }
+      {
+        $set: {
+          bitacora_id: bitacoraResult.insertedId,
+          ID_CTRL_ASSIST: new ObjectId(),
+          ID_CTRL_TALON: new ObjectId(),
+          ID_CTRL_NOM: new ObjectId(),
+          ID_CTRL_CAP: new ObjectId(),
+        },
+      }
     );
 
     await insertOne("USER_ACTIONS", userAction);

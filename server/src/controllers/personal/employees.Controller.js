@@ -452,10 +452,18 @@ employeeController.recategorizeEmployee = async (req, res) => {
 employeeController.getUserActions = async (req, res) => {
   try {
     const actions = await query("USER_ACTIONS", {});
+    const users = await query("USUARIOS", {});
+    actions.forEach((action) => {
+      const matchedUser = users.find((u) => u.username === action.username);
+      if (matchedUser) {
+        action.name = matchedUser.name;
+      }
+    });
+
     res.send(actions);
   } catch (error) {
     console.error("Error fetching incidencias:", error);
-    res.status(500).send({ error: "An error occurred while fetching data" });
+    res.status(500).json({ error: "An error occurred while fetching data" });
   }
 };
 employeeController.addCategory = async (req, res) => {
