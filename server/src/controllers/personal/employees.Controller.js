@@ -102,7 +102,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(percepciones.sueldo_base) -
             parseFloat(isrObjectB.limite_inf)) *
             parseFloat(isrObjectB.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
         const FONDO_PENSIONES = (
@@ -147,7 +147,7 @@ employeeController.getProfileData = async (req, res) => {
         deducciones.ISR = (
           ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
             parseFloat(isrObjectCC.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
@@ -204,7 +204,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(sueldoGravableMM) -
             parseFloat(isrObjectMM[0].limite_inf)) *
             isrObjectMM[0].porcentajeliminf) /
-            100 +
+          100 +
           parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
@@ -411,6 +411,9 @@ employeeController.recategorizeEmployee = async (req, res) => {
     const hsy_data = {
       ...req.body,
       currentDateTime,
+      last_clavecat: employee[0].CLAVECAT,
+      last_nomcate: employee[0].NOMCATE,
+      last_level: employee[0].NIVEL,
       id_employee: new ObjectId(_id),
     };
     delete hsy_data._id;

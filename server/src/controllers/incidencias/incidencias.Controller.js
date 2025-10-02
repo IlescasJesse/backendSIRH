@@ -209,6 +209,27 @@ incidenciasController.getProfile = async (req, res) => {
   const maxAccumulatedDays = 6;
 
   try {
+
+    const hsy_proyectos = await query("HSY_PROYECTOS", {
+      id_employee: new ObjectId(id),
+    });
+    const hsy_licencias = await query("HSY_LICENCIAS", {
+      id_employee: new ObjectId(id),
+    });
+    const hsy_recategorizaciones = await query("HSY_RECATEGORIZACIONES", {
+      id_employee: new ObjectId(id),
+    });
+    const hsy_status = await query("HSY_STATUS_EMPLEADO", {
+      id_employee: new ObjectId(id),
+    });
+
+    historial = {
+      hsy_licencias,
+      hsy_proyectos,
+      hsy_recategorizaciones,
+      hsy_status,
+    };
+
     const employee = await query("PLANTILLA", {
       _id: new ObjectId(id),
     });
@@ -270,6 +291,7 @@ incidenciasController.getProfile = async (req, res) => {
 
     // Agregar la propiedad leftDays al objeto employee
     employee[0].leftDays = leftDays;
+    employee[0].historial = historial;
 
     const ASIST_PROFILE = {
       employee: employee,
@@ -294,6 +316,7 @@ incidenciasController.getProfile = async (req, res) => {
     res.status(500).send({ error: "An error occurred while fetching data" });
   }
 };
+
 // Actualizar el estado del empleado
 incidenciasController.updateStatusEmployee = async (req, res) => {
   const data = req.body;
@@ -306,7 +329,7 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     DESDE: data.DESDE,
     HASTA: data.HASTA,
     OBSERVACIONES: data.OBSERVACIONES,
-    PROYECTO: data.PROYECTO || "N/A",
+    PROYECTO: data.PROYECTO || "",
   };
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
@@ -325,11 +348,21 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     if (!result || result.length === 0) {
       return res.status(404).send({ error: "Employee not found" });
     }
-    await insertOne("HSY_STATUS_EMPLEADO", {
+
+    const hsy_data = {
       ...STATUS_EMPLEADO,
       currentDateTime,
+      last_status: result[0].STATUS_EMPLEADO.STATUS,
+      last_lugarComisionado: result[0].STATUS_EMPLEADO.LUGAR_COMISIONADO,
+      last_desde: result[0].STATUS_EMPLEADO.DESDE,
+      last_hasta: result[0].STATUS_EMPLEADO.HASTA,
+      last_proyecto: result[0].STATUS_EMPLEADO.PROYECTO,
+      last_folio: result[0].STATUS_EMPLEADO.FOLIO,
       id_employee: new ObjectId(data._id),
-    });
+    };
+    delete hsy_data._id;
+
+    await insertOne("HSY_STATUS_EMPLEADO", hsy_data);
 
     await updateOne(
       "PLANTILLA",
