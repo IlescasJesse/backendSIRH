@@ -75,21 +75,23 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       _id: emp._id,
       CURP: emp.CURP,
       RFC: emp.RFC,
-      NOMBRE: `${emp.APE_PAT} ${emp.APE_MAT} ${emp.NOMBRES}`,
+      APE_PAT: emp.APE_PAT,
+      APE_MAT: emp.APE_MAT,
+      NOMBRES: emp.NOMBRES,
       NUMEMP: emp.NUMEMP,
       NUMPLA: emp.NUMPLA,
       DOMICILIO: emp.DOMICILIO
         ? emp.DOMICILIO
         : emp.DIRECCION?.DOMICILIO ||
-          `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${
-            emp.DIRECCION?.MUNICIPIO || ""
-          }, ${emp.DIRECCION?.ESTADO || ""}`,
+        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
+        }, ${emp.DIRECCION?.ESTADO || ""}`,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
       CATEGORIA_DESCRIPCION:
         arrayCategorias.find((cat) => cat.CLAVE_CATEGORIA === emp.CLAVECAT)
           ?.DESCRIPCION || "No encontrado",
+      NIVEL: emp.NIVEL,
       PROYECTO: emp.PROYECTO,
       UNIDAD_RESPONSABLE:
         arrayUnires.find((uni) => uni.PROYECTO === emp.PROYECTO)
@@ -152,8 +154,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
                 data.TIPONOM === "511"
                   ? "CCT"
                   : data.TIPONOM === "FCO"
-                  ? "FCT"
-                  : null,
+                    ? "FCT"
+                    : null,
             },
           },
         }
@@ -218,6 +220,11 @@ offEmployeeController.saveDataOff = async (req, res) => {
         { _id: new ObjectId(data.id_licencia) },
         { $set: { time: data.time } }
       );
+      await updateOne(
+        "HSY_LICENCIAS",
+        { _id: new ObjectId(data.id_licencia) },
+        { $set: { time: data.time } }
+      );
     }
     if (employee.length > 0 && data.reason !== "L-PRRO") {
       await updateOne(
@@ -275,7 +282,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
   }
 
   let DOMICILIO1, DOMICILIO2;
-  const domicilioParts = data.DOMICILIO.split(",");
+  const domicilioParts = data.DOMICLIO_COMPLETO.split(",");
   if (domicilioParts[0].split(" ").length < 3) {
     DOMICILIO1 = domicilioParts.slice(0, 2).join(",");
     DOMICILIO2 = domicilioParts.slice(2).join(",");
@@ -299,9 +306,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
   const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${
-    months[date.getMonth()]
-  } DE ${date.getFullYear()}`;
+  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
+    } DE ${date.getFullYear()}`;
 
   if (data.TIPONOM === "F51" || data.TIPONOM === "M51") {
     relacionB = true;

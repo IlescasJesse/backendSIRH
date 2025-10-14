@@ -256,9 +256,8 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${
-    data?.DIRECCION.COLONIA || ""
-  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
+    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.CALLE || "";
@@ -266,9 +265,8 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${
-    months[parseInt(month, 10) - 1]
-  } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
+    } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -357,9 +355,8 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
-      months[parseInt(monthIMSS, 10) - 1]
-    } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
+      } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -869,21 +866,28 @@ employeeController.reinstallEmployee = async (req, res) => {
   const userAction = {
     username: user.username,
     module: "PSL-REIN",
-    action: `REINGRESO DE EMPLEADO:  "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+    action: `REINGRESO DE EMPLEADO: "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
     timestamp: currentDateTime,
   };
   data.status = 1;
 
   try {
+    const { FECHA_REINCORPORACION, ...dataSinFechaReinc } = data;
+
     await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $set: { ...data } }
+      { $set: { ...dataSinFechaReinc } }
     );
     await updateOne(
       "LICENCIAS",
-      { NUMPLA: data.NUMPLA },
-      { $set: { status: 2 } }
+      { _id: new ObjectId(data.id_licencia) },
+      { $set: { status: 2, FECHA_REINCORPORACION: data.FECHA_REINCORPORACION } }
+    );
+    await updateOne(
+      "HSY_LICENCIAS",
+      { _id: new ObjectId(data.id_licencia) },
+      { $set: { FECHA_REINCORPORACION: data.FECHA_REINCORPORACION } }
     );
     await insertOne("USER_ACTIONS", userAction);
     res.status(200).json({ message: "Empleado reingresado correctamente" });
