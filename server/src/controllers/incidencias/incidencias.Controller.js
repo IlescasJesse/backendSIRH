@@ -349,25 +349,31 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
       return res.status(404).send({ error: "Employee not found" });
     }
 
+    const prevStatus = result[0].STATUS_EMPLEADO || {};
     const hsy_data = {
       ...STATUS_EMPLEADO,
       currentDateTime,
-      last_status: result[0].STATUS_EMPLEADO.STATUS,
-      last_lugarComisionado: result[0].STATUS_EMPLEADO.LUGAR_COMISIONADO,
-      last_desde: result[0].STATUS_EMPLEADO.DESDE,
-      last_hasta: result[0].STATUS_EMPLEADO.HASTA,
-      last_proyecto: result[0].STATUS_EMPLEADO.PROYECTO,
-      last_folio: result[0].STATUS_EMPLEADO.FOLIO,
+      last_status: prevStatus.STATUS || null,
+      last_lugarComisionado: prevStatus.LUGAR_COMISIONADO || null,
+      last_desde: prevStatus.DESDE || null,
+      last_hasta: prevStatus.HASTA || null,
+      last_proyecto: prevStatus.PROYECTO || null,
+      last_folio: prevStatus.FOLIO || null,
       id_employee: new ObjectId(data._id),
     };
     delete hsy_data._id;
 
     await insertOne("HSY_STATUS_EMPLEADO", hsy_data);
 
+    const updateFields = { STATUS_EMPLEADO };
+    if (data.AREA_RESP !== undefined && data.AREA_RESP !== null) {
+      updateFields.AREA_RESP = data.AREA_RESP;
+    }
+
     await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(data._id) },
-      { $set: { STATUS_EMPLEADO } }
+      { $set: updateFields }
     );
     await insertOne("USER_ACTIONS", userAction);
     const employee = result[0];
