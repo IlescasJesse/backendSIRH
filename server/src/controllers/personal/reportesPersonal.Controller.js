@@ -81,17 +81,17 @@ reportesPersonalController.getReportVacants = async (req, res) => {
     vacants.sort((a, b) => {
       const nameA = a.status_plaza?.previousOcuppants?.length
         ? (
-            a.status_plaza.previousOcuppants[
-              a.status_plaza.previousOcuppants.length - 1
-            ].NOMBRE || ""
-          ).toUpperCase()
+          a.status_plaza.previousOcuppants[
+            a.status_plaza.previousOcuppants.length - 1
+          ].NOMBRE || ""
+        ).toUpperCase()
         : "";
       const nameB = b.status_plaza?.previousOcuppants?.length
         ? (
-            b.status_plaza.previousOcuppants[
-              b.status_plaza.previousOcuppants.length - 1
-            ].NOMBRE || ""
-          ).toUpperCase()
+          b.status_plaza.previousOcuppants[
+            b.status_plaza.previousOcuppants.length - 1
+          ].NOMBRE || ""
+        ).toUpperCase()
         : "";
       return nameA.localeCompare(nameB);
     });
@@ -271,8 +271,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
       }
 
       doc.text(
-        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${vacants.length} ${
-          vacants.length > 1 ? "VACANTES" : "VACANTES ACTIVAS"
+        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${vacants.length} ${vacants.length > 1 ? "VACANTES" : "VACANTES ACTIVAS"
         }.`,
         doc.page.margins.left,
         y + 10,
@@ -283,7 +282,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
         }
       );
       doc.moveDown();
-      doc.text(`REALIZO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
+      doc.text(`ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
         align: "left",
       });
@@ -486,8 +485,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
       }
 
       doc.text(
-        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${
-          licenses.length
+        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${licenses.length
         } ${licenses.length > 1 ? "LICENCIAS ACTIVAS" : "LICENCIA ACTIVA"}.`,
         doc.page.margins.left,
         y + 10,
@@ -498,7 +496,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
         }
       );
       doc.moveDown();
-      doc.text(`REALIZO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
+      doc.text(`ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
         align: "left",
       });
@@ -557,8 +555,11 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     }
   }
   if (NOMCATE) {
-    filtro.CLAVECAT = CLAVECAT;
-    nomcateText = `LA CATEGORÍA "${NOMCATE}"`;
+
+    console.log(NOMCATE.CLAVE_CATEGORIA);
+
+    filtro.CLAVECAT = NOMCATE.CLAVE_CATEGORIA;
+    nomcateText = `LA CATEGORÍA "${NOMCATE.DESCRIPCION}"`;
   }
   if (ADSCRIPCION) {
     filtro.ADSCRIPCION = ADSCRIPCION;
@@ -631,9 +632,8 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
         return edad >= minEdad && edad <= maxEdad;
       });
     }
-    edadText = `LA EDAD ENTRE "${
-      match ? `${match[1]} A ${match[2]} AÑOS"` : ""
-    }`;
+    edadText = `LA EDAD ENTRE "${match ? `${match[1]} A ${match[2]} AÑOS"` : ""
+      }`;
   }
 
   empleadosFiltrados = empleadosFiltrados
@@ -873,36 +873,31 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       } else if (filtros.length === 2) {
         filtrosStr = `${filtros[0]} Y ${filtros[1]}`;
       } else if (filtros.length > 2) {
-        filtrosStr = `${filtros.slice(0, -1).join(", ")} Y ${
-          filtros[filtros.length - 1]
-        }`;
+        filtrosStr = `${filtros.slice(0, -1).join(", ")} Y ${filtros[filtros.length - 1]
+          }`;
       }
 
       const filtroTexto =
         filtros.length === 1
-          ? `CONFORME AL FILTRO DE ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
-              empleadosFiltrados.length
-            } ${
-              empleadosFiltrados.length > 1
-                ? "EMPLEADOS QUE CUMPLEN"
-                : "EMPLEADO QUE CUMPLE"
-            } CON EL CRITERIO.`
+          ? `CONFORME AL FILTRO DE ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${empleadosFiltrados.length
+          } ${empleadosFiltrados.length > 1
+            ? "EMPLEADOS QUE CUMPLEN"
+            : "EMPLEADO QUE CUMPLE"
+          } CON EL CRITERIO.`
           : filtros.length > 1
-          ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
-              empleadosFiltrados.length
-            } ${
-              empleadosFiltrados.length > 1
-                ? "EMPLEADOS QUE CUMPLEN"
-                : "EMPLEADO QUE CUMPLE"
+            ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${empleadosFiltrados.length
+            } ${empleadosFiltrados.length > 1
+              ? "EMPLEADOS QUE CUMPLEN"
+              : "EMPLEADO QUE CUMPLE"
             } CON LOS CRITERIOS.`
-          : "";
+            : "";
 
       doc.text(filtroTexto, doc.page.margins.left, y + 10, {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
         align: "justify",
       });
       doc.moveDown();
-      doc.text(`REALIZO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
+      doc.text(`ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
         align: "left",
       });
