@@ -1440,10 +1440,10 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
       align: 'justify'
     });
     doc.moveDown();
-    doc.text(`REALIZO: ${user.name}`, doc.page.margins.left, doc.y, {
-      width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-      align: "left"
-    });
+      doc.text(`ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${user.name}`, doc.page.margins.left, doc.y, {
+        width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
+        align: "left",
+      });
 
     doc.end();
 
