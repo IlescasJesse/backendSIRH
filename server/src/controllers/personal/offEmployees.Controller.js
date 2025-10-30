@@ -452,22 +452,18 @@ offEmployeeController.downloadBaja = async (req, res) => {
   );
   res.status(200).sendFile(filePath);
 };
-
 offEmployeeController.getDataLicenses = async (req, res) => {
-  const NUMPLA = parseInt(req.params.numpla, 10);
-  if (!NUMPLA || isNaN(NUMPLA)) {
-    return res.status(400).json({ message: "Número de plaza inválido" });
-  }
-
-  console.log(`Buscando licencias para la plaza: ${NUMPLA}`);
+  const { id } = req.params;
   try {
-    const licenses = await query("LICENCIAS", { NUMPLA: NUMPLA });
+    const licenses = await query("LICENCIAS", {
+      _id: new ObjectId(id), status: 1,
+    });
 
     if (licenses.length > 0) {
       res.status(200).json(licenses);
     } else {
       res.status(201).json({
-        message: "No se encontraron licencias con este número de plaza",
+        message: "No se encontraron licencias con este ID",
       });
     }
   } catch (error) {

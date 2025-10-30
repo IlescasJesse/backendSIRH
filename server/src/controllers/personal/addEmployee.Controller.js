@@ -863,6 +863,10 @@ employeeController.reinstallEmployee = async (req, res) => {
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
   });
+
+  let relacionC = false;
+  let relacionF = false;
+
   const userAction = {
     username: user.username,
     module: "PSL-REIN",
@@ -872,7 +876,79 @@ employeeController.reinstallEmployee = async (req, res) => {
   data.status = 1;
 
   try {
+    const fechaReinc = data.FECHA_REINCORPORACION;
+    let REINC_DIA = "";
+    let REINC_MES = "";
+    let REINC_ANIO = "";
+
+    if (data.TIPONOM === "M51") {
+      relacionC = true;
+    } else if (data.TIPONOM === "F51") {
+      relacionF = true;
+    }
+
+    data.relacionC = relacionC;
+    data.relacionF = relacionF;
+
+    if (fechaReinc && /^\d{4}-\d{1,2}-\d{1,2}$/.test(fechaReinc)) {
+      const [anio, mes, dia] = fechaReinc.split("-");
+      const meses = [
+        "ENERO",
+        "FEBRERO",
+        "MARZO",
+        "ABRIL",
+        "MAYO",
+        "JUNIO",
+        "JULIO",
+        "AGOSTO",
+        "SEPTIEMBRE",
+        "OCTUBRE",
+        "NOVIEMBRE",
+        "DICIEMBRE",
+      ];
+      REINC_DIA = dia.padStart(2, "0");
+      REINC_MES = meses[Number(mes) - 1];
+      REINC_ANIO = anio;
+    }
+
+    data.REINC_DIA = REINC_DIA;
+    data.REINC_MES = REINC_MES;
+    data.REINC_ANIO = REINC_ANIO;
+
     const { FECHA_REINCORPORACION, ...dataSinFechaReinc } = data;
+
+    const employee_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
+
+    data.ApePatLastOcupant = employee_old[0].APE_PAT || "";
+    data.ApeMatLastOcupant = employee_old[0].APE_MAT || "";
+    data.NomLastOcupant = employee_old[0].NOMBRES || "";
+    data.ClaveCatLastOcupant = employee_old[0].CLAVECAT || "";
+    data.NomCateLastOcupant = employee_old[0].NOMCATE || "";
+
+    const content = fs.readFileSync(
+      path.resolve(__dirname, "../../templates/reanudacionTemplate.docx"),
+      "binary"
+    );
+    const zip = new PizZip(content);
+    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+
+    doc.render(data);
+    const buf = doc.getZip().generate({ type: "nodebuffer" });
+    const outputDir = path.resolve(__dirname, "../docs/reanudaciones");
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    const outputPath = path.join(outputDir, `BAJA_${data.CURP}.docx`);
+    fs.writeFileSync(outputPath, buf);
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${data.CURP}.docx`
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
 
     await updateOne(
       "PLANTILLA",
@@ -890,10 +966,9 @@ employeeController.reinstallEmployee = async (req, res) => {
       { $set: { FECHA_REINCORPORACION: data.FECHA_REINCORPORACION } }
     );
     await insertOne("USER_ACTIONS", userAction);
-    res.status(200).json({ message: "Empleado reingresado correctamente" });
+    res.status(200).sendFile(outputPath);
   } catch (error) {
-    console.error("Error reingresando empleado:", error);
-    res.status(500).json({ message: "Error reingresando empleado", error });
+    res.status(500).json({ message: "Error reincoorporar al empleado", error });
   }
 };
 module.exports = employeeController;

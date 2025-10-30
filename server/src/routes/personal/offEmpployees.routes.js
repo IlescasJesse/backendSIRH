@@ -20,7 +20,7 @@ router.post(
   offEmployeeController.downloadBaja
 );
 router.get(
-  "/getDataLicenses/:numpla",
+  "/getDataLicenses/:id",
   verifyToken,
   offEmployeeController.getDataLicenses
 );

@@ -519,7 +519,6 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     EDAD,
     TIPONOM,
     NOMCATE,
-    CLAVECAT,
     ADSCRIPCION,
     STATUS_EMPLEADO,
     PRINT,
