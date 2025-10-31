@@ -256,8 +256,9 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
-    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${
+    data?.DIRECCION.COLONIA || ""
+  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.CALLE || "";
@@ -265,8 +266,9 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
-    } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${
+    months[parseInt(month, 10) - 1]
+  } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -355,8 +357,9 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
-      } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
+      months[parseInt(monthIMSS, 10) - 1]
+    } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -930,7 +933,10 @@ employeeController.reinstallEmployee = async (req, res) => {
       "binary"
     );
     const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
 
     doc.render(data);
     const buf = doc.getZip().generate({ type: "nodebuffer" });
@@ -963,7 +969,12 @@ employeeController.reinstallEmployee = async (req, res) => {
     await updateOne(
       "HSY_LICENCIAS",
       { _id: new ObjectId(data.id_licencia) },
-      { $set: { FECHA_REINCORPORACION: data.FECHA_REINCORPORACION } }
+      {
+        $set: {
+          FECHA_REINCORPORACION: data.FECHA_REINCORPORACION,
+          STATUS_LICENCIA: 2,
+        },
+      }
     );
     await insertOne("USER_ACTIONS", userAction);
     res.status(200).sendFile(outputPath);

@@ -83,8 +83,9 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       DOMICILIO: emp.DOMICILIO
         ? emp.DOMICILIO
         : emp.DIRECCION?.DOMICILIO ||
-        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
-        }, ${emp.DIRECCION?.ESTADO || ""}`,
+          `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${
+            emp.DIRECCION?.MUNICIPIO || ""
+          }, ${emp.DIRECCION?.ESTADO || ""}`,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
@@ -154,8 +155,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
                 data.TIPONOM === "511"
                   ? "CCT"
                   : data.TIPONOM === "FCO"
-                    ? "FCT"
-                    : null,
+                  ? "FCT"
+                  : null,
             },
           },
         }
@@ -203,6 +204,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
           ...licenseData,
           currentDateTime,
           id_employee: new ObjectId(data.id_employee),
+          STATUS_LICENCIA: 1,
         });
       } catch (error) {
         console.error(
@@ -306,8 +308,9 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
   const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
-    } DE ${date.getFullYear()}`;
+  const formattedDate = `${date.getDate() + 1} DE ${
+    months[date.getMonth()]
+  } DE ${date.getFullYear()}`;
 
   if (data.TIPONOM === "F51" || data.TIPONOM === "M51") {
     relacionB = true;
@@ -456,7 +459,8 @@ offEmployeeController.getDataLicenses = async (req, res) => {
   const { id } = req.params;
   try {
     const licenses = await query("LICENCIAS", {
-      _id: new ObjectId(id), status: 1,
+      _id: new ObjectId(id),
+      status: 1,
     });
 
     if (licenses.length > 0) {
