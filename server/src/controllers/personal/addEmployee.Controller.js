@@ -256,9 +256,8 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${
-    data?.DIRECCION.COLONIA || ""
-  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
+    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.CALLE || "";
@@ -266,9 +265,8 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${
-    months[parseInt(month, 10) - 1]
-  } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
+    } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -357,9 +355,8 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
-      months[parseInt(monthIMSS, 10) - 1]
-    } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
+      } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -509,6 +506,7 @@ employeeController.getDataTemplate = async (req, res) => {
   if (!templateData) {
     return res.status(404).json({ message: "Template data not found" });
   }
+  templateData.id_employee = employee[0]._id;
   const levels = ["LEVEL5", "LEVEL4", "LEVEL3", "LEVEL2", "LEVEL1"];
   for (const level of levels) {
     if (templateData[level]) {
@@ -542,6 +540,15 @@ employeeController.saveEmployee = async (req, res) => {
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
       { $unset: { templateData: "" } }
+    );
+    await updateOne(
+      "HSY_LICENCIAS",
+      { id_employee: new ObjectId(data.id_employee), STATUS_LICENCIA: 1 },
+      {
+        $set: {
+          OCUPANTE: `${data.APE_PAT || ''} ${data.APE_MAT || ''} ${data.NOMBRES || ''}`,
+        },
+      }
     );
     await insertOne("USER_ACTIONS", userAction);
     res
@@ -919,6 +926,14 @@ employeeController.reinstallEmployee = async (req, res) => {
     data.REINC_ANIO = REINC_ANIO;
 
     const { FECHA_REINCORPORACION, ...dataSinFechaReinc } = data;
+    const dataToSave = { ...dataSinFechaReinc };
+    delete dataToSave.relacionC;
+    delete dataToSave.relacionF;
+    delete dataToSave.REINC_DIA;
+    delete dataToSave.REINC_MES;
+    delete dataToSave.REINC_ANIO;
+    if (dataToSave._id) delete dataToSave._id;
+    if (dataToSave.id_employee) delete dataToSave.id_employee;
 
     const employee_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
 
@@ -959,7 +974,7 @@ employeeController.reinstallEmployee = async (req, res) => {
     await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $set: { ...dataSinFechaReinc } }
+      { $set: { ...dataToSave } }
     );
     await updateOne(
       "LICENCIAS",
@@ -968,7 +983,7 @@ employeeController.reinstallEmployee = async (req, res) => {
     );
     await updateOne(
       "HSY_LICENCIAS",
-      { _id: new ObjectId(data.id_licencia) },
+      { id_licencia: new ObjectId(data.id_licencia) },
       {
         $set: {
           FECHA_REINCORPORACION: data.FECHA_REINCORPORACION,

@@ -83,9 +83,8 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       DOMICILIO: emp.DOMICILIO
         ? emp.DOMICILIO
         : emp.DIRECCION?.DOMICILIO ||
-          `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${
-            emp.DIRECCION?.MUNICIPIO || ""
-          }, ${emp.DIRECCION?.ESTADO || ""}`,
+        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
+        }, ${emp.DIRECCION?.ESTADO || ""}`,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
@@ -155,8 +154,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
                 data.TIPONOM === "511"
                   ? "CCT"
                   : data.TIPONOM === "FCO"
-                  ? "FCT"
-                  : null,
+                    ? "FCT"
+                    : null,
             },
           },
         }
@@ -199,11 +198,20 @@ offEmployeeController.saveDataOff = async (req, res) => {
     if (data.reason === "L-SS" || data.reason === "L-IBASE") {
       try {
         licenseData.status = 1;
-        await insertOne("LICENCIAS", licenseData);
+        const insertResult = await insertOne("LICENCIAS", licenseData);
+        // adaptarse a la forma en que insertOne retorna el id
+        const newLicenseId =
+          insertResult.insertedId || insertResult._id || insertResult?.ops?.[0]?._id || null;
+
         await insertOne("HSY_LICENCIAS", {
-          ...licenseData,
-          currentDateTime,
+          time: data.time || null,
+          discharge_date: data.discharge_date,
+          reason: data.reason,
+          TIPONOM: data.TIPONOM,
           id_employee: new ObjectId(data.id_employee),
+          id_licencia: newLicenseId ? new ObjectId(newLicenseId) : null,
+          NUMPLA: data.NUMPLA,
+          currentDateTime,
           STATUS_LICENCIA: 1,
         });
       } catch (error) {
@@ -224,7 +232,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
       );
       await updateOne(
         "HSY_LICENCIAS",
-        { _id: new ObjectId(data.id_licencia) },
+        { id_licencia: new ObjectId(data.id_licencia) },
         { $set: { time: data.time } }
       );
     }
@@ -308,9 +316,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
   const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${
-    months[date.getMonth()]
-  } DE ${date.getFullYear()}`;
+  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
+    } DE ${date.getFullYear()}`;
 
   if (data.TIPONOM === "F51" || data.TIPONOM === "M51") {
     relacionB = true;
