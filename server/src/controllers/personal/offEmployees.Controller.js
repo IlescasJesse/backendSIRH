@@ -470,13 +470,20 @@ offEmployeeController.getDataLicenses = async (req, res) => {
       status: 1,
     });
 
+    const ocupante = await query("PLANTILLA", { NUMPLA: licenses[0].NUMPLA });
+
     if (licenses.length > 0) {
-      res.status(200).json(licenses);
+      if (ocupante.length > 0 && ocupante[0].CURP) {
+        res.status(404).json({ message: "La plaza cuenta con un ocupante", ocupante: ocupante[0] });
+      } else {
+        res.status(200).json(licenses);
+      }
     } else {
       res.status(201).json({
         message: "No se encontraron licencias con este ID",
       });
     }
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al recuperar las licencias" });
@@ -485,14 +492,31 @@ offEmployeeController.getDataLicenses = async (req, res) => {
 offEmployeeController.getLicenses = async (req, res) => {
   try {
     const licenses = await query("LICENCIAS", { status: 1 });
-    if (licenses.length > 0) {
-      res.status(200).json(licenses);
-    } else {
-      res.status(201).json({ message: "No se encontraron licencias" });
+    if (!licenses || licenses.length === 0) {
+      return res.status(201).json({ message: "No se encontraron licencias" });
     }
+
+    const enhanced = await Promise.all(
+      licenses.map(async (lic) => {
+        try {
+          const numpla = lic.NUMPLA ?? lic.NUMPLA;
+          let plantilla = [];
+          if (numpla !== undefined && numpla !== null && numpla !== "") {
+            plantilla = await query("PLANTILLA", { NUMPLA: numpla });
+          }
+          const OCUPANTE_ACTIVO = Boolean(plantilla && plantilla[0] && plantilla[0].CURP);
+          return { ...lic, OCUPANTE_ACTIVO };
+        } catch (err) {
+          console.error("Error consultando PLANTILLA para NUMPLA:", lic.NUMPLA, err);
+          return { ...lic, OCUPANTE_ACTIVO: false };
+        }
+      })
+    );
+
+    return res.status(200).json(enhanced);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error al recuperar las licencias" });
+    return res.status(500).json({ message: "Error al recuperar las licencias" });
   }
 };
 // offEmployeeController.updateLicense = async (req, res) => {
