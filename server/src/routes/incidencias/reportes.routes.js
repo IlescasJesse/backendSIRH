@@ -14,10 +14,17 @@ router.get(
   verifyToken,
   reportesIncidenciasController.printIncidenciasCentral
 );
+
+// Auditoria Reportes
 router.get(
   "/printIncidenciasAuditoria/:quincena",
   verifyToken,
   reportesIncidenciasController.printIncidenciasAuditoria
+);
+router.get(
+  "/printInasistenciasAuditoria/:quincena",
+  verifyToken,
+  reportesIncidenciasController.printInasistenciasAuditoria
 );
 router.get(
   "/printInasistenciasCentral/:quincena",
@@ -25,9 +32,12 @@ router.get(
   reportesIncidenciasController.printInasistenciasCentral
 );
 router.get(
-  "/printInasistenciasAuditoria/:quincena",
-  verifyToken,
-  reportesIncidenciasController.printInasistenciasAuditoria
+  "/printIncidenciasPlaneacion/:quincena",
+  reportesIncidenciasController.printIncidenciasPlaneacion
+);
+router.get(
+  "/printInasistenciasPlaneacion/:quincena",
+  reportesIncidenciasController.printInasistenciasPlaneacion
 );
 
 router.post(
