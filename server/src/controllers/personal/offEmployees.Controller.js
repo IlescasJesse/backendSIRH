@@ -474,7 +474,10 @@ offEmployeeController.getDataLicenses = async (req, res) => {
 
     if (licenses.length > 0) {
       if (ocupante.length > 0 && ocupante[0].CURP) {
-        res.status(404).json({ message: "La plaza cuenta con un ocupante", ocupante: ocupante[0] });
+        let OCUPANTE = {
+          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${ocupante[0]?.APE_MAT || ""} ${ocupante[0]?.NOMBRES || ""}`.trim(),
+        }
+        res.status(404).json({ message: "La plaza cuenta con un ocupante", OCUPANTE });
       } else {
         res.status(200).json(licenses);
       }
@@ -505,7 +508,15 @@ offEmployeeController.getLicenses = async (req, res) => {
             plantilla = await query("PLANTILLA", { NUMPLA: numpla });
           }
           const OCUPANTE_ACTIVO = Boolean(plantilla && plantilla[0] && plantilla[0].CURP);
-          return { ...lic, OCUPANTE_ACTIVO };
+          let OCUPANTE = {
+            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${plantilla[0]?.APE_MAT || ""} ${plantilla[0]?.NOMBRES || ""}`.trim(),
+          }
+          if (OCUPANTE_ACTIVO) {
+            return { ...lic, OCUPANTE };
+          } else {
+            return { ...lic };
+          }
+
         } catch (err) {
           console.error("Error consultando PLANTILLA para NUMPLA:", lic.NUMPLA, err);
           return { ...lic, OCUPANTE_ACTIVO: false };
