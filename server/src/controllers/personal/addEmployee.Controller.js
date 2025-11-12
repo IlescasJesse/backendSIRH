@@ -546,7 +546,11 @@ employeeController.saveEmployee = async (req, res) => {
       { id_employee: new ObjectId(data.id_employee), STATUS_LICENCIA: 1 },
       {
         $set: {
-          OCUPANTE: `${data.APE_PAT || ''} ${data.APE_MAT || ''} ${data.NOMBRES || ''}`,
+          OCUPANTE: {
+            APE_PAT: `${data.APE_PAT || ''}`,
+            APE_MAT: `${data.APE_MAT || ''}`,
+            NOMBRES: `${data.NOMBRES || ''}`,
+          }
         },
       }
     );
@@ -935,13 +939,14 @@ employeeController.reinstallEmployee = async (req, res) => {
     if (dataToSave._id) delete dataToSave._id;
     if (dataToSave.id_employee) delete dataToSave.id_employee;
 
-    const employee_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
+    const employee_old = await query("HSY_LICENCIAS", { id_licencia: new ObjectId(data.id_licencia) },);
+    const employeeLevel_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
 
-    data.ApePatLastOcupant = employee_old[0].APE_PAT || "";
-    data.ApeMatLastOcupant = employee_old[0].APE_MAT || "";
-    data.NomLastOcupant = employee_old[0].NOMBRES || "";
-    data.ClaveCatLastOcupant = employee_old[0].CLAVECAT || "";
-    data.NomCateLastOcupant = employee_old[0].NOMCATE || "";
+    data.ApePatLastOcupant = employee_old[0].OCUPANTE.APE_PAT || "";
+    data.ApeMatLastOcupant = employee_old[0].OCUPANTE.APE_MAT || "";
+    data.NomLastOcupant = employee_old[0].OCUPANTE.NOMBRES || "";
+    data.ClaveCatLastOcupant = employeeLevel_old[0].CLAVECAT || "";
+    data.NomCateLastOcupant = employeeLevel_old[0].NOMCATE || "";
 
     const content = fs.readFileSync(
       path.resolve(__dirname, "../../templates/reanudacionTemplate.docx"),

@@ -69,7 +69,21 @@ offEmployeeController.getDatatoOff = async (req, res) => {
     }
     const arrayUnires = await querysql("SELECT * FROM unidad_responsable");
     const arrayCategorias = await querysql("SELECT * FROM categorias_catalogo");
-    console.log(empleados[0]);
+
+    const licenses = await query("LICENCIAS", {
+      NUMPLA: empleados[0].NUMPLA,
+      status: 1,
+    });
+
+    console.log(licenses);
+    
+    let CUBRIENDO_LICENCIA = false;
+
+    if (licenses.length > 0) {
+      CUBRIENDO_LICENCIA = true;
+    } else {
+      CUBRIENDO_LICENCIA = false;
+    }
 
     const formattedEmployees = empleados.map((emp) => ({
       _id: emp._id,
@@ -100,10 +114,10 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       SEXO: emp.SEXO,
       FECHA_INGRESO: emp.FECHA_INGRESO,
       DIRECCION: emp.DIRECCION,
+      CUBRIENDO_LICENCIA
     }));
 
     res.json(formattedEmployees);
-    console.log(empleados[0]);
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error al recuperar los datos" });
