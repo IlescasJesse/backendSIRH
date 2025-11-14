@@ -199,8 +199,6 @@ incidenciasController.getEmployebyArea = async (req, res) => {
   }
 };
 
-//update STATUS_EMPLEADO
-
 // Obtener perfil del empleado y calcular días restantes
 incidenciasController.getProfile = async (req, res) => {
   const id = req.params.id;
@@ -230,16 +228,22 @@ incidenciasController.getProfile = async (req, res) => {
       hsy_status,
     };
 
-    const employee = await query("PLANTILLA", {
-      _id: new ObjectId(id),
-    });
+    // Buscar empleado en PLANTILLA y PLANTILLA_FORANEA
+    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(id) }),
+    ]);
+
+    const employee = employeePlantilla.length ? employeePlantilla : employeeForanea.length ? employeeForanea : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
       return;
     }
 
-    console.log("Employee data:", employee.STATUS_EMPLEADO);
+    const emp = employee[0]
+
+    console.log("Employee data:", emp.STATUS_EMPLEADO);
 
     // Obtener el cuatrimestre y año actuales
     const currentQuarter = moment().quarter();
@@ -247,26 +251,26 @@ incidenciasController.getProfile = async (req, res) => {
 
     // Obtener la bitácora del empleado
     const bitacora = await query("BITACORA", {
-      id_plantilla: employee[0]._id,
+      id_plantilla: emp._id,
     });
-    employee[0].bitacora = bitacora;
+    emp.bitacora = bitacora;
 
     // Obtener permisos del empleado en el año actual
     const permits = await query("PERMISOS_ECONOMICOS", {
-      ID_CTRL_ASIST: new ObjectId(employee[0].ID_CTRL_ASIST) || [],
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
       AÑO: currentYear,
     });
 
     console.log("Permits data:", permits);
 
     const justificantes = await query("JUSTIFICACIONES", {
-      ID_CTRL_ASIST: new ObjectId(employee[0].ID_CTRL_ASIST) || [],
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
     });
     const incapacidades = await query("INCAPACIDADES", {
-      ID_CTRL_ASIST: new ObjectId(employee[0].ID_CTRL_ASIST) || [],
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
     });
     const permisosExt = await query("PERMISOS_EXT", {
-      ID_CTRL_ASIST: new ObjectId(employee[0].ID_CTRL_ASIST) || [],
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
     });
 
     // Calcular los días restantes según las reglas de los cuatrimestres
@@ -290,11 +294,11 @@ incidenciasController.getProfile = async (req, res) => {
     if (leftDays < 0) leftDays = 0;
 
     // Agregar la propiedad leftDays al objeto employee
-    employee[0].leftDays = leftDays;
-    employee[0].historial = historial;
+    emp.leftDays = leftDays;
+    emp.historial = historial;
 
     const ASIST_PROFILE = {
-      employee: employee,
+      employee: [emp],
       permisos: permits,
       justificantes: justificantes,
       incapacidades: incapacidades,
@@ -305,7 +309,7 @@ incidenciasController.getProfile = async (req, res) => {
       timestamp: currentDateTime,
       username: user.username,
       module: "AEI-PI",
-      action: `CONSULTÓ EL PERFIL DE INCIDENCIAS DEL EMPLEADO "${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}"`,
+      action: `CONSULTÓ EL PERFIL DE INCIDENCIAS DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
     };
     await insertOne("USER_ACTIONS", userAction);
     console.log("Profile data:", ASIST_PROFILE);
@@ -780,7 +784,29 @@ incidenciasController.newForeigner = async (req, res) => {
   const data = req.body;
   console.log("Received data:", data);
   try {
+    const plantillaId = new ObjectId(); // _id para PLANTILLA_FORANEA
+    const idBitacora = new ObjectId(); // _id para BITACORA
+    const idCtrlAsist = new ObjectId(); // ID_CTRL_ASIST del foráneo
+
+    data._id = plantillaId;
+    data.status = 1;
+    data.ID_CTRL_ASIST = idCtrlAsist;
+    data.ID_BITACORA = idBitacora;
+
     await insertOne("PLANTILLA_FORANEA", data);
+
+    const bitacoraDoc = {
+      _id: idBitacora,
+      personal: [],
+      incidencias: [],
+      nomina: [],
+      archivo: [],
+      tramites: [],
+      capacitaciones: [],
+      id_plantilla: plantillaId,
+    };
+
+    await insertOne("BITACORA", bitacoraDoc);
     await insertOne("USER_ACTIONS", userAction);
     res.status(200).send({ message: "Foreigner created successfully", data });
   } catch (error) {
