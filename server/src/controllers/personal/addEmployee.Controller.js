@@ -941,19 +941,23 @@ employeeController.reinstallEmployee = async (req, res) => {
 
     const employee_old = await query("HSY_LICENCIAS", { id_licencia: new ObjectId(data.id_licencia) });
     if (!employee_old || employee_old.length === 0) {
-      return res.status(404).json({ message: "Historial de licencia no encontrada" });
+      data.ApePatLastOcupant = "";
+      data.ApeMatLastOcupant = "";
+      data.NomLastOcupant = "";
+    } else {
+      data.ApePatLastOcupant = employee_old?.[0]?.OCUPANTE?.APE_PAT || "";
+      data.ApeMatLastOcupant = employee_old?.[0]?.OCUPANTE?.APE_MAT || "";
+      data.NomLastOcupant = employee_old?.[0]?.OCUPANTE?.NOMBRES || "";
     }
 
     const employeeLevel_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
     if (!employeeLevel_old || employeeLevel_old.length === 0) {
-      return res.status(404).json({ message: "Empleado no encontrado"});
+      data.ClaveCatLastOcupant = "";
+      data.NomCateLastOcupant = "";
+    } else {
+      data.ClaveCatLastOcupant = employeeLevel_old?.[0]?.CLAVECAT || "";
+      data.NomCateLastOcupant = employeeLevel_old?.[0]?.NOMCATE || "";
     }
-
-    data.ApePatLastOcupant = employee_old[0].OCUPANTE?.APE_PAT || "";
-    data.ApeMatLastOcupant = employee_old[0].OCUPANTE?.APE_MAT || "";
-    data.NomLastOcupant = employee_old[0].OCUPANTE?.NOMBRES || "";
-    data.ClaveCatLastOcupant = employeeLevel_old[0].CLAVECAT || "";
-    data.NomCateLastOcupant = employeeLevel_old[0].NOMCATE || "";
 
     const templatePath = path.resolve(__dirname, "../../templates/reanudacionTemplate.docx");
     try {
