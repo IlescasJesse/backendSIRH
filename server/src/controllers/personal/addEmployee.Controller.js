@@ -939,65 +939,85 @@ employeeController.reinstallEmployee = async (req, res) => {
     if (dataToSave._id) delete dataToSave._id;
     if (dataToSave.id_employee) delete dataToSave.id_employee;
 
-    const employee_old = await query("HSY_LICENCIAS", { id_licencia: new ObjectId(data.id_licencia) },);
-    const employeeLevel_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
+    const employee_old = await query("HSY_LICENCIAS", { id_licencia: new ObjectId(data.id_licencia) });
+    if (!employee_old || employee_old.length === 0) {
+      return res.status(404).json({ message: "Historial de licencia no encontrada" });
+    }
 
-    data.ApePatLastOcupant = employee_old[0].OCUPANTE.APE_PAT || "";
-    data.ApeMatLastOcupant = employee_old[0].OCUPANTE.APE_MAT || "";
-    data.NomLastOcupant = employee_old[0].OCUPANTE.NOMBRES || "";
+    const employeeLevel_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
+    if (!employeeLevel_old || employeeLevel_old.length === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado"});
+    }
+
+    data.ApePatLastOcupant = employee_old[0].OCUPANTE?.APE_PAT || "";
+    data.ApeMatLastOcupant = employee_old[0].OCUPANTE?.APE_MAT || "";
+    data.NomLastOcupant = employee_old[0].OCUPANTE?.NOMBRES || "";
     data.ClaveCatLastOcupant = employeeLevel_old[0].CLAVECAT || "";
     data.NomCateLastOcupant = employeeLevel_old[0].NOMCATE || "";
 
-    const content = fs.readFileSync(
-      path.resolve(__dirname, "../../templates/reanudacionTemplate.docx"),
-      "binary"
-    );
-    const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
+    const templatePath = path.resolve(__dirname, "../../templates/reanudacionTemplate.docx");
+    try {
+      const content = fs.readFileSync(templatePath, "binary");
+      const zip = new PizZip(content);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
 
-    doc.render(data);
-    const buf = doc.getZip().generate({ type: "nodebuffer" });
-    const outputDir = path.resolve(__dirname, "../docs/reanudaciones");
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-    const outputPath = path.join(outputDir, `BAJA_${data.CURP}.docx`);
-    fs.writeFileSync(outputPath, buf);
-
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=${data.CURP}.docx`
-    );
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
-
-    await updateOne(
-      "PLANTILLA",
-      { NUMPLA: data.NUMPLA },
-      { $set: { ...dataToSave } }
-    );
-    await updateOne(
-      "LICENCIAS",
-      { _id: new ObjectId(data.id_licencia) },
-      { $set: { status: 2, FECHA_REINCORPORACION: data.FECHA_REINCORPORACION } }
-    );
-    await updateOne(
-      "HSY_LICENCIAS",
-      { id_licencia: new ObjectId(data.id_licencia) },
-      {
-        $set: {
-          FECHA_REINCORPORACION: data.FECHA_REINCORPORACION,
-          STATUS_LICENCIA: 2,
-        },
+      try {
+        doc.render(data);
+      } catch (renderErr) {
+        return res.status(500).json({ message: "Error al renderizar el documento", error: renderErr && renderErr.message ? renderErr.message : renderErr });
       }
-    );
-    await insertOne("USER_ACTIONS", userAction);
-    res.status(200).sendFile(outputPath);
+
+      const buf = doc.getZip().generate({ type: "nodebuffer" });
+      const outputDir = path.resolve(__dirname, "../docs/reanudaciones");
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      const outputPath = path.join(outputDir, `BAJA_${data.CURP}.docx`);
+
+      try {
+        fs.writeFileSync(outputPath, buf);
+      } catch (writeErr) {
+        return res.status(500).json({ message: "Error al escribir el documento", error: writeErr && writeErr.message ? writeErr.message : writeErr });
+      }
+
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=${data.CURP}.docx`
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+
+      await updateOne(
+        "PLANTILLA",
+        { NUMPLA: data.NUMPLA },
+        { $set: { ...dataToSave } }
+      );
+      await updateOne(
+        "LICENCIAS",
+        { _id: new ObjectId(data.id_licencia) },
+        { $set: { status: 2, FECHA_REINCORPORACION: data.FECHA_REINCORPORACION } }
+      );
+      await updateOne(
+        "HSY_LICENCIAS",
+        { id_licencia: new ObjectId(data.id_licencia) },
+        {
+          $set: {
+            FECHA_REINCORPORACION: data.FECHA_REINCORPORACION,
+            STATUS_LICENCIA: 2,
+          },
+        }
+      );
+      await insertOne("USER_ACTIONS", userAction);
+      res.status(200).sendFile(outputPath);
+
+    } catch (err) {
+      return res.status(500).json({ message: "Error al generar el documento", error: readErr && readErr.message ? readErr.message : readErr });
+    }
   } catch (error) {
     res.status(500).json({ message: "Error reincoorporar al empleado", error });
   }
