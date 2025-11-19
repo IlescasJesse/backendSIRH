@@ -784,9 +784,22 @@ incidenciasController.newForeigner = async (req, res) => {
   const data = req.body;
   console.log("Received data:", data);
   try {
-    const plantillaId = new ObjectId(); // _id para PLANTILLA_FORANEA
-    const idBitacora = new ObjectId(); // _id para BITACORA
-    const idCtrlAsist = new ObjectId(); // ID_CTRL_ASIST del foráneo
+
+    const plazaPlantilla = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
+    const plazaForanea = await query("PLANTILLA_FORANEA", { NUMPLA: data.NUMPLA });
+    if (plazaPlantilla.length > 0 || plazaForanea.length > 0) {
+      return res.status(409).json({ message: "El número de plaza ya está registrado en plantilla", errorCode: "DUPLICATE_NUMPLA" });
+    }
+
+    const tarjetaPlantilla = await query("PLANTILLA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
+    const tarjetaForanea = await query("PLANTILLA_FORANEA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
+    if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
+      return res.status(409).json({ message: "El número de tarjeta ya está registrado en el área seleccionada", errorCode: "DUPLICATE_NUMTARJETA" });
+    }
+
+    const plantillaId = new ObjectId();
+    const idBitacora = new ObjectId();
+    const idCtrlAsist = new ObjectId();
 
     data._id = plantillaId;
     data.status = 1;
