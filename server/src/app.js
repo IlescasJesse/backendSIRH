@@ -54,18 +54,27 @@ io.on("connection", (socket) => {
 });
 
 // rutas para personal
-
 app.use("/api/personal", require("./routes/personal/login.routes"));
 app.use("/api/personal", require("./routes/personal/employees.routes"));
 app.use("/api/personal", require("./routes/personal/register.routes"));
 app.use("/api/personal", require("./routes/personal/offEmpployees.routes"));
 app.use("/api/personal", require("./routes/personal/addEmployee.routes"));
 app.use("/api/personal", require("./routes/personal/reportes.routes"));
-//
+
 //rutas para incidencias
 app.use(
   "/api/control-asistencia",
   require("./routes/incidencias/incidencias.routes")
+);
+//rutas para vacaciones
+app.use(
+  "/api/vacaciones",
+  require("./routes/vacaciones/vacaciones.routes")
+);
+//rutas para gafetes
+app.use(
+  "/api/gafetes",
+  require("./routes/gafetes/gafetes.routes")
 );
 app.use(
   "/api/control-asistencia",

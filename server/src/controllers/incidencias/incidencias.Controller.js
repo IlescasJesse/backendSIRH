@@ -791,10 +791,12 @@ incidenciasController.newForeigner = async (req, res) => {
       return res.status(409).json({ message: "El número de plaza ya está registrado en plantilla", errorCode: "DUPLICATE_NUMPLA" });
     }
 
-    const tarjetaPlantilla = await query("PLANTILLA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
-    const tarjetaForanea = await query("PLANTILLA_FORANEA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
-    if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
-      return res.status(409).json({ message: "El número de tarjeta ya está registrado en el área seleccionada", errorCode: "DUPLICATE_NUMTARJETA" });
+    if(data.NUMTARJETA !== null){
+      const tarjetaPlantilla = await query("PLANTILLA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
+      const tarjetaForanea = await query("PLANTILLA_FORANEA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
+      if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
+        return res.status(409).json({ message: "El número de tarjeta ya está registrado en el área seleccionada", errorCode: "DUPLICATE_NUMTARJETA" });
+      }
     }
 
     const plantillaId = new ObjectId();
