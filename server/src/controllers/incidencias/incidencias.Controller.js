@@ -345,13 +345,19 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     timestamp: currentDateTime,
   };
   try {
-    const result = await query("PLANTILLA", {
-      _id: new ObjectId(data._id),
-    });
+    // Buscar en PLANTILLA y PLANTILLA_FORANEA
+    const [resultPlantilla = [], resultForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(data._id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(data._id) }),
+    ]);
 
+    const result = resultPlantilla.length ? resultPlantilla : resultForanea.length ? resultForanea : [];
     if (!result || result.length === 0) {
       return res.status(404).send({ error: "Employee not found" });
     }
+
+    // Determinar colección a actualizar
+    const targetCollection = resultPlantilla.length ? "PLANTILLA" : "PLANTILLA_FORANEA";
 
     const prevStatus = result[0].STATUS_EMPLEADO || {};
     const hsy_data = {
@@ -375,7 +381,7 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     }
 
     await updateOne(
-      "PLANTILLA",
+      targetCollection,
       { _id: new ObjectId(data._id) },
       { $set: updateFields }
     );
@@ -791,7 +797,7 @@ incidenciasController.newForeigner = async (req, res) => {
       return res.status(409).json({ message: "El número de plaza ya está registrado en plantilla", errorCode: "DUPLICATE_NUMPLA" });
     }
 
-    if(data.NUMTARJETA !== null){
+    if (data.NUMTARJETA !== null) {
       const tarjetaPlantilla = await query("PLANTILLA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
       const tarjetaForanea = await query("PLANTILLA_FORANEA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
       if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
@@ -1276,37 +1282,66 @@ incidenciasController.getIncidencias = async (req, res) => {
   }
 };
 incidenciasController.asignarTarjeta = async (req, res) => {
-  const { _id, NUMTARJETA, TURNOMAT, TURNOVES } = req.body;
+  const { _id, NUMTARJETA, TURNOMAT, TURNOVES, AREA_RESP } = req.body;
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
-  const employee = await query("PLANTILLA", {
-    _id: new ObjectId(_id),
-  });
-  if (!employee || employee.length === 0) {
-    return res.status(404).send({ error: "Employee not found" });
-  }
-  const userAction = {
-    username: user.username,
-    module: "AEI-PRO",
-    action: `ASIGNÓ TARJETA "${NUMTARJETA}" AL  EMPLEADO "${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}"`,
-    timestamp: currentDateTime,
-  };
+
   try {
-    await updateOne(
-      "PLANTILLA",
-      { _id: new ObjectId(_id) },
-      { $set: { NUMTARJETA, TURNOMAT, TURNOVES } }
-    );
-    await insertOne("USER_ACTIONS", userAction);
-    res.status(200).send({
-      message: "Card assigned successfully",
-      data: { _id, NUMTARJETA },
+    // Buscar empleado en ambas colecciones
+    const [resultPlantilla = [], resultForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(_id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(_id) }),
+    ]);
+
+    const result = resultPlantilla.length ? resultPlantilla : resultForanea.length ? resultForanea : [];
+    if (!result || result.length === 0) {
+      return res.status(404).send({ error: "Employee not found" });
+    }
+
+    const employee = result[0];
+    const targetCollection = resultPlantilla.length ? "PLANTILLA" : "PLANTILLA_FORANEA";
+    const areaToCheck = AREA_RESP ?? employee.AREA_RESP;
+
+    // Normalizar NUMTARJETA para coincidir con el tipo almacenado en DB si es numérico
+    const normalizedNUMTARJETA = !isNaN(Number(NUMTARJETA)) ? Number(NUMTARJETA) : NUMTARJETA;
+
+    // Excluir el propio documento al buscar duplicados
+    const excludeCurrent = { _id: { $ne: new ObjectId(_id) } };
+    const tarjetaPlantilla = await query("PLANTILLA", {
+      NUMTARJETA: normalizedNUMTARJETA,
+      AREA_RESP: areaToCheck,
+      ...excludeCurrent,
     });
+    const tarjetaForanea = await query("PLANTILLA_FORANEA", {
+      NUMTARJETA: normalizedNUMTARJETA,
+      AREA_RESP: areaToCheck,
+      ...excludeCurrent,
+    });
+
+    if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
+      return res
+        .status(409)
+        .json({ message: "El número de tarjeta ya está registrado en el área seleccionada", errorCode: "DUPLICATE_NUMTARJETA" });
+    }
+
+    await updateOne(
+      targetCollection,
+      { _id: new ObjectId(_id) },
+      { $set: { NUMTARJETA: normalizedNUMTARJETA, TURNOMAT, TURNOVES } }
+    );
+
+    const userAction = {
+      username: user.username,
+      module: "AEI-PRO",
+      action: `ASIGNÓ TARJETA "${NUMTARJETA}" AL EMPLEADO "${employee.NOMBRES} ${employee.APE_PAT} ${employee.APE_MAT}"`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
+    res.status(200).send({ message: "Card assigned successfully", data: { _id, NUMTARJETA: normalizedNUMTARJETA } });
   } catch (error) {
     console.error("Error assigning card:", error);
-    res
-      .status(500)
-      .send({ error: "An error occurred while assigning the card" });
+    res.status(500).send({ error: "An error occurred while assigning the card" });
   }
 };
 incidenciasController.deleteIncidencia = async (req, res) => {
