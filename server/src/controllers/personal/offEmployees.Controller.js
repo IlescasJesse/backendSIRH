@@ -76,7 +76,7 @@ offEmployeeController.getDatatoOff = async (req, res) => {
     });
 
     console.log(licenses);
-    
+
     let CUBRIENDO_LICENCIA = false;
 
     if (licenses.length > 0) {
@@ -164,12 +164,9 @@ offEmployeeController.saveDataOff = async (req, res) => {
               FECHA: data.discharge_date,
               FECHA_BAJA: data.discharge_date,
               MOTIVO_BAJA: data.reason,
-              TIPONOM:
-                data.TIPONOM === "511"
-                  ? "CCT"
-                  : data.TIPONOM === "FCO"
-                    ? "FCT"
-                    : null,
+              TIPONOM: data.TIPONOM,
+              TIEMPO: data.TIEMPO_BAJA ?? null,
+              OWNER: data.OWNER ?? null,
             },
           },
         }
@@ -186,17 +183,12 @@ offEmployeeController.saveDataOff = async (req, res) => {
     const employee = await query("PLANTILLA", {
       _id: new ObjectId(data.id_employee),
     });
-    let TIPONOM_NVO = null;
-    if (data.TIPONOM === "511") {
-      TIPONOM_NVO = "CCT";
-    } else if (data.TIPONOM === "FCO") {
-      TIPONOM_NVO = "FCT";
-    }
+
 
     const employee_old = await query("PLANTILLA", {
       _id: new ObjectId(data.id_employee),
     });
-    employee_old[0].TIPONOM = TIPONOM_NVO;
+    employee_old[0].TIPONOM = data.TIPONOM;
     const licenseData = {
       ...employee_old[0],
       time: data.time || null,
