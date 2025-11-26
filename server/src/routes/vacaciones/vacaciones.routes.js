@@ -4,9 +4,24 @@ const vacacionesController = require("../../controllers/vacaciones/vacaciones.Co
 const verifyToken = require("../../middleware/authMiddleware");
 
 router.get(
-    "/perfil-vacaciones/:id",
-    verifyToken,
-    vacacionesController.getProfile
+  "/perfil-vacaciones/:id",
+  verifyToken,
+  vacacionesController.getProfile
 );
-
+router.put("/updateEmployee", verifyToken, vacacionesController.updateEmployee);
+router.put(
+  "/PeriodosBase",
+  verifyToken,
+  vacacionesController.updateVacacionesBase
+);
+router.put(
+  "/PeriodosContrato",
+  verifyToken,
+  vacacionesController.updateVacacionesContrato
+);
+router.get(
+  "/getPeriodosVacacionales",
+  verifyToken,
+  vacacionesController.getPeriodosVacacionales
+);
 module.exports = router;
