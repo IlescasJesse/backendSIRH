@@ -14,5 +14,10 @@ router.put(
   verifyToken,
   gafetesController.updateEmployee
 );
+router.post(
+  "/printCredentialsEstructure",
+  verifyToken,
+  gafetesController.printCredentialsEstructure
+);
 
 module.exports = router;

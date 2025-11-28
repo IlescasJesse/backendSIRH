@@ -131,417 +131,442 @@ gafetesController.updateEmployee = async (req, res) => {
       .send({ error: "An error occurred while updating employee data" });
   }
 };
-gafetesController.printCredentials = async (req, res) => {
+gafetesController.printCredentialsEstructure = async (req, res) => {
+  const { PDFDocument, rgb } = require("pdf-lib");
+  const fontkit = require("@pdf-lib/fontkit");
+  const fs = require("fs");
+  const path = require("path");
+
   try {
-    const data = req.body;
+    const { data } = req.body;
 
-    // Verificar si data es un array o un objeto individual
-    const credentials = Array.isArray(data) ? data : [data];
+    // Validar que data existe
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      return res.status(400).send({ error: "No se proporcionaron datos" });
+    }
 
-    // Crear documento PDF en tamaño carta (216mm x 279mm)
-    const doc = new PDFDocument({
-      size: "LETTER",
-      margin: 20,
-    });
+    // Convertir a array si es un solo objeto
+    const employees = Array.isArray(data) ? data : [data];
 
-    // Configurar headers para la respuesta
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=gafetes-${moment().format("YYYY-MM-DD-HHmmss")}.pdf`
+    // Leer el PDF template
+    const templatePath = path.join(
+      __dirname,
+      "../../templates",
+      "g_estructura.pdf"
     );
 
-    // Pipe el PDF a la respuesta
-    doc.pipe(res);
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).send({
+        error: "Template PDF no encontrado",
+        path: templatePath,
+      });
+    }
 
-    // Procesar cada credencial
-    for (let i = 0; i < credentials.length; i++) {
-      const credential = credentials[i];
+    // Crear un nuevo documento PDF
+    const pdfDoc = await PDFDocument.create();
 
-      // Determinar el tipo de credencial
-      const tipoCredencial =
-        credential.TIPO_CREDENCIAL || credential.tipo || "BASE";
+    // Registrar fontkit para fuentes personalizadas
+    pdfDoc.registerFontkit(fontkit);
 
-      // Agregar nueva página si no es la primera credencial
-      if (i > 0) {
-        doc.addPage();
+    // Cargar fuentes personalizadas
+    const fontBlackPath = path.join(
+      __dirname,
+      "../../assets/fonts",
+      "Montserrat-Black.ttf"
+    );
+    const fontMediumPath = path.join(
+      __dirname,
+      "../../assets/fonts",
+      "Montserrat-Medium.ttf"
+    );
+
+    const fontBlackBytes = fs.readFileSync(fontBlackPath);
+    const fontMediumBytes = fs.readFileSync(fontMediumPath);
+
+    const fontBlack = await pdfDoc.embedFont(fontBlackBytes);
+    const fontMedium = await pdfDoc.embedFont(fontMediumBytes);
+
+    // Función para convertir HEX a RGB
+    const hexToRgb = (hex) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result
+        ? rgb(
+            parseInt(result[1], 16) / 255,
+            parseInt(result[2], 16) / 255,
+            parseInt(result[3], 16) / 255
+          )
+        : rgb(0, 0, 0);
+    };
+
+    // Función para dividir texto en líneas según ancho máximo
+    const splitTextByWidth = (text, font, fontSize, maxWidthCm, cmToPixel) => {
+      if (!text) return [];
+
+      const maxWidth = maxWidthCm * cmToPixel;
+      const words = text.split(" ");
+      const lines = [];
+      let currentLine = "";
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+        if (testWidth > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
       }
 
-      // Renderizar según el tipo de credencial
-      switch (tipoCredencial.toUpperCase()) {
-        case "BASE":
-          renderCredentialBASE(doc, credential);
-          break;
-        case "CONTRATO":
-          renderCredentialCONTRATO(doc, credential);
-          break;
-        case "HONORARIOS":
-          renderCredentialHONORARIOS(doc, credential);
-          break;
-        default:
-          console.warn(
-            `Tipo de credencial desconocido: ${tipoCredencial}, usando BASE por defecto`
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+
+      return lines;
+    };
+
+    // Procesar cada empleado
+    for (const employee of employees) {
+      // Cargar el template para cada gafete
+      const templateBytes = fs.readFileSync(templatePath);
+      const templateDoc = await PDFDocument.load(templateBytes);
+
+      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
+      pdfDoc.addPage(templatePage);
+
+      const pages = pdfDoc.getPages();
+      const currentPage = pages[pages.length - 1];
+      const { width, height } = currentPage.getSize();
+
+      // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
+      const CM_TO_POINTS = 28.3465;
+
+      console.log(`
+      ════════════════════════════════════════
+      📄 Dimensiones del PDF:
+      Width: ${width} points (${(width / CM_TO_POINTS).toFixed(2)} cm)
+      Height: ${height} points (${(height / CM_TO_POINTS).toFixed(2)} cm)
+      ════════════════════════════════════════
+      `);
+
+      // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
+      const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
+      // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
+      const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
+
+      // Procesar ADSCRIPCION (primer renglón 4.5cm, segundo 6cm)
+      const adscripcionLines = splitTextByWidth(
+        employee.ADSCRIPCION || "",
+        fontBlack,
+        8,
+        4.5,
+        CM_TO_POINTS
+      );
+
+      // Procesar DOMICILIO (primer renglón 4.5cm, segundo 6cm)
+      const domicilioLines = splitTextByWidth(
+        employee.DOMICILIO || "",
+        fontBlack,
+        8,
+        4.5,
+        CM_TO_POINTS
+      );
+
+      // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
+      const apellidosText = `${employee.APE_PAT || ""} ${
+        employee.APE_MAT || ""
+      }`.trim();
+      const apellidosLines = splitTextByWidth(
+        apellidosText,
+        fontMedium,
+        12,
+        6,
+        CM_TO_POINTS
+      );
+
+      // Configuración de campos según las coordenadas proporcionadas
+      const fieldsData = [
+        {
+          text: employee.NUP || "",
+          x: 6.6 * CM_TO_POINTS + offsetX,
+          y: height - 6.45 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.NUE || "",
+          x: 10.1 * CM_TO_POINTS + offsetX,
+          y: height - 6.45 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.RFC || "",
+          x: 6.6 * CM_TO_POINTS + offsetX,
+          y: height - 7.0 * CM_TO_POINTS - offsetY,
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.CURP || "",
+          x: 6.6 * CM_TO_POINTS + offsetX,
+          y: height - 7.5 * CM_TO_POINTS - offsetY, // Debajo de RFC
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.TEL_PERSONAL || "",
+          x: 7 * CM_TO_POINTS + offsetX,
+          y: height - 10.8 * CM_TO_POINTS - offsetY,
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.AVISAR || "",
+          x: 6.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 12.5 * CM_TO_POINTS - offsetY,
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.TEL_EMERGENCIA1 || "",
+          x: 7.2 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
+          y: height - 13.1 * CM_TO_POINTS - offsetY,
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.AFILIACI || "",
+          x: 6.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 13.6 * CM_TO_POINTS - offsetY,
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+        {
+          text: employee.SANGRE || "",
+          x: 7.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 14 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
+          font: fontBlack,
+          size: 8,
+          color: hexToRgb("#9D2449"),
+        },
+        {
+          text: employee.ALERGIAS || "",
+          x: 6.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 14.5 * CM_TO_POINTS - offsetY,
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
+      ];
+
+      // Insertar los datos en el PDF
+      fieldsData.forEach((field) => {
+        if (field.text) {
+          currentPage.drawText(String(field.text), {
+            x: field.x,
+            y: field.y,
+            size: field.size,
+            font: field.font,
+            color: field.color,
+          });
+        }
+      });
+
+      // Función para centrar texto en un rango
+      const centerText = (text, font, fontSize, startX, endX) => {
+        const textWidth = font.widthOfTextAtSize(text, fontSize);
+        const availableWidth = endX - startX;
+        const centeredX = startX + (availableWidth - textWidth) / 2;
+        return centeredX;
+      };
+
+      const startX = 12.5 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+      const endX = 20.5 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+
+      // Insertar NOMBRES centrado
+      if (employee.NOMBRES) {
+        const nombresX = centerText(
+          employee.NOMBRES,
+          fontBlack,
+          12,
+          startX,
+          endX
+        );
+        currentPage.drawText(employee.NOMBRES, {
+          x: nombresX,
+          y: height - 11 * CM_TO_POINTS - offsetY,
+          size: 12,
+          font: fontBlack,
+          color: rgb(0, 0, 0),
+        });
+      }
+
+      // Insertar NOMCATE centrado
+      if (employee.NOMCATE) {
+        const nomcateX = centerText(
+          employee.NOMCATE,
+          fontMedium,
+          10,
+          startX,
+          endX
+        );
+        currentPage.drawText(employee.NOMCATE, {
+          x: nomcateX,
+          y: height - 12 * CM_TO_POINTS - offsetY,
+          size: 10,
+          font: fontMedium,
+          color: rgb(0, 0, 0),
+        });
+      }
+
+      // Insertar ADSCRIPCION con múltiples líneas
+      if (adscripcionLines.length > 0) {
+        // Primera línea (máximo 4.5cm)
+        const pixelX1 = 7.4 * CM_TO_POINTS + offsetX;
+        const pixelY1 =
+          height - 8.2 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+
+        currentPage.drawText(adscripcionLines[0], {
+          x: pixelX1,
+          y: pixelY1,
+          size: 8,
+          font: fontBlack,
+          color: rgb(0, 0, 0),
+        });
+
+        // Segunda línea si existe (máximo 6.5cm, 0.5cm a la derecha, subir 1cm)
+        if (adscripcionLines.length > 1) {
+          const remainingText = adscripcionLines.slice(1).join(" ");
+          const secondLineLines = splitTextByWidth(
+            remainingText,
+            fontBlack,
+            8,
+            6.5, // Ahora 6.5cm de ancho
+            CM_TO_POINTS
           );
-          renderCredentialBASE(doc, credential);
+
+          if (secondLineLines.length > 0) {
+            // ESTA ES LA SEGUNDA LINEA DE ADSCRIPCION
+            const pixelX2 = pixelX1 - 2 * CM_TO_POINTS + 0.1 * CM_TO_POINTS; // 1.9cm a la izquierda (0.1cm a la derecha)
+            const pixelY2 =
+              height -
+              8.2 * CM_TO_POINTS -
+              offsetY -
+              1 * CM_TO_POINTS +
+              1 * CM_TO_POINTS -
+              0.5 * CM_TO_POINTS +
+              0.2 * CM_TO_POINTS +
+              0.1 * CM_TO_POINTS; // Subir 0.1cm adicional
+
+            currentPage.drawText(secondLineLines[0], {
+              x: pixelX2,
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+          }
+        }
+      }
+
+      // Insertar DOMICILIO con múltiples líneas
+      if (domicilioLines.length > 0) {
+        // Primera línea (máximo 4.5cm)
+        const pixelX1 = 7.3 * CM_TO_POINTS + offsetX;
+        const pixelY1 = height - 10 * CM_TO_POINTS - offsetY;
+
+        currentPage.drawText(domicilioLines[0], {
+          x: pixelX1,
+          y: pixelY1,
+          size: 8,
+          font: fontBlack,
+          color: rgb(0, 0, 0),
+        });
+
+        // Segunda línea si existe (máximo 6.5cm, 0.5cm a la izquierda)
+        if (domicilioLines.length > 1) {
+          const remainingText = domicilioLines.slice(1).join(" ");
+          const secondLineLines = splitTextByWidth(
+            remainingText,
+            fontBlack,
+            8,
+            6.5, // Ahora 6.5cm de ancho
+            CM_TO_POINTS
+          );
+
+          if (secondLineLines.length > 0) {
+            const pixelX2 = pixelX1 - 1.7 * CM_TO_POINTS; // 1.7cm a la izquierda
+            const pixelY2 =
+              height - 10 * CM_TO_POINTS - offsetY - 0.4 * CM_TO_POINTS;
+
+            currentPage.drawText(secondLineLines[0], {
+              x: pixelX2,
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+          }
+        }
+      }
+
+      // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
+      if (apellidosLines.length > 0) {
+        const apellidosX = centerText(
+          apellidosLines[0],
+          fontMedium,
+          12,
+          startX,
+          endX
+        );
+        const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
+
+        currentPage.drawText(apellidosLines[0], {
+          x: apellidosX,
+          y: apellidosY,
+          size: 12,
+          font: fontMedium,
+          color: rgb(0, 0, 0),
+        });
       }
     }
 
-    // Finalizar el documento
-    doc.end();
+    // Guardar el PDF modificado
+    const pdfBytes = await pdfDoc.save();
 
-    // Log de acción del usuario
+    // Enviar el PDF
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=credenciales_${Date.now()}.pdf`
+    );
+    res.send(Buffer.from(pdfBytes));
+
+    // Registrar la acción
     const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
     const userAction = {
       timestamp: currentDateTime,
-      username: req.user?.username || "system",
+      username: req.user?.username || "System",
       module: "GAFETES",
-      action: `GENERÓ ${credentials.length} CREDENCIAL(ES) EN PDF`,
+      action: `GENERÓ ${employees.length} CREDENCIAL(ES)`,
     };
     await insertOne("USER_ACTIONS", userAction);
   } catch (error) {
-    console.error("Error generating credentials PDF:", error);
+    console.error("Error generating credentials:", error);
     res.status(500).send({
-      error: "An error occurred while generating credentials PDF",
+      error: "Error generando las credenciales",
       details: error.message,
     });
   }
 };
-
-// ==========================================
-// FUNCIONES DE RENDERIZADO PARA CADA TIPO
-// ==========================================
-
-/**
- * Renderiza credencial tipo BASE
- * @param {PDFDocument} doc - Documento PDF
- * @param {Object} data - Datos del empleado
- */
-function renderCredentialBASE(doc, data) {
-  const pageWidth = doc.page.width;
-  const pageHeight = doc.page.height;
-
-  // TÍTULO DEL TIPO DE CREDENCIAL
-  doc
-    .fontSize(10)
-    .fillColor("#0066cc")
-    .text("CREDENCIAL - BASE", 50, 30, { align: "left" });
-
-  // ENCABEZADO
-  doc
-    .fontSize(16)
-    .fillColor("#000000")
-    .text("CREDENCIAL DE IDENTIFICACIÓN", 0, 60, { align: "center" });
-
-  // BORDE DE LA CREDENCIAL
-  const credX = 50;
-  const credY = 100;
-  const credWidth = pageWidth - 100;
-  const credHeight = 350;
-
-  doc.rect(credX, credY, credWidth, credHeight).stroke();
-
-  // FOTO (placeholder)
-  const fotoX = credX + 20;
-  const fotoY = credY + 20;
-  doc.rect(fotoX, fotoY, 120, 150).stroke();
-  doc.fontSize(10).text("FOTO", fotoX + 40, fotoY + 70);
-
-  // INFORMACIÓN DEL EMPLEADO
-  const infoX = fotoX + 140;
-  let infoY = credY + 20;
-
-  doc
-    .fontSize(14)
-    .fillColor("#000000")
-    .font("Helvetica-Bold")
-    .text(
-      `${data.NOMBRES || ""} ${data.APE_PAT || ""} ${data.APE_MAT || ""}`,
-      infoX,
-      infoY,
-      { width: 300 }
-    );
-
-  infoY += 30;
-  doc.fontSize(11).font("Helvetica");
-
-  // Campos específicos para BASE
-  doc.text(`RFC: ${data.RFC || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(`No. Empleado: ${data.NUM_EMPLEADO || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(`CURP: ${data.CURP || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(`Puesto: ${data.PUESTO || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(`Departamento: ${data.DEPARTAMENTO || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(
-    `Fecha Ingreso: ${
-      data.FECHA_INGRESO
-        ? moment(data.FECHA_INGRESO).format("DD/MM/YYYY")
-        : "N/A"
-    }`,
-    infoX,
-    infoY
-  );
-
-  // CÓDIGO DE BARRAS / QR (placeholder)
-  const qrY = credY + credHeight - 80;
-  doc.rect(credX + 20, qrY, 100, 60).stroke();
-  doc.fontSize(8).text("CÓDIGO QR", credX + 40, qrY + 25);
-
-  // PIE DE PÁGINA
-  doc
-    .fontSize(8)
-    .fillColor("#666666")
-    .text(
-      "Esta credencial es propiedad de la empresa",
-      credX,
-      credY + credHeight + 20,
-      {
-        width: credWidth,
-        align: "center",
-      }
-    );
-}
-
-/**
- * Renderiza credencial tipo CONTRATO
- * @param {PDFDocument} doc - Documento PDF
- * @param {Object} data - Datos del empleado
- */
-function renderCredentialCONTRATO(doc, data) {
-  const pageWidth = doc.page.width;
-  const pageHeight = doc.page.height;
-
-  // TÍTULO DEL TIPO DE CREDENCIAL
-  doc
-    .fontSize(10)
-    .fillColor("#cc6600")
-    .text("CREDENCIAL - CONTRATO", 50, 30, { align: "left" });
-
-  // ENCABEZADO
-  doc
-    .fontSize(16)
-    .fillColor("#000000")
-    .text("CREDENCIAL DE IDENTIFICACIÓN", 0, 60, { align: "center" });
-
-  doc
-    .fontSize(12)
-    .fillColor("#cc6600")
-    .text("PERSONAL POR CONTRATO", 0, 85, { align: "center" });
-
-  // BORDE DE LA CREDENCIAL (color diferente)
-  const credX = 50;
-  const credY = 110;
-  const credWidth = pageWidth - 100;
-  const credHeight = 350;
-
-  doc.strokeColor("#cc6600").rect(credX, credY, credWidth, credHeight).stroke();
-  doc.strokeColor("#000000"); // Restaurar color
-
-  // FOTO (placeholder)
-  const fotoX = credX + 20;
-  const fotoY = credY + 20;
-  doc.rect(fotoX, fotoY, 120, 150).stroke();
-  doc.fontSize(10).text("FOTO", fotoX + 40, fotoY + 70);
-
-  // INFORMACIÓN DEL EMPLEADO
-  const infoX = fotoX + 140;
-  let infoY = credY + 20;
-
-  doc
-    .fontSize(14)
-    .fillColor("#000000")
-    .font("Helvetica-Bold")
-    .text(
-      `${data.NOMBRES || ""} ${data.APE_PAT || ""} ${data.APE_MAT || ""}`,
-      infoX,
-      infoY,
-      { width: 300 }
-    );
-
-  infoY += 30;
-  doc.fontSize(11).font("Helvetica");
-
-  // Campos específicos para CONTRATO
-  doc.text(`RFC: ${data.RFC || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(
-    `No. Contrato: ${data.NUM_CONTRATO || data.NUM_EMPLEADO || "N/A"}`,
-    infoX,
-    infoY
-  );
-  infoY += 20;
-  doc.text(`Puesto: ${data.PUESTO || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(`Área: ${data.AREA || data.DEPARTAMENTO || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(
-    `Vigencia: ${
-      data.FECHA_INICIO ? moment(data.FECHA_INICIO).format("DD/MM/YYYY") : "N/A"
-    } - ${
-      data.FECHA_FIN ? moment(data.FECHA_FIN).format("DD/MM/YYYY") : "N/A"
-    }`,
-    infoX,
-    infoY,
-    { width: 300 }
-  );
-
-  // SELLO DE TEMPORAL
-  doc
-    .fontSize(20)
-    .fillColor("#cc6600")
-    .opacity(0.3)
-    .text("TEMPORAL", credX + credWidth / 2 - 60, credY + credHeight / 2 - 20, {
-      rotate: -30,
-    });
-  doc.opacity(1); // Restaurar opacidad
-
-  // CÓDIGO DE BARRAS / QR (placeholder)
-  const qrY = credY + credHeight - 80;
-  doc.rect(credX + 20, qrY, 100, 60).stroke();
-  doc
-    .fontSize(8)
-    .fillColor("#000000")
-    .text("CÓDIGO QR", credX + 40, qrY + 25);
-
-  // PIE DE PÁGINA
-  doc
-    .fontSize(8)
-    .fillColor("#666666")
-    .text(
-      "Personal por contrato - Vigencia limitada",
-      credX,
-      credY + credHeight + 20,
-      {
-        width: credWidth,
-        align: "center",
-      }
-    );
-}
-
-/**
- * Renderiza credencial tipo HONORARIOS
- * @param {PDFDocument} doc - Documento PDF
- * @param {Object} data - Datos del empleado
- */
-function renderCredentialHONORARIOS(doc, data) {
-  const pageWidth = doc.page.width;
-  const pageHeight = doc.page.height;
-
-  // TÍTULO DEL TIPO DE CREDENCIAL
-  doc
-    .fontSize(10)
-    .fillColor("#009900")
-    .text("CREDENCIAL - HONORARIOS", 50, 30, { align: "left" });
-
-  // ENCABEZADO
-  doc
-    .fontSize(16)
-    .fillColor("#000000")
-    .text("CREDENCIAL DE IDENTIFICACIÓN", 0, 60, { align: "center" });
-
-  doc
-    .fontSize(12)
-    .fillColor("#009900")
-    .text("PRESTADOR DE SERVICIOS PROFESIONALES", 0, 85, { align: "center" });
-
-  // BORDE DE LA CREDENCIAL (color diferente)
-  const credX = 50;
-  const credY = 110;
-  const credWidth = pageWidth - 100;
-  const credHeight = 350;
-
-  doc.strokeColor("#009900").rect(credX, credY, credWidth, credHeight).stroke();
-  doc.strokeColor("#000000"); // Restaurar color
-
-  // FOTO (placeholder)
-  const fotoX = credX + 20;
-  const fotoY = credY + 20;
-  doc.rect(fotoX, fotoY, 120, 150).stroke();
-  doc.fontSize(10).text("FOTO", fotoX + 40, fotoY + 70);
-
-  // INFORMACIÓN DEL EMPLEADO
-  const infoX = fotoX + 140;
-  let infoY = credY + 20;
-
-  doc
-    .fontSize(14)
-    .fillColor("#000000")
-    .font("Helvetica-Bold")
-    .text(
-      `${data.NOMBRES || ""} ${data.APE_PAT || ""} ${data.APE_MAT || ""}`,
-      infoX,
-      infoY,
-      { width: 300 }
-    );
-
-  infoY += 30;
-  doc.fontSize(11).font("Helvetica");
-
-  // Campos específicos para HONORARIOS
-  doc.text(`RFC: ${data.RFC || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(
-    `No. Prestador: ${data.NUM_PRESTADOR || data.NUM_EMPLEADO || "N/A"}`,
-    infoX,
-    infoY
-  );
-  infoY += 20;
-  doc.text(`Servicio: ${data.SERVICIO || data.PUESTO || "N/A"}`, infoX, infoY, {
-    width: 300,
-  });
-  infoY += 20;
-  doc.text(`Área: ${data.AREA || data.DEPARTAMENTO || "N/A"}`, infoX, infoY);
-  infoY += 20;
-  doc.text(
-    `Vigencia: ${
-      data.FECHA_INICIO ? moment(data.FECHA_INICIO).format("DD/MM/YYYY") : "N/A"
-    } - ${
-      data.FECHA_FIN ? moment(data.FECHA_FIN).format("DD/MM/YYYY") : "N/A"
-    }`,
-    infoX,
-    infoY,
-    { width: 300 }
-  );
-
-  // SELLO DE HONORARIOS
-  doc
-    .fontSize(16)
-    .fillColor("#009900")
-    .opacity(0.3)
-    .text(
-      "HONORARIOS",
-      credX + credWidth / 2 - 60,
-      credY + credHeight / 2 - 20,
-      {
-        rotate: -30,
-      }
-    );
-  doc.opacity(1); // Restaurar opacidad
-
-  // CÓDIGO DE BARRAS / QR (placeholder)
-  const qrY = credY + credHeight - 80;
-  doc.rect(credX + 20, qrY, 100, 60).stroke();
-  doc
-    .fontSize(8)
-    .fillColor("#000000")
-    .text("CÓDIGO QR", credX + 40, qrY + 25);
-
-  // PIE DE PÁGINA
-  doc
-    .fontSize(8)
-    .fillColor("#666666")
-    .text(
-      "Prestador de servicios profesionales - Sin relación laboral",
-      credX,
-      credY + credHeight + 20,
-      {
-        width: credWidth,
-        align: "center",
-      }
-    );
-}
-
 module.exports = gafetesController;

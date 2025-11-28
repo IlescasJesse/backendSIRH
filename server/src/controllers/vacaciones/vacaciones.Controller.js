@@ -144,15 +144,13 @@ vacacionesController.updateVacacionesContrato = async (req, res) => {
     module: "VAC-PI",
     action: `ACTUALIZÓ EL PERIODO DE VACACIONES DEL CONTRATO "${PERIODO}"`,
   };
-  await insertOne("USER_ACTIONS", userAction);
-
   try {
     const objectKey = Object.keys(objectsToUpdate)[0];
     const objectValue = objectsToUpdate[objectKey];
 
     const updateField = {};
     updateField[`${objectKey}.FECHA_INI`] = objectValue.FECHA_INI;
-    updateField[`${objectKey}.FECHA_FIN`] = objectValue.FECHA_FIN;
+    updateField[`${objectKey}.FECHA_FIN`] = objectValue.FECHA_FxIN;
 
     await updateOne(
       "PER_VACACIONALES_CONTRATO",
