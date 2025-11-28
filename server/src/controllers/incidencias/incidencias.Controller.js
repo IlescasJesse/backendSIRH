@@ -91,7 +91,10 @@ incidenciasController.getEmployee = async (req, res) => {
       ...searchCriteria,
       status: 1,
     });
-    const result = [...resultPlantilla, ...resultForanea];
+    const resultGafetes = await query("GAFETES_TEMPO", {
+      ...searchCriteria
+    });
+    const result = [...resultPlantilla, ...resultForanea, ...resultGafetes];
     if (result.length === 0) {
       return res.status(404).send({ error: "No data found" });
     }

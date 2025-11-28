@@ -145,12 +145,14 @@ vacacionesController.updateVacacionesContrato = async (req, res) => {
     action: `ACTUALIZÓ EL PERIODO DE VACACIONES DEL CONTRATO "${PERIODO}"`,
   };
   try {
+    console.log(data);
+    
     const objectKey = Object.keys(objectsToUpdate)[0];
     const objectValue = objectsToUpdate[objectKey];
 
     const updateField = {};
     updateField[`${objectKey}.FECHA_INI`] = objectValue.FECHA_INI;
-    updateField[`${objectKey}.FECHA_FIN`] = objectValue.FECHA_FxIN;
+    updateField[`${objectKey}.FECHA_FIN`] = objectValue.FECHA_FIN;
 
     await updateOne(
       "PER_VACACIONALES_CONTRATO",

@@ -29,17 +29,13 @@ gafetesController.getProfile = async (req, res) => {
 
   try {
     // Buscar empleado en PLANTILLA y PLANTILLA_FORANEA
-    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+    const [employeePlantilla = [], employeeForanea = [], employeeGafetes = []] = await Promise.all([
       query("PLANTILLA", { _id: new ObjectId(id) }),
       query("PLANTILLA_FORANEA", { _id: new ObjectId(id) }),
       query("GAFETES_TEMPO", { _id: new ObjectId(id) }),
     ]);
 
-    const employee = employeePlantilla.length
-      ? employeePlantilla
-      : employeeForanea.length
-      ? employeeForanea
-      : [];
+    const employee = employeePlantilla.length ? employeePlantilla : employeeForanea.length ? employeeForanea : employeeGafetes.length ? employeeGafetes : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
@@ -191,10 +187,10 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result
         ? rgb(
-            parseInt(result[1], 16) / 255,
-            parseInt(result[2], 16) / 255,
-            parseInt(result[3], 16) / 255
-          )
+          parseInt(result[1], 16) / 255,
+          parseInt(result[2], 16) / 255,
+          parseInt(result[3], 16) / 255
+        )
         : rgb(0, 0, 0);
     };
 
@@ -274,9 +270,8 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${
-        employee.APE_MAT || ""
-      }`.trim();
+      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
+        }`.trim();
       const apellidosLines = splitTextByWidth(
         apellidosText,
         fontMedium,
