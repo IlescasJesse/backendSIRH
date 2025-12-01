@@ -1286,6 +1286,14 @@ gafetesController.printCredentialsServicios = async (req, res) => {
           size: 8,
           color: rgb(0, 0, 0),
         },
+        {
+          text: employee.AFILIACI || "",
+          x: 7.7 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 14.39 * CM_TO_POINTS - offsetY,
+          font: fontBlack,
+          size: 8,
+          color: rgb(0, 0, 0),
+        },
       ];
 
       // Insertar los datos en el PDF
