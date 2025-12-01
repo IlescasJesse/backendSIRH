@@ -75,7 +75,7 @@ gafetesController.updateEmployee = async (req, res) => {
   try {
     const id = updateData._id;
     console.log(updateData);
-    
+
     delete updateData._id;
     // Buscar primero en PLANTILLA
     const employeePlantilla = await query("PLANTILLA", {
@@ -252,21 +252,21 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
       const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
 
-      // Procesar ADSCRIPCION (primer renglón 4.5cm, segundo 6cm)
+      // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
       const adscripcionLines = splitTextByWidth(
         employee.ADSCRIPCION || "",
         fontBlack,
         8,
-        4.5,
+        5, // <- ancho cambiado a 5cm
         CM_TO_POINTS
       );
 
-      // Procesar DOMICILIO (primer renglón 4.5cm, segundo 6cm)
+      // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
       const domicilioLines = splitTextByWidth(
         employee.DOMICILIO || "",
         fontBlack,
         8,
-        4.5,
+        5, // <- ancho cambiado a 5cm
         CM_TO_POINTS
       );
 
@@ -281,11 +281,20 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         CM_TO_POINTS
       );
 
+      // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
+      const avisarSingleLine = (splitTextByWidth(
+        employee.AVISAR || "",
+        fontBlack,
+        8,
+        5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+        CM_TO_POINTS
+      )[0]) || "";
+
       // Configuración de campos según las coordenadas proporcionadas
       const fieldsData = [
         {
           text: employee.NUP || "",
-          x: 6.6 * CM_TO_POINTS + offsetX,
+          x: 6.7 * CM_TO_POINTS + offsetX,
           y: height - 6.45 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
           font: fontBlack,
           size: 8,
@@ -293,7 +302,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         },
         {
           text: employee.NUE || "",
-          x: 10.1 * CM_TO_POINTS + offsetX,
+          x: 10.2 * CM_TO_POINTS + offsetX,
           y: height - 6.45 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
           font: fontBlack,
           size: 8,
@@ -301,7 +310,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         },
         {
           text: employee.RFC || "",
-          x: 6.6 * CM_TO_POINTS + offsetX,
+          x: 6.7 * CM_TO_POINTS + offsetX,
           y: height - 7.0 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
@@ -309,31 +318,31 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         },
         {
           text: employee.CURP || "",
-          x: 6.6 * CM_TO_POINTS + offsetX,
-          y: height - 7.5 * CM_TO_POINTS - offsetY, // Debajo de RFC
+          x: 6.7 * CM_TO_POINTS + offsetX,
+          y: height - 7.55 * CM_TO_POINTS - offsetY, // Debajo de RFC
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.TEL_PERSONAL || "",
-          x: 7 * CM_TO_POINTS + offsetX,
-          y: height - 10.8 * CM_TO_POINTS - offsetY,
+          x: 6.9 * CM_TO_POINTS + offsetX,
+          y: height - 10.75 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
-          text: employee.AVISAR || "",
-          x: 6.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 12.5 * CM_TO_POINTS - offsetY,
+          text: avisarSingleLine,
+          x: 6.05 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 12.52 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.TEL_EMERGENCIA1 || "",
-          x: 7.2 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
+          x: 7.3 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
           y: height - 13.1 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
@@ -341,7 +350,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         },
         {
           text: employee.AFILIACI || "",
-          x: 6.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          x: 6.05 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
           y: height - 13.6 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
@@ -349,7 +358,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         },
         {
           text: employee.SANGRE || "",
-          x: 7.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          x: 7 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
           y: height - 14 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
           font: fontBlack,
           size: 8,
@@ -357,8 +366,8 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         },
         {
           text: employee.ALERGIAS || "",
-          x: 6.2 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 14.5 * CM_TO_POINTS - offsetY,
+          x: 6.1 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 14.55 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
@@ -427,8 +436,8 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
 
       // Insertar ADSCRIPCION con múltiples líneas
       if (adscripcionLines.length > 0) {
-        // Primera línea (máximo 4.5cm)
-        const pixelX1 = 7.4 * CM_TO_POINTS + offsetX;
+        // Primera línea (máximo 5cm)
+        const pixelX1 = 7.6 * CM_TO_POINTS + offsetX;
         const pixelY1 =
           height - 8.2 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
 
@@ -440,47 +449,71 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
           color: rgb(0, 0, 0),
         });
 
-        // Segunda línea si existe (máximo 6.5cm, 0.5cm a la derecha, subir 1cm)
+        // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+        const LINE_SPACING_ADS = 0.30 * CM_TO_POINTS;
+
+        // Segunda línea si existe (máximo 5cm), alineada con la primera
         if (adscripcionLines.length > 1) {
           const remainingText = adscripcionLines.slice(1).join(" ");
-          const secondLineLines = splitTextByWidth(
+          const secondLineParts = splitTextByWidth(
             remainingText,
             fontBlack,
             8,
-            6.5, // Ahora 6.5cm de ancho
+            5, // ancho 5cm para la segunda línea
             CM_TO_POINTS
           );
 
-          if (secondLineLines.length > 0) {
-            // ESTA ES LA SEGUNDA LINEA DE ADSCRIPCION
-            const pixelX2 = pixelX1 - 2 * CM_TO_POINTS + 0.1 * CM_TO_POINTS; // 1.9cm a la izquierda (0.1cm a la derecha)
-            const pixelY2 =
-              height -
-              8.2 * CM_TO_POINTS -
-              offsetY -
-              1 * CM_TO_POINTS +
-              1 * CM_TO_POINTS -
-              0.5 * CM_TO_POINTS +
-              0.2 * CM_TO_POINTS +
-              0.1 * CM_TO_POINTS; // Subir 0.1cm adicional
+          if (secondLineParts.length > 0) {
+            // Alinear X con la primera línea
+            const pixelX2 = pixelX1;
+            const pixelY2 = pixelY1 - LINE_SPACING_ADS;
 
-            currentPage.drawText(secondLineLines[0], {
+            currentPage.drawText(secondLineParts[0], {
               x: pixelX2,
               y: pixelY2,
               size: 8,
               font: fontBlack,
               color: rgb(0, 0, 0),
             });
+
+            // Si hay más texto, crear una tercera línea con el resto
+            const remainingAfterSecond = secondLineParts.length > 1
+              ? secondLineParts.slice(1).join(" ")
+              : adscripcionLines.slice(2).join(" ");
+
+            if (remainingAfterSecond && remainingAfterSecond.trim().length > 0) {
+              const thirdLineParts = splitTextByWidth(
+                remainingAfterSecond,
+                fontBlack,
+                8,
+                5, // ancho 5cm para la tercera línea
+                CM_TO_POINTS
+              );
+              if (thirdLineParts.length > 0) {
+                const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                currentPage.drawText(thirdLineParts[0], {
+                  x: pixelX1,
+                  y: pixelY3,
+                  size: 8,
+                  font: fontBlack,
+                  color: rgb(0, 0, 0),
+                });
+              }
+            }
           }
         }
       }
 
       // Insertar DOMICILIO con múltiples líneas
       if (domicilioLines.length > 0) {
-        // Primera línea (máximo 4.5cm)
+        // Primera línea (máximo 5cm) -> subir 0.3 cm
         const pixelX1 = 7.3 * CM_TO_POINTS + offsetX;
-        const pixelY1 = height - 10 * CM_TO_POINTS - offsetY;
+        const pixelY1 = height - 10 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
 
+        // Espacio vertical entre líneas reducido (0.25 cm)
+        const LINE_SPACING = 0.30 * CM_TO_POINTS;
+
+        // Dibujar primera línea
         currentPage.drawText(domicilioLines[0], {
           x: pixelX1,
           y: pixelY1,
@@ -489,29 +522,40 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
           color: rgb(0, 0, 0),
         });
 
-        // Segunda línea si existe (máximo 6.5cm, 0.5cm a la izquierda)
+        // Segunda línea (si existe)
         if (domicilioLines.length > 1) {
-          const remainingText = domicilioLines.slice(1).join(" ");
-          const secondLineLines = splitTextByWidth(
-            remainingText,
-            fontBlack,
-            8,
-            6.5, // Ahora 6.5cm de ancho
-            CM_TO_POINTS
-          );
+          const secondText = domicilioLines[1];
+          const pixelY2 = pixelY1 - LINE_SPACING;
 
-          if (secondLineLines.length > 0) {
-            const pixelX2 = pixelX1 - 1.7 * CM_TO_POINTS; // 1.7cm a la izquierda
-            const pixelY2 =
-              height - 10 * CM_TO_POINTS - offsetY - 0.4 * CM_TO_POINTS;
+          currentPage.drawText(secondText, {
+            x: pixelX1, // misma alineación que la primera
+            y: pixelY2,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
 
-            currentPage.drawText(secondLineLines[0], {
-              x: pixelX2,
-              y: pixelY2,
-              size: 8,
-              font: fontBlack,
-              color: rgb(0, 0, 0),
-            });
+          // Si hay más de dos líneas, crear una tercera con el resto del texto
+          if (domicilioLines.length > 2) {
+            const remainingText = domicilioLines.slice(2).join(" ");
+            // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
+            const thirdLineParts = splitTextByWidth(
+              remainingText,
+              fontBlack,
+              8,
+              5, // ancho 5cm
+              CM_TO_POINTS
+            );
+            if (thirdLineParts.length > 0) {
+              const pixelY3 = pixelY2 - LINE_SPACING;
+              currentPage.drawText(thirdLineParts[0], {
+                x: pixelX1,
+                y: pixelY3,
+                size: 8,
+                font: fontBlack,
+                color: rgb(0, 0, 0),
+              });
+            }
           }
         }
       }
