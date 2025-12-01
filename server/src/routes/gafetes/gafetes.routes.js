@@ -10,7 +10,7 @@ router.post(
 );
 router.get("/getEmployee/:id", verifyToken, gafetesController.getProfile);
 router.put(
-  "/updateEmployee/:id",
+  "/updateEmployee",
   verifyToken,
   gafetesController.updateEmployee
 );

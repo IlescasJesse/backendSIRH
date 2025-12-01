@@ -71,10 +71,11 @@ gafetesController.getProfile = async (req, res) => {
   }
 };
 gafetesController.updateEmployee = async (req, res) => {
-  const updateData = req.body;
-  updateData._id = req.params.id;
+  const updateData = req.body.data;
   try {
     const id = updateData._id;
+    console.log(updateData);
+    
     delete updateData._id;
     // Buscar primero en PLANTILLA
     const employeePlantilla = await query("PLANTILLA", {
