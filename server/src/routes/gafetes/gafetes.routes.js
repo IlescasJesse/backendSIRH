@@ -19,5 +19,10 @@ router.post(
   verifyToken,
   gafetesController.printCredentialsEstructure
 );
+router.post(
+  "/printCredentialsHonorarios",
+  verifyToken,
+  gafetesController.printCredentialsHonorarios
+);
 
 module.exports = router;
