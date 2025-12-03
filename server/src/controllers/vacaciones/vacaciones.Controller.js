@@ -25,15 +25,129 @@ vacacionesController.getProfile = async (req, res) => {
     const employee = employeePlantilla.length
       ? employeePlantilla
       : employeeForanea.length
-      ? employeeForanea
-      : [];
+        ? employeeForanea
+        : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
       return;
     }
 
+    let totalDays = 0;
     const emp = employee[0];
+
+    // Validar y calcular años trabajados de forma segura
+    const fechaIngreso = moment(emp.FECHA_INGRESO, "YYYY-MM-DD", true);
+    const ahora = moment();
+
+    let yearsWorked = 0;
+    if (!fechaIngreso.isValid()) {
+      console.warn(`FECHA_INGRESO inválida para empleado ${emp._id}:`, emp.FECHA_INGRESO);
+      yearsWorked = 0;
+    } else {
+      yearsWorked = ahora.diff(fechaIngreso, "years");
+      if (!Number.isFinite(yearsWorked) || yearsWorked < 0) yearsWorked = 0;
+    }
+
+    // Determinar días según años trabajados
+    if (yearsWorked <= 5) {
+      totalDays = 11;
+    } else if (yearsWorked > 5 && yearsWorked <= 10) {
+      totalDays = 13;
+    } else if (yearsWorked > 10 && yearsWorked <= 15) {
+      totalDays = 15;
+    } else if (yearsWorked > 15 && yearsWorked <= 20) {
+      totalDays = 17;
+    } else if (yearsWorked > 20) {
+      totalDays = 19;
+    }
+
+    const diasKey = String(totalDays);
+    const diasNumber = Number(diasKey);
+
+    const labelForPeriodo = (p) => {
+      const labels = {
+        1: "PRIMER PERÍODO",
+        2: "SEGUNDO PERÍODO",
+        3: "TERCER PERÍODO",
+        4: "CUARTO PERÍODO",
+        5: "PRIMER PERÍODO",
+        6: "SEGUNDO PERÍODO",
+        7: "TERCER PERÍODO",
+        8: "CUARTO PERÍODO"
+      };
+      return labels[p] || `PERIODO ${p}`;
+    };
+
+    if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {
+
+      const docs = await query("PER_VACACIONALES_BASE", {});
+
+      const matches = docs
+        .filter((doc) => Object.prototype.hasOwnProperty.call(doc, diasKey))
+        .map((doc) => {
+          const fechasObj = doc[diasKey] || {};
+          const inicio = fechasObj.FECHA_INI
+            ? moment(fechasObj.FECHA_INI).format("YYYY-MM-DD")
+            : null;
+          const fin = fechasObj.FECHA_FIN
+            ? moment(fechasObj.FECHA_FIN).format("YYYY-MM-DD")
+            : null;
+
+          return {
+            periodo: doc.PERIODO ?? 0,
+            label: labelForPeriodo(doc.PERIODO),
+            opciones: [
+              {
+                dias: diasNumber,
+                fechas: { inicio, fin },
+              },
+            ],
+            _id: doc._id,
+          };
+        });
+
+      const month = moment().month();
+      const isFirstSection = month >= 1 && month <= 6;
+      const filteredMatches = matches.filter((m) =>
+        isFirstSection ? m.periodo >= 1 && m.periodo <= 4 : m.periodo >= 5
+      );
+
+      emp.PERIODOS_VACACIONALES = filteredMatches;
+
+    } else {
+      const docs = await query("PER_VACACIONALES_CONTRATO", {});
+      const matches = docs
+        .filter((doc) => Object.prototype.hasOwnProperty.call(doc, diasKey))
+        .map((doc) => {
+          const fechasObj = doc[diasKey] || {};
+          const inicio = fechasObj.FECHA_INI
+            ? moment(fechasObj.FECHA_INI).format("YYYY-MM-DD")
+            : null;
+          const fin = fechasObj.FECHA_FIN
+            ? moment(fechasObj.FECHA_FIN).format("YYYY-MM-DD")
+            : null;
+
+          return {
+            periodo: doc.PERIODO ?? 0,
+            label: labelForPeriodo(doc.PERIODO),
+            opciones: [
+              {
+                dias: diasNumber,
+                fechas: { inicio, fin },
+              },
+            ],
+            _id: doc._id,
+          };
+        });
+
+      const month = moment().month();
+      const isFirstSection = month >= 1 && month <= 6;
+      const filteredMatches = matches.filter((m) =>
+        isFirstSection ? m.periodo >= 1 && m.periodo <= 4 : m.periodo >= 5
+      );
+      emp.PERIODOS_VACACIONALES = filteredMatches;
+    }
 
     // Obtener la bitácora del empleado
     const bitacora = await query("BITACORA", {
@@ -146,7 +260,7 @@ vacacionesController.updateVacacionesContrato = async (req, res) => {
   };
   try {
     console.log(data);
-    
+
     const objectKey = Object.keys(objectsToUpdate)[0];
     const objectValue = objectsToUpdate[objectKey];
 
@@ -181,5 +295,5 @@ vacacionesController.getPeriodosVacacionales = async (req, res) => {
     });
   }
 };
-vacacionesController.updatePeriodoVacacionalEmpleado = async (req, res) => {};
+vacacionesController.updatePeriodoVacacionalEmpleado = async (req, res) => { };
 module.exports = vacacionesController;
