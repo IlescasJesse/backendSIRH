@@ -176,35 +176,52 @@ vacacionesController.getProfile = async (req, res) => {
   }
 };
 vacacionesController.updateEmployee = async (req, res) => {
-  const data = req.body;
-  const id = req.params._id;
-  const fecha_vacaciones = req.body.FECHA_VACACIONES;
+  const data = req.body || {};
+  const id = data._id;
+  const fecha_vacaciones = data.FECHA_VACACIONES;
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
   const userAction = {
     timestamp: currentDateTime,
-    username: user.username,
+    username: user && user.username ? user.username : "unknown",
     module: "VACV-PI",
     action: `ACTUALIZÓ LA FECHA DE VACACIONES DEL EMPLEADO CON ID "${id}"`,
   };
+
   try {
-    // Evitar sobrescribir el _id
-    if (data._id) {
-      delete data._id;
+    if (!id || !ObjectId.isValid(id)) {
+      return res.status(400).send({ error: "ID inválido" });
     }
-    // Actualizar la propiedad VACACIONES con fecha_vacaciones
-    await updateOne(
-      "PLANTILLA",
-      { _id: new ObjectId(id) },
-      { $set: { "VACACIONES.FECHA_VACACIONES": fecha_vacaciones } }
-    );
-    res.send({ message: "Employee updated successfully" });
-    await insertOne("USER_ACTIONS", userAction);
+
+    // Evitar sobrescribir el _id si viene en el body
+    if (data._id) delete data._id;
+
+    const update = { $set: { "VACACIONES.FECHA_VACACIONES": fecha_vacaciones } };
+
+    // Intentar actualizar en PLANTILLA primero
+    let result = await updateOne("PLANTILLA", { _id: new ObjectId(id) }, update);
+
+    // Si no hay coincidencia en PLANTILLA, intentar en PLANTILLA_FORANEA
+    if (!result || (result.matchedCount === 0 && result.modifiedCount === 0)) {
+      result = await updateOne("PLANTILLA_FORANEA", { _id: new ObjectId(id) }, update);
+    }
+
+    // Si aun no se encontró, informar 404
+    if (!result || (result.matchedCount === 0 && result.modifiedCount === 0)) {
+      return res.status(404).send({ error: "Empleado no encontrado" });
+    }
+
+    // Registrar acción del usuario (no bloquear respuesta si falla el logging)
+    try {
+      await insertOne("USER_ACTIONS", userAction);
+    } catch (logErr) {
+      console.warn("No se pudo registrar user action:", logErr);
+    }
+
+    res.send({ message: "Employee updated successfully", _id: id });
   } catch (error) {
     console.error("Error updating employee:", error);
-    res
-      .status(500)
-      .send({ error: "An error occurred while updating employee" });
+    res.status(500).send({ error: "An error occurred while updating employee" });
   }
 };
 vacacionesController.updateVacacionesBase = async (req, res) => {
