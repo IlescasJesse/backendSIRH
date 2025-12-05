@@ -24,4 +24,9 @@ router.get(
   verifyToken,
   vacacionesController.getPeriodosVacacionales
 );
+router.put(
+  "/savePeriodoVacacionalEmpleado",
+  verifyToken,
+  vacacionesController.savePeriodoVacacionalEmpleado
+);
 module.exports = router;

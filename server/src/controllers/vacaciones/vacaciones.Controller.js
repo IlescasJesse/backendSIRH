@@ -295,5 +295,61 @@ vacacionesController.getPeriodosVacacionales = async (req, res) => {
     });
   }
 };
-vacacionesController.updatePeriodoVacacionalEmpleado = async (req, res) => { };
+vacacionesController.savePeriodoVacacionalEmpleado = async (req, res) => {
+  const data = req.body;
+  const id = req.body._id;
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+  const userAction = {
+    timestamp: currentDateTime,
+    username: user.username,
+    module: "VACV-PI",
+    action: `ACTUALIZÓ LA CONFIGURACIÓN DE VACACIONES DEL EMPLEADO CON ID "${id}"`,
+  };
+
+  try {
+    if (!id || !ObjectId.isValid(id)) {
+      return res.status(400).send({ error: "ID inválido" });
+    }
+
+    if (typeof data.PERIODO === "undefined" || typeof data.DIAS === "undefined") {
+      return res.status(400).send({ error: "PERIODO y DIAS son requeridos" });
+    }
+
+    // Evitar sobrescribir el _id si viene en el body
+    if (data._id) delete data._id;
+
+    const update = {
+      $set: {
+        "VACACIONES.PERIODO": data.PERIODO,
+        "VACACIONES.DIAS": data.DIAS,
+        "VACACIONES.FECHAS": data.FECHAS
+      },
+    };
+
+    // Intentar actualizar en PLANTILLA primero
+    let result = await updateOne("PLANTILLA", { _id: new ObjectId(id) }, update);
+
+    // Si no se actualizó, intentar en PLANTILLA_FORANEA
+    if (!result || (result.modifiedCount === 0 && result.matchedCount === 0)) {
+      result = await updateOne("PLANTILLA_FORANEA", { _id: new ObjectId(id) }, update);
+    }
+
+    if (!result || (result.modifiedCount === 0 && result.matchedCount === 0)) {
+      return res.status(404).send({ error: "Empleado no encontrado" });
+    }
+
+    // Registrar acción del usuario (no bloquear la respuesta si falla el logging)
+    try {
+      await insertOne("USER_ACTIONS", userAction);
+    } catch (logErr) {
+      console.warn("No se pudo registrar user action:", logErr);
+    }
+
+    res.status(200).send({ message: "Employee updated successfully", _id: id });
+  } catch (error) {
+    console.error("Error updating employee:", error);
+    res.status(500).send({ error: "An error occurred while updating employee" });
+  }
+};
 module.exports = vacacionesController;
