@@ -67,19 +67,15 @@ app.use(
   require("./routes/incidencias/incidencias.routes")
 );
 //rutas para vacaciones
-app.use(
-  "/api/vacaciones",
-  require("./routes/vacaciones/vacaciones.routes")
-);
+app.use("/api/vacaciones", require("./routes/vacaciones/vacaciones.routes"));
 //rutas para gafetes
-app.use(
-  "/api/gafetes",
-  require("./routes/gafetes/gafetes.routes")
-);
+app.use("/api/gafetes", require("./routes/gafetes/gafetes.routes"));
 app.use(
   "/api/control-asistencia",
   require("./routes/incidencias/reportes.routes")
 );
+//rutas para talones
+app.use("/api/talon", require("./routes/talones/talones.routes"));
 // rutas para utilidades
 app.use("/api", require("./routes/calendar/calendar.routes"));
 app.use("/api", require("./routes/libs/libs.routes"));

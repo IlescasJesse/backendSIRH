@@ -29,13 +29,20 @@ gafetesController.getProfile = async (req, res) => {
 
   try {
     // Buscar empleado en PLANTILLA y PLANTILLA_FORANEA
-    const [employeePlantilla = [], employeeForanea = [], employeeGafetes = []] = await Promise.all([
-      query("PLANTILLA", { _id: new ObjectId(id) }),
-      query("PLANTILLA_FORANEA", { _id: new ObjectId(id) }),
-      query("GAFETES_TEMPO", { _id: new ObjectId(id) }),
-    ]);
+    const [employeePlantilla = [], employeeForanea = [], employeeGafetes = []] =
+      await Promise.all([
+        query("PLANTILLA", { _id: new ObjectId(id) }),
+        query("PLANTILLA_FORANEA", { _id: new ObjectId(id) }),
+        query("GAFETES_TEMPO", { _id: new ObjectId(id) }),
+      ]);
 
-    const employee = employeePlantilla.length ? employeePlantilla : employeeForanea.length ? employeeForanea : employeeGafetes.length ? employeeGafetes : [];
+    const employee = employeePlantilla.length
+      ? employeePlantilla
+      : employeeForanea.length
+      ? employeeForanea
+      : employeeGafetes.length
+      ? employeeGafetes
+      : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
@@ -112,7 +119,9 @@ gafetesController.updateEmployee = async (req, res) => {
             { _id: new ObjectId(id) },
             { $set: updateData }
           );
-          res.send({ message: "Employee updated successfully" });
+          res
+            .status(200)
+            .send({ message: "Employee updated successfully", _id: id });
         } else {
           res.status(404).send({
             error:
@@ -123,7 +132,7 @@ gafetesController.updateEmployee = async (req, res) => {
     }
   } catch (error) {
     console.error("Error updating employee:", error);
-    res
+    res111
       .status(500)
       .send({ error: "An error occurred while updating employee data" });
   }
@@ -188,10 +197,10 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result
         ? rgb(
-          parseInt(result[1], 16) / 255,
-          parseInt(result[2], 16) / 255,
-          parseInt(result[3], 16) / 255
-        )
+            parseInt(result[1], 16) / 255,
+            parseInt(result[2], 16) / 255,
+            parseInt(result[3], 16) / 255
+          )
         : rgb(0, 0, 0);
     };
 
@@ -271,8 +280,9 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
-        }`.trim();
+      const apellidosText = `${employee.APE_PAT || ""} ${
+        employee.APE_MAT || ""
+      }`.trim();
       const apellidosLines = splitTextByWidth(
         apellidosText,
         fontMedium,
@@ -282,13 +292,14 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       );
 
       // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
-      const avisarSingleLine = (splitTextByWidth(
-        employee.AVISAR || "",
-        fontBlack,
-        8,
-        5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
-        CM_TO_POINTS
-      )[0]) || "";
+      const avisarSingleLine =
+        splitTextByWidth(
+          employee.AVISAR || "",
+          fontBlack,
+          8,
+          5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+          CM_TO_POINTS
+        )[0] || "";
 
       // Configuración de campos según las coordenadas proporcionadas
       const fieldsData = [
@@ -450,7 +461,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         });
 
         // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
-        const LINE_SPACING_ADS = 0.30 * CM_TO_POINTS;
+        const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
 
         // Segunda línea si existe (máximo 5cm), alineada con la primera
         if (adscripcionLines.length > 1) {
@@ -477,11 +488,15 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
             });
 
             // Si hay más texto, crear una tercera línea con el resto
-            const remainingAfterSecond = secondLineParts.length > 1
-              ? secondLineParts.slice(1).join(" ")
-              : adscripcionLines.slice(2).join(" ");
+            const remainingAfterSecond =
+              secondLineParts.length > 1
+                ? secondLineParts.slice(1).join(" ")
+                : adscripcionLines.slice(2).join(" ");
 
-            if (remainingAfterSecond && remainingAfterSecond.trim().length > 0) {
+            if (
+              remainingAfterSecond &&
+              remainingAfterSecond.trim().length > 0
+            ) {
               const thirdLineParts = splitTextByWidth(
                 remainingAfterSecond,
                 fontBlack,
@@ -508,10 +523,11 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       if (domicilioLines.length > 0) {
         // Primera línea (máximo 5cm) -> subir 0.3 cm
         const pixelX1 = 7.3 * CM_TO_POINTS + offsetX;
-        const pixelY1 = height - 10 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+        const pixelY1 =
+          height - 10 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
 
         // Espacio vertical entre líneas reducido (0.25 cm)
-        const LINE_SPACING = 0.30 * CM_TO_POINTS;
+        const LINE_SPACING = 0.3 * CM_TO_POINTS;
 
         // Dibujar primera línea
         currentPage.drawText(domicilioLines[0], {
@@ -669,10 +685,10 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result
         ? rgb(
-          parseInt(result[1], 16) / 255,
-          parseInt(result[2], 16) / 255,
-          parseInt(result[3], 16) / 255
-        )
+            parseInt(result[1], 16) / 255,
+            parseInt(result[2], 16) / 255,
+            parseInt(result[3], 16) / 255
+          )
         : rgb(0, 0, 0);
     };
 
@@ -752,8 +768,9 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
-        }`.trim();
+      const apellidosText = `${employee.APE_PAT || ""} ${
+        employee.APE_MAT || ""
+      }`.trim();
       const apellidosLines = splitTextByWidth(
         apellidosText,
         fontMedium,
@@ -763,13 +780,14 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
       );
 
       // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
-      const avisarSingleLine = (splitTextByWidth(
-        employee.AVISAR || "",
-        fontBlack,
-        8,
-        5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
-        CM_TO_POINTS
-      )[0]) || "";
+      const avisarSingleLine =
+        splitTextByWidth(
+          employee.AVISAR || "",
+          fontBlack,
+          8,
+          5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+          CM_TO_POINTS
+        )[0] || "";
 
       // Configuración de campos según las coordenadas proporcionadas
       const fieldsData = [
@@ -907,7 +925,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
         });
 
         // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
-        const LINE_SPACING_ADS = 0.30 * CM_TO_POINTS;
+        const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
 
         // Segunda línea si existe (máximo 5cm), alineada con la primera
         if (adscripcionLines.length > 1) {
@@ -934,11 +952,15 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
             });
 
             // Si hay más texto, crear una tercera línea con el resto
-            const remainingAfterSecond = secondLineParts.length > 1
-              ? secondLineParts.slice(1).join(" ")
-              : adscripcionLines.slice(2).join(" ");
+            const remainingAfterSecond =
+              secondLineParts.length > 1
+                ? secondLineParts.slice(1).join(" ")
+                : adscripcionLines.slice(2).join(" ");
 
-            if (remainingAfterSecond && remainingAfterSecond.trim().length > 0) {
+            if (
+              remainingAfterSecond &&
+              remainingAfterSecond.trim().length > 0
+            ) {
               const thirdLineParts = splitTextByWidth(
                 remainingAfterSecond,
                 fontBlack,
@@ -965,10 +987,11 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
       if (domicilioLines.length > 0) {
         // Primera línea (máximo 5cm) -> subir 0.3 cm
         const pixelX1 = 7.17 * CM_TO_POINTS + offsetX;
-        const pixelY1 = height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+        const pixelY1 =
+          height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
 
         // Espacio vertical entre líneas reducido (0.25 cm)
-        const LINE_SPACING = 0.30 * CM_TO_POINTS;
+        const LINE_SPACING = 0.3 * CM_TO_POINTS;
 
         // Dibujar primera línea
         currentPage.drawText(domicilioLines[0], {
@@ -1126,10 +1149,10 @@ gafetesController.printCredentialsServicios = async (req, res) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result
         ? rgb(
-          parseInt(result[1], 16) / 255,
-          parseInt(result[2], 16) / 255,
-          parseInt(result[3], 16) / 255
-        )
+            parseInt(result[1], 16) / 255,
+            parseInt(result[2], 16) / 255,
+            parseInt(result[3], 16) / 255
+          )
         : rgb(0, 0, 0);
     };
 
@@ -1209,8 +1232,9 @@ gafetesController.printCredentialsServicios = async (req, res) => {
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
-        }`.trim();
+      const apellidosText = `${employee.APE_PAT || ""} ${
+        employee.APE_MAT || ""
+      }`.trim();
       const apellidosLines = splitTextByWidth(
         apellidosText,
         fontMedium,
@@ -1220,13 +1244,14 @@ gafetesController.printCredentialsServicios = async (req, res) => {
       );
 
       // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
-      const avisarSingleLine = (splitTextByWidth(
-        employee.AVISAR || "",
-        fontBlack,
-        8,
-        5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
-        CM_TO_POINTS
-      )[0]) || "";
+      const avisarSingleLine =
+        splitTextByWidth(
+          employee.AVISAR || "",
+          fontBlack,
+          8,
+          5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+          CM_TO_POINTS
+        )[0] || "";
 
       // Configuración de campos según las coordenadas proporcionadas
       const fieldsData = [
@@ -1372,7 +1397,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
         });
 
         // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
-        const LINE_SPACING_ADS = 0.30 * CM_TO_POINTS;
+        const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
 
         // Segunda línea si existe (máximo 5cm), alineada con la primera
         if (adscripcionLines.length > 1) {
@@ -1399,11 +1424,15 @@ gafetesController.printCredentialsServicios = async (req, res) => {
             });
 
             // Si hay más texto, crear una tercera línea con el resto
-            const remainingAfterSecond = secondLineParts.length > 1
-              ? secondLineParts.slice(1).join(" ")
-              : adscripcionLines.slice(2).join(" ");
+            const remainingAfterSecond =
+              secondLineParts.length > 1
+                ? secondLineParts.slice(1).join(" ")
+                : adscripcionLines.slice(2).join(" ");
 
-            if (remainingAfterSecond && remainingAfterSecond.trim().length > 0) {
+            if (
+              remainingAfterSecond &&
+              remainingAfterSecond.trim().length > 0
+            ) {
               const thirdLineParts = splitTextByWidth(
                 remainingAfterSecond,
                 fontBlack,
@@ -1430,10 +1459,11 @@ gafetesController.printCredentialsServicios = async (req, res) => {
       if (domicilioLines.length > 0) {
         // Primera línea (máximo 5cm) -> subir 0.3 cm
         const pixelX1 = 7.17 * CM_TO_POINTS + offsetX;
-        const pixelY1 = height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+        const pixelY1 =
+          height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
 
         // Espacio vertical entre líneas reducido (0.25 cm)
-        const LINE_SPACING = 0.30 * CM_TO_POINTS;
+        const LINE_SPACING = 0.3 * CM_TO_POINTS;
 
         // Dibujar primera línea
         currentPage.drawText(domicilioLines[0], {
