@@ -7,6 +7,12 @@ const {
 } = require("../../config/mongo");
 const { ObjectId } = require("mongodb");
 const moment = require("moment");
+const getCustomQuarter = (date) => {
+  const month = moment(date, "YYYY-MM-DD").month() + 1;
+  if (month >= 1 && month <= 4) return 1;
+  if (month >= 5 && month <= 8) return 2;
+  return 3;
+};
 
 const incidenciasController = {};
 
@@ -249,7 +255,7 @@ incidenciasController.getProfile = async (req, res) => {
     console.log("Employee data:", emp.STATUS_EMPLEADO);
 
     // Obtener el cuatrimestre y año actuales
-    const currentQuarter = moment().quarter();
+    const currentQuarter = getCustomQuarter(moment().format("YYYY-MM-DD"));
     const currentYear = moment().year();
 
     // Obtener la bitácora del empleado
@@ -277,22 +283,26 @@ incidenciasController.getProfile = async (req, res) => {
     });
 
     // Calcular los días restantes según las reglas de los cuatrimestres
-    let leftDays = maxDaysPerQuarter;
+    // Máximo 4 días por cuatrimestre, pero se acumulan 2 días si no se usaron en el cuatrimestre anterior
+    let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
-    permits.forEach((permit) => {
-      if (permit.CUATRIMESTRE === currentQuarter) {
-        leftDays -= permit.NUM_DIAS || 0; // Restar los días del permiso actual
-      }
-    });
-
-    // Si no hay permisos en el cuatrimestre anterior, permitir acumulación
+    // Verificar si el cuatrimestre anterior tuvo permisos
+    const previousQuarter = currentQuarter - 1;
     const hasPreviousQuarterPermits = permits.some(
-      (permit) => permit.CUATRIMESTRE === currentQuarter - 1
+      (permit) => permit.CUATRIMESTRE === previousQuarter
     );
 
-    if (!hasPreviousQuarterPermits) {
-      leftDays = Math.min(leftDays, maxAccumulatedDays);
+    // Si no hay permisos en el cuatrimestre anterior, agregar 2 días acumulados
+    if (!hasPreviousQuarterPermits && previousQuarter > 0) {
+      leftDays = maxAccumulatedDays; // 6 días en lugar de 4
     }
+
+    // Restar los días ya usados en el cuatrimestre actual
+    permits.forEach((permit) => {
+      if (permit.CUATRIMESTRE === currentQuarter) {
+        leftDays -= permit.NUM_DIAS || 0;
+      }
+    });
 
     if (leftDays < 0) leftDays = 0;
 
@@ -435,14 +445,6 @@ incidenciasController.newEconomicPermit = async (req, res) => {
   const maxDaysPerQuarter = 4;
   const maxAccumulatedDays = 6;
 
-  // Función personalizada para calcular el cuatrimestre
-  const getCustomQuarter = (date) => {
-    const month = moment(date, "YYYY-MM-DD").month() + 1; // Obtener el mes (1-12)
-    if (month >= 1 && month <= 4) return 1; // Enero - Abril
-    if (month >= 5 && month <= 8) return 2; // Mayo - Agosto
-    return 3; // Septiembre - Diciembre
-  };
-
   try {
     // Validar que no exista un permiso con las mismas fechas
     const existingPermit = await query("PERMISOS_ECONOMICOS", {
@@ -457,7 +459,7 @@ incidenciasController.newEconomicPermit = async (req, res) => {
       });
     }
 
-    // Validar que las fechas DESDE y HASTA no crucen cuatrimestres
+    // Validar que las fechas DESDE y HASTA no crucen cuatrimestres (usar función global)
     const desdeQuarter = getCustomQuarter(DESDE);
     const hastaQuarter = getCustomQuarter(HASTA);
     const desdeYear = moment(DESDE, "YYYY-MM-DD").year();
@@ -469,31 +471,43 @@ incidenciasController.newEconomicPermit = async (req, res) => {
       });
     }
 
-    console.log(desdeQuarter);
-
-    // Obtener permisos existentes del empleado en el año actual
     const currentQuarter = desdeQuarter;
     const currentYear = hastaYear;
+
+    console.log(desdeQuarter);
 
     const permits = await query("PERMISOS_ECONOMICOS", {
       ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
       AÑO: currentYear,
     });
 
-    console.log("Existing permits:", permits);
-
     // Calcular los días restantes según las reglas de los cuatrimestres
-    let leftDays = maxDaysPerQuarter;
+    // Máximo 4 días por cuatrimestre, pero se acumulan 2 días si no se usaron en el cuatrimestre anterior
+    let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
+    // Verificar si el cuatrimestre anterior tuvo permisos
+    const previousQuarter = currentQuarter - 1;
+    const hasPreviousQuarterPermits = permits.some(
+      (permit) => permit.CUATRIMESTRE === previousQuarter
+    );
+
+    // Si no hay permisos en el cuatrimestre anterior, agregar 2 días acumulados
+    if (!hasPreviousQuarterPermits && previousQuarter > 0) {
+      leftDays = maxAccumulatedDays; // 6 días en lugar de 4
+    }
+
+    // Restar los días ya usados en el cuatrimestre actual
     permits.forEach((permit) => {
       if (permit.CUATRIMESTRE === currentQuarter) {
-        leftDays -= permit.NUM_DIAS || 0; // Restar los días del permiso actual
+        leftDays -= permit.NUM_DIAS || 0;
       }
     });
 
     if (leftDays < 0) leftDays = 0;
 
-    console.log("Left days after calculation:", leftDays);
+    console.log(`Cuatrimestre actual: ${currentQuarter}`);
+    console.log(`Permisos previos en cuatrimestre anterior: ${hasPreviousQuarterPermits}`);
+    console.log(`Días disponibles: ${leftDays}`);
 
     // Validar si el nuevo permiso excede los días restantes permitidos
     if (NUM_DIAS > leftDays) {
@@ -847,7 +861,7 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
-  const currentQuarter = moment(updateData.DESDE, "YYYY-MM-DD").quarter();
+  const currentQuarter = getCustomQuarter(updateData.DESDE);
   const currentYear = moment(updateData.DESDE, "YYYY-MM-DD").year();
 
   try {
@@ -887,9 +901,8 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
     const maxDaysPerQuarter = 4;
     const maxAccumulatedDays = 6;
 
-    // Validar que las fechas DESDE y HASTA no crucen cuatrimestres
-    const desdeQuarter = moment(permitData.DESDE, "YYYY-MM-DD").quarter();
-    const hastaQuarter = moment(permitData.HASTA, "YYYY-MM-DD").quarter();
+    const desdeQuarter = getCustomQuarter(permitData.DESDE);
+    const hastaQuarter = getCustomQuarter(permitData.HASTA);
     const desdeYear = moment(permitData.DESDE, "YYYY-MM-DD").year();
     const hastaYear = moment(permitData.HASTA, "YYYY-MM-DD").year();
 
@@ -908,21 +921,36 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
     console.log("Existing permits:", permits);
 
     // Calcular los días restantes según las reglas de los cuatrimestres
-    let leftDays = maxDaysPerQuarter;
+    // Máximo 4 días por cuatrimestre, pero se acumulan 2 días si no se usaron en el cuatrimestre anterior
+    permitData.CUATRIMESTRE = currentQuarter;
+    // Calcular los días restantes según las reglas de los cuatrimestres
+    let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
-    permits.forEach((permit) => {
-      if (
-        permit._id.toString() !== _id &&
-        permit.CUATRIMESTRE === permitData.CUATRIMESTRE
-      ) {
-        // Restar los días del permiso actual en el mismo cuatrimestre
-        leftDays -= permit.NUM_DIAS || 0;
+    // Determinar cuatrimestre anterior
+    const previousQuarter = currentQuarter - 1;
+
+    // Verificar si el cuatrimestre anterior tuvo permisos (excluir el propio permiso)
+    const hasPreviousQuarterPermits = permits.some(
+      (p) => p.CUATRIMESTRE === previousQuarter && p._id.toString() !== _id
+    );
+
+    // Si no hay permisos en el cuatrimestre anterior, permitir acumulación a 6 días
+    if (!hasPreviousQuarterPermits && previousQuarter > 0) {
+      leftDays = maxAccumulatedDays; // 6 días en lugar de 4
+    }
+
+    // Restar los días ya usados en el cuatrimestre actual (excluir el permiso que se está actualizando)
+    permits.forEach((p) => {
+      if (p._id.toString() !== _id && p.CUATRIMESTRE === currentQuarter) {
+        leftDays -= p.NUM_DIAS || 0;
       }
     });
 
     if (leftDays < 0) leftDays = 0;
 
-    console.log("Left days after calculation:", leftDays);
+    console.log(`Cuatrimestre actual: ${currentQuarter}`);
+    console.log(`Permisos en cuatrimestre anterior: ${hasPreviousQuarterPermits}`);
+    console.log(`Días disponibles después de restar usados: ${leftDays}`);
 
     // Validar si el permiso actualizado excede los días restantes permitidos
     if (permitData.NUM_DIAS > leftDays) {
