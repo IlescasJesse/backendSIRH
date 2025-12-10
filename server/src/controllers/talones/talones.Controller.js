@@ -60,7 +60,7 @@ talonesController.getProfile = async (req, res) => {
       timestamp: currentDateTime,
       username: user.username,
       module: "AEI-PI",
-      action: `CONSULTÓ EL PERFIL DE INCIDENCIAS DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
+      action: `CONSULTÓ EL PERFIL DE TALÓN DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
     };
     await insertOne("USER_ACTIONS", userAction);
     console.log("Profile data:", ASIST_PROFILE);

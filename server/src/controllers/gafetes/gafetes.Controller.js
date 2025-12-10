@@ -67,7 +67,7 @@ gafetesController.getProfile = async (req, res) => {
       timestamp: currentDateTime,
       username: user.username,
       module: "AEI-PI",
-      action: `CONSULTÓ EL PERFIL DE VACACIONES DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
+      action: `CONSULTÓ EL PERFIL DE GAFETES DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
     };
     await insertOne("USER_ACTIONS", userAction);
     console.log("Profile data:", ASIST_PROFILE);

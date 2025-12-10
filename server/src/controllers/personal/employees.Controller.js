@@ -243,7 +243,7 @@ employeeController.getProfileData = async (req, res) => {
     const userAction = {
       username: user.username,
       module: "PSL-CE",
-      action: `SOLICITÓ LA INFORMACION DE: "${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}"`,
+      action: `CONSULTÓ EL PERFIL DEL EMPLEADO"${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}"`,
       timestamp: currentDateTime,
     };
 
@@ -456,16 +456,23 @@ employeeController.getUserActions = async (req, res) => {
   try {
     const actions = await query("USER_ACTIONS", {});
     const users = await query("USUARIOS", {});
-    actions.forEach((action) => {
+
+    // Excluir acciones cuyo texto comience con "CONSULTÓ" (case-insensitive)
+    const filteredActions = actions.filter((a) => {
+      const text = (a.action || "").toString().trim();
+      return !/^CONSULTÓ/i.test(text);
+    });
+
+    filteredActions.forEach((action) => {
       const matchedUser = users.find((u) => u.username === action.username);
       if (matchedUser) {
         action.name = matchedUser.name;
       }
     });
 
-    res.send(actions);
+    res.send(filteredActions);
   } catch (error) {
-    console.error("Error fetching incidencias:", error);
+    console.error("Error fetching user actions:", error);
     res.status(500).json({ error: "An error occurred while fetching data" });
   }
 };
