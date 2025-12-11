@@ -25,8 +25,8 @@ talonesController.getProfile = async (req, res) => {
     const employee = employeePlantilla.length
       ? employeePlantilla
       : employeeForanea.length
-      ? employeeForanea
-      : [];
+        ? employeeForanea
+        : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
@@ -50,11 +50,32 @@ talonesController.getProfile = async (req, res) => {
       ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
     });
 
+    // Calcular número de quincena actual (1..24)
+    const now = moment();
+    const currentQuinHalf = now.date() <= 15 ? 1 : 2;
+    const currentMonth = now.month() + 1; // 1..12
+    const currentQuincenaNumber = (currentMonth - 1) * 2 + currentQuinHalf;
+
+    // Buscar documento de talones del empleado
+    const talonesDoc = await query("TALONES", {
+      id_empleado: new ObjectId(emp._id),
+    });
+
+    // Extraer y filtrar TALONES (quincenas <= actual)
+    let talonesHistorial = [];
+    if (talonesDoc && talonesDoc.length > 0 && Array.isArray(talonesDoc[0].TALONES)) {
+      talonesHistorial = talonesDoc[0].TALONES
+        .filter((t) => typeof t.QUINCENA === "number" && t.QUINCENA <= currentQuincenaNumber)
+        .sort((a, b) => a.QUINCENA - b.QUINCENA); // orden ascendente por QUINCENA
+    }
+
     const ASIST_PROFILE = {
       employee: [emp],
       incapacidades: incapacidades,
       permisosExt: permisosExt,
+      talones: talonesHistorial, // <-- aquí están el talón actual y los anteriores
     };
+
     const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
     const userAction = {
       timestamp: currentDateTime,
@@ -69,6 +90,139 @@ talonesController.getProfile = async (req, res) => {
   } catch (error) {
     console.error("Error fetching profile:", error);
     res.status(500).send({ error: "An error occurred while fetching data" });
+  }
+};
+
+// Obtener talones pendientes a regresar
+talonesController.getAllTalonesPendientesRegresar = async (req, res) => {
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+
+  try {
+    // Obtener todos los documentos de talones
+    const talonesDocumentos = await query("TALONES", {});
+
+    if (!talonesDocumentos || talonesDocumentos.length === 0) {
+      return res.status(404).send({ error: "No talones found" });
+    }
+
+    // Obtener todos los empleados
+    const [empleadosPlantilla = [], empleadosForanea = []] = await Promise.all([
+      query("PLANTILLA", { status: 1 }),
+      query("PLANTILLA_FORANEA", { status: 1 }),
+    ]);
+    const todosEmpleados = [...empleadosPlantilla, ...empleadosForanea];
+
+    // Mapeo de ID empleado a datos del empleado
+    const empleadosMap = {};
+    todosEmpleados.forEach((emp) => {
+      empleadosMap[emp._id.toString()] = emp;
+    });
+
+    // Filtrar talones con status === 2 y enriquecer con datos del empleado
+    const talonesRegresar = [];
+
+    talonesDocumentos.forEach((doc) => {
+      const empleado = empleadosMap[doc.id_empleado.toString()];
+
+      if (empleado && Array.isArray(doc.TALONES)) {
+        doc.TALONES.forEach((talon) => {
+          if (talon.status === 3) {
+            talonesRegresar.push({
+              _id: talon._id,
+              QUINCENA: talon.QUINCENA,
+              status: talon.status,
+              empleado: {
+                _id: empleado._id,
+                NOMBRE: `${empleado.APE_PAT || ''} ${empleado.APE_MAT || ''} ${empleado.NOMBRES || ''}`.trim(),
+                TIPONOM: empleado.TIPONOM,
+                ADSCRIPCION: empleado.ADSCRIPCION
+              }
+            });
+          }
+        });
+      }
+    });
+
+    // Registrar acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "TAL-REG",
+      action: `CONSULTÓ TALONES PENDIENTES A REGRESAR (STATUS 2)`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
+    res.status(200).send(talonesRegresar);
+  } catch (error) {
+    console.error("Error fetching talones a regresar:", error);
+    res.status(500).send({ error: "An error occurred while fetching talones" });
+  }
+};
+
+// Obtener talones pendientes a entregar (status === 2) con información del empleado
+talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+
+  try {
+    // Obtener todos los documentos de talones
+    const talonesDocumentos = await query("TALONES", {});
+
+    if (!talonesDocumentos || talonesDocumentos.length === 0) {
+      return res.status(404).send({ error: "No talones found" });
+    }
+
+    // Obtener todos los empleados
+    const [empleadosPlantilla = [], empleadosForanea = []] = await Promise.all([
+      query("PLANTILLA", { status: 1 }),
+      query("PLANTILLA_FORANEA", { status: 1 }),
+    ]);
+    const todosEmpleados = [...empleadosPlantilla, ...empleadosForanea];
+
+    // Mapeo de ID empleado a datos del empleado
+    const empleadosMap = {};
+    todosEmpleados.forEach((emp) => {
+      empleadosMap[emp._id.toString()] = emp;
+    });
+
+    // Filtrar talones con status === 2 y enriquecer con datos del empleado
+    const talonesEntregar = [];
+
+    talonesDocumentos.forEach((doc) => {
+      const empleado = empleadosMap[doc.id_empleado.toString()];
+
+      if (empleado && Array.isArray(doc.TALONES)) {
+        doc.TALONES.forEach((talon) => {
+          if (talon.status === 2) {
+            talonesEntregar.push({
+              _id: talon._id,
+              QUINCENA: talon.QUINCENA,
+              status: talon.status,
+              empleado: {
+                _id: empleado._id,
+                NOMBRE: `${empleado.APE_PAT || ''} ${empleado.APE_MAT || ''} ${empleado.NOMBRES || ''}`.trim(),
+                TIPONOM: empleado.TIPONOM,
+                ADSCRIPCION: empleado.ADSCRIPCION,
+              },
+            });
+          }
+        });
+      }
+    });
+    // Registrar acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "TAL-ENT",
+      action: `CONSULTÓ TALONES PENDIENTES A ENTREGAR (STATUS 2)`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
+    res.status(200).send(talonesEntregar);
+  } catch (error) {
+    console.error("Error fetching talones a entregar:", error);
+    res.status(500).send({ error: "An error occurred while fetching talones" });
   }
 };
 
