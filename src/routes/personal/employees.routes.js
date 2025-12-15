@@ -10,6 +10,7 @@ router.get(
   incidenciasController.getEmployee
 );
 router.get("/getemployees", verifyToken, employeeController.getEmployees);
+
 router.get("/getEmployeeCount", verifyToken, employeeController.getEmployeeCount);
 router.post(
   "/getemployee/profile/:id",
