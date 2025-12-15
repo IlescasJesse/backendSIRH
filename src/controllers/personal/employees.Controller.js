@@ -559,7 +559,6 @@ employeeController.getEmployeeCount = async (req, res) => {
         descripcion: tipoNomMap[clave] || 'Tipo no definido',
         cantidad: conteo[clave],
       }));
-
     // Registrar acción del usuario
     const userAction = {
       username: user.username,
