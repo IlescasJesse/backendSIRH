@@ -507,5 +507,79 @@ employeeController.addCategory = async (req, res) => {
   }
 };
 
+// Función para obtener conteo de empleados por tipo de nombramiento y género
+employeeController.getEmployeeCount = async (req, res) => {
+  const user = req.user;
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/Mexico_City",
+  });
+
+  const tipoNomMap = {
+    'F51': 'BASE FORÁNEA',
+    'M51': 'BASE CENTRAL',
+    'FCT': 'CONTRATO CONFIANZA FORANEO',
+    'CCT': 'CONTRATO CONFIANZA CENTRAL',
+    'FCO': 'NOMBRAMIENTO CONFIANZA FORANEO',
+    '511': 'NOMBRAMIENTO CONFIANZA CENTRAL',
+    'F53': 'CONTRATO FORÁNEO',
+    'M53': 'CONTRATO CENTRAL',
+    'FMM': 'MANDOS MEDIOS FORÁNEOS',
+    'MMS': 'MANDOS MEDIOS CENTRAL',
+  };
+
+  try {
+    // Obtener empleados activos de ambas colecciones
+    const [empleadosPlantilla = [], empleadosForanea = []] = await Promise.all([
+      query("PLANTILLA", { $or: [{ STATUS: 1 }, { status: 1 }] }),
+      query("PLANTILLA_FORANEA", { $or: [{ STATUS: 1 }, { status: 1 }] }),
+    ]);
+
+    const todosEmpleados = [...empleadosPlantilla, ...empleadosForanea];
+
+    // Contar por tipo de nombramiento
+    const conteo = {};
+    let totalHombres = 0;
+    let totalMujeres = 0;
+
+    todosEmpleados.forEach((emp) => {
+      const tipoNom = emp.TIPONOM || 'SIN ASIGNAR';
+      conteo[tipoNom] = (conteo[tipoNom] || 0) + 1;
+      if (emp.SEXO === 'H') {
+        totalHombres++;
+      } else if (emp.SEXO === 'M') {
+        totalMujeres++;
+      }
+    });
+
+    // Construir respuesta con descripción
+    const porTipoNombramiento = Object.keys(conteo)
+      .sort()
+      .map((clave) => ({
+        clave,
+        descripcion: tipoNomMap[clave] || 'Tipo no definido',
+        cantidad: conteo[clave],
+      }));
+    // Registrar acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "PSL-EST",
+      action: `CONSULTÓ CONTEO DE EMPLEADOS POR TIPO DE NOMBRAMIENTO Y GÉNERO`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
+    res.status(200).json({
+      totalEmpleados: todosEmpleados.length,
+      totalHombres,
+      totalMujeres,
+      porTipoNombramiento,
+    });
+  } catch (error) {
+    console.error("Error counting employees by tipo de nombramiento:", error);
+    res.status(500).json({ error: "An error occurred while counting employees" });
+  }
+};
+
+
 // Exportamos el controlador de empleados
 module.exports = employeeController;

@@ -759,9 +759,12 @@ incidenciasController.newExtPermit = async (req, res) => {
 
   const {
     _id,
+    TIPO,
     DESDE,
     HASTA,
     NUM_DIAS,
+    OFICIO_SOLICITUD,
+    OFICIO_AUTORIZACION,
     OBSERVACIONES,
     ID_CTRL_ASIST,
     NUMTARJETA,
@@ -769,9 +772,12 @@ incidenciasController.newExtPermit = async (req, res) => {
   // Crear el nuevo registro de permiso extraordinario
   const extPermitData = {
     id_empoyee: _id,
+    TIPO,
     DESDE,
     HASTA,
     NUM_DIAS,
+    OFICIO_SOLICITUD,
+    OFICIO_AUTORIZACION,
     OBSERVACIONES,
     ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
     AÑO: moment(DESDE).year(),
