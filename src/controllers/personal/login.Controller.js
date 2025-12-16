@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt");
+const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const loginController = {};
 const {
@@ -20,7 +20,7 @@ loginController.loginUser = async (req, res) => {
 
     const user = users[0];
     if (user && user.password) {
-      const isPasswordValid = await bcrypt.compare(
+      const isPasswordValid = await bcryptjs.compare(
         data.password,
         user.password
       );
@@ -117,7 +117,7 @@ loginController.checkUsername = async (req, res) => {
 loginController.createPassword = async (req, res) => {
   const data = req.body;
   try {
-    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const hashedPassword = await bcryptjs.hash(data.password, 10);
     await updateOne(
       "USUARIOS",
       { username: data.username },
