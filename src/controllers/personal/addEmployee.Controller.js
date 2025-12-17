@@ -256,9 +256,8 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${
-    data?.DIRECCION.COLONIA || ""
-  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
+    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.CALLE || "";
@@ -266,9 +265,8 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${
-    months[parseInt(month, 10) - 1]
-  } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
+    } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -357,9 +355,8 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
-      months[parseInt(monthIMSS, 10) - 1]
-    } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
+      } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -1004,7 +1001,7 @@ employeeController.reinstallEmployee = async (req, res) => {
       }
 
       const buf = doc.getZip().generate({ type: "nodebuffer" });
-      const outputDir = path.resolve(__dirname, "../docs/reanudaciones");
+      const outputDir = path.resolve(__dirname, "../../docs/reanudaciones");
       if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
       }

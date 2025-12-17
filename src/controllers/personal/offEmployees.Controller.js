@@ -254,10 +254,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
             RFC: null,
             AFILIACI: null,
             NUMEMP: null,
-            SUELDO_GRV: 0,
             NUMQUIN: 0,
-            GUARDE: 0,
-            GASCOM: 0,
             FECHA_INGRESO: null,
             SANGRE: null,
             AVISAR: null,
@@ -283,7 +280,32 @@ offEmployeeController.saveDataOff = async (req, res) => {
             APE_PAT: null,
             APE_MAT: "VACANTE",
             NOMBRES: null,
+            VACACIONES: {
+              PERIODO: 0,
+              FECHA_VACACIONES: null,
+              DIAS: null,
+              FECHAS: {
+                FECHA_INICIO: null,
+                FECHA_FINAL: null,
+              }
+            },
             status: 2,
+            AREA_RESP: null,
+            STATUS_EMPLEADO: null,
+            GASCOM: 0,
+            GUARDE: 0,
+            SUELDO_GRV: 0,
+            CONYUGE: null,
+            DIRECCION: null,
+            DIRECCION_FISCAL: null,
+            EMAIL_INSTITUCIONAL: null,
+            ESTADONAC: null,
+            ESTADO_CIVIL: null,
+            ESTUDIOS: null,
+            FECHA_ENTRADA_DEFINITIVA: null,
+            NACIONALIDAD: null,
+            PARENTESCO: null,
+            TEL_CASA: null,
           },
         }
       );
@@ -406,7 +428,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
   try {
     doc.render(templateData);
     const buf = doc.getZip().generate({ type: "nodebuffer" });
-    const outputDir = path.resolve(__dirname, "../docs/bajas");
+    const outputDir = path.resolve(__dirname, "../../docs/bajas");
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
@@ -457,7 +479,7 @@ offEmployeeController.getRecentCasualties = async (req, res) => {
 //Funcion para descargar el documento de baja
 offEmployeeController.downloadBaja = async (req, res) => {
   const { curp } = req.params;
-  const filePath = path.resolve(__dirname, `../docs/bajas/BAJA_${curp}.docx`);
+  const filePath = path.resolve(__dirname, `../../docs/bajas/BAJA_${curp}.docx`);
   res.setHeader(
     "Content-Disposition",
     `attachment; filename=BAJA_${curp}.docx`
