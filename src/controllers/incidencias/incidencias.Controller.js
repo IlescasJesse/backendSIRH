@@ -19,7 +19,6 @@ const incidenciasController = {};
 // Obtener empleado por criterio de búsqueda
 incidenciasController.getEmployee = async (req, res) => {
   const queryParam = req.params.queryParam;
-  console.log(queryParam);
 
   let searchCriteria;
   if (/^\d+$/.test(queryParam)) {
@@ -98,7 +97,7 @@ incidenciasController.getEmployee = async (req, res) => {
       status: 1,
     });
     const resultGafetes = await query("GAFETES_TEMPO", {
-      ...searchCriteria
+      ...searchCriteria,
     });
     const result = [...resultPlantilla, ...resultForanea, ...resultGafetes];
     if (result.length === 0) {
@@ -216,7 +215,6 @@ incidenciasController.getProfile = async (req, res) => {
   const maxAccumulatedDays = 6;
 
   try {
-
     const hsy_proyectos = await query("HSY_PROYECTOS", {
       id_employee: new ObjectId(id),
     });
@@ -243,16 +241,18 @@ incidenciasController.getProfile = async (req, res) => {
       query("PLANTILLA_FORANEA", { _id: new ObjectId(id) }),
     ]);
 
-    const employee = employeePlantilla.length ? employeePlantilla : employeeForanea.length ? employeeForanea : [];
+    const employee = employeePlantilla.length
+      ? employeePlantilla
+      : employeeForanea.length
+      ? employeeForanea
+      : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
       return;
     }
 
-    const emp = employee[0]
-
-    console.log("Employee data:", emp.STATUS_EMPLEADO);
+    const emp = employee[0];
 
     // Obtener el cuatrimestre y año actuales
     const currentQuarter = getCustomQuarter(moment().format("YYYY-MM-DD"));
@@ -269,8 +269,6 @@ incidenciasController.getProfile = async (req, res) => {
       ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
       AÑO: currentYear,
     });
-
-    console.log("Permits data:", permits);
 
     const justificantes = await query("JUSTIFICACIONES", {
       ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
@@ -325,7 +323,6 @@ incidenciasController.getProfile = async (req, res) => {
       action: `CONSULTÓ EL PERFIL DE INCIDENCIAS DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
     };
     await insertOne("USER_ACTIONS", userAction);
-    console.log("Profile data:", ASIST_PROFILE);
 
     res.send(ASIST_PROFILE);
   } catch (error) {
@@ -338,7 +335,6 @@ incidenciasController.getProfile = async (req, res) => {
 incidenciasController.updateStatusEmployee = async (req, res) => {
   const data = req.body;
   const user = req.user;
-  console.log(data);
   const STATUS_EMPLEADO = {
     FOLIO: data.FOLIO || "",
     STATUS: data.STATUS,
@@ -364,13 +360,19 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
       query("PLANTILLA_FORANEA", { _id: new ObjectId(data._id) }),
     ]);
 
-    const result = resultPlantilla.length ? resultPlantilla : resultForanea.length ? resultForanea : [];
+    const result = resultPlantilla.length
+      ? resultPlantilla
+      : resultForanea.length
+      ? resultForanea
+      : [];
     if (!result || result.length === 0) {
       return res.status(404).send({ error: "Employee not found" });
     }
 
     // Determinar colección a actualizar
-    const targetCollection = resultPlantilla.length ? "PLANTILLA" : "PLANTILLA_FORANEA";
+    const targetCollection = resultPlantilla.length
+      ? "PLANTILLA"
+      : "PLANTILLA_FORANEA";
 
     const prevStatus = result[0].STATUS_EMPLEADO || {};
     const hsy_data = {
@@ -474,8 +476,6 @@ incidenciasController.newEconomicPermit = async (req, res) => {
     const currentQuarter = desdeQuarter;
     const currentYear = hastaYear;
 
-    console.log(desdeQuarter);
-
     const permits = await query("PERMISOS_ECONOMICOS", {
       ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
       AÑO: currentYear,
@@ -506,7 +506,9 @@ incidenciasController.newEconomicPermit = async (req, res) => {
     if (leftDays < 0) leftDays = 0;
 
     console.log(`Cuatrimestre actual: ${currentQuarter}`);
-    console.log(`Permisos previos en cuatrimestre anterior: ${hasPreviousQuarterPermits}`);
+    console.log(
+      `Permisos previos en cuatrimestre anterior: ${hasPreviousQuarterPermits}`
+    );
     console.log(`Días disponibles: ${leftDays}`);
 
     // Validar si el nuevo permiso excede los días restantes permitidos
@@ -799,7 +801,6 @@ incidenciasController.newExtPermit = async (req, res) => {
       .status(500)
       .send({ error: "An error occurred while creating the external permit" });
   }
-  console.log("Request body:", req.body);
 };
 incidenciasController.newForeigner = async (req, res) => {
   const user = req.user;
@@ -811,20 +812,33 @@ incidenciasController.newForeigner = async (req, res) => {
     timestamp: currentDateTime,
   };
   const data = req.body;
-  console.log("Received data:", data);
   try {
-
     const plazaPlantilla = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
-    const plazaForanea = await query("PLANTILLA_FORANEA", { NUMPLA: data.NUMPLA });
+    const plazaForanea = await query("PLANTILLA_FORANEA", {
+      NUMPLA: data.NUMPLA,
+    });
     if (plazaPlantilla.length > 0 || plazaForanea.length > 0) {
-      return res.status(409).json({ message: "El número de plaza ya está registrado en plantilla", errorCode: "DUPLICATE_NUMPLA" });
+      return res.status(409).json({
+        message: "El número de plaza ya está registrado en plantilla",
+        errorCode: "DUPLICATE_NUMPLA",
+      });
     }
 
     if (data.NUMTARJETA !== null) {
-      const tarjetaPlantilla = await query("PLANTILLA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
-      const tarjetaForanea = await query("PLANTILLA_FORANEA", { NUMTARJETA: data.NUMTARJETA, AREA_RESP: data.AREA_RESP });
+      const tarjetaPlantilla = await query("PLANTILLA", {
+        NUMTARJETA: data.NUMTARJETA,
+        AREA_RESP: data.AREA_RESP,
+      });
+      const tarjetaForanea = await query("PLANTILLA_FORANEA", {
+        NUMTARJETA: data.NUMTARJETA,
+        AREA_RESP: data.AREA_RESP,
+      });
       if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
-        return res.status(409).json({ message: "El número de tarjeta ya está registrado en el área seleccionada", errorCode: "DUPLICATE_NUMTARJETA" });
+        return res.status(409).json({
+          message:
+            "El número de tarjeta ya está registrado en el área seleccionada",
+          errorCode: "DUPLICATE_NUMTARJETA",
+        });
       }
     }
 
@@ -863,7 +877,6 @@ incidenciasController.newForeigner = async (req, res) => {
 //update
 incidenciasController.updateEconomicPermit = async (req, res) => {
   const { _id, ...updateData } = req.body;
-  console.log("Update data:", updateData);
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
@@ -902,8 +915,6 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
       AÑO: currentYear,
     };
 
-    console.log("Permit data to update:", permitData);
-
     const maxDaysPerQuarter = 4;
     const maxAccumulatedDays = 6;
 
@@ -923,8 +934,6 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
       ID_CTRL_ASIST: new ObjectId(permitData.ID_CTRL_ASIST),
       AÑO: permitData.AÑO,
     });
-
-    console.log("Existing permits:", permits);
 
     // Calcular los días restantes según las reglas de los cuatrimestres
     // Máximo 4 días por cuatrimestre, pero se acumulan 2 días si no se usaron en el cuatrimestre anterior
@@ -953,10 +962,6 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
     });
 
     if (leftDays < 0) leftDays = 0;
-
-    console.log(`Cuatrimestre actual: ${currentQuarter}`);
-    console.log(`Permisos en cuatrimestre anterior: ${hasPreviousQuarterPermits}`);
-    console.log(`Días disponibles después de restar usados: ${leftDays}`);
 
     // Validar si el permiso actualizado excede los días restantes permitidos
     if (permitData.NUM_DIAS > leftDays) {
@@ -1311,7 +1316,6 @@ incidenciasController.getIncidencias = async (req, res) => {
       ID_CTRL_ASIST: new ObjectId(id),
     });
 
-    console.log("Incidencias data:", incidencias);
     res.send(incidencias);
   } catch (error) {
     console.error("Error fetching incidencias:", error);
@@ -1330,17 +1334,25 @@ incidenciasController.asignarTarjeta = async (req, res) => {
       query("PLANTILLA_FORANEA", { _id: new ObjectId(_id) }),
     ]);
 
-    const result = resultPlantilla.length ? resultPlantilla : resultForanea.length ? resultForanea : [];
+    const result = resultPlantilla.length
+      ? resultPlantilla
+      : resultForanea.length
+      ? resultForanea
+      : [];
     if (!result || result.length === 0) {
       return res.status(404).send({ error: "Employee not found" });
     }
 
     const employee = result[0];
-    const targetCollection = resultPlantilla.length ? "PLANTILLA" : "PLANTILLA_FORANEA";
+    const targetCollection = resultPlantilla.length
+      ? "PLANTILLA"
+      : "PLANTILLA_FORANEA";
     const areaToCheck = AREA_RESP ?? employee.AREA_RESP;
 
     // Normalizar NUMTARJETA para coincidir con el tipo almacenado en DB si es numérico
-    const normalizedNUMTARJETA = !isNaN(Number(NUMTARJETA)) ? Number(NUMTARJETA) : NUMTARJETA;
+    const normalizedNUMTARJETA = !isNaN(Number(NUMTARJETA))
+      ? Number(NUMTARJETA)
+      : NUMTARJETA;
 
     // Excluir el propio documento al buscar duplicados
     const excludeCurrent = { _id: { $ne: new ObjectId(_id) } };
@@ -1356,9 +1368,11 @@ incidenciasController.asignarTarjeta = async (req, res) => {
     });
 
     if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
-      return res
-        .status(409)
-        .json({ message: "El número de tarjeta ya está registrado en el área seleccionada", errorCode: "DUPLICATE_NUMTARJETA" });
+      return res.status(409).json({
+        message:
+          "El número de tarjeta ya está registrado en el área seleccionada",
+        errorCode: "DUPLICATE_NUMTARJETA",
+      });
     }
 
     await updateOne(
@@ -1375,10 +1389,15 @@ incidenciasController.asignarTarjeta = async (req, res) => {
     };
     await insertOne("USER_ACTIONS", userAction);
 
-    res.status(200).send({ message: "Card assigned successfully", data: { _id, NUMTARJETA: normalizedNUMTARJETA } });
+    res.status(200).send({
+      message: "Card assigned successfully",
+      data: { _id, NUMTARJETA: normalizedNUMTARJETA },
+    });
   } catch (error) {
     console.error("Error assigning card:", error);
-    res.status(500).send({ error: "An error occurred while assigning the card" });
+    res
+      .status(500)
+      .send({ error: "An error occurred while assigning the card" });
   }
 };
 incidenciasController.deleteIncidencia = async (req, res) => {
@@ -1408,7 +1427,6 @@ incidenciasController.deleteIncidencia = async (req, res) => {
 incidenciasController.getAllIncidencias = async (req, res) => {
   try {
     const incidencias = await query("INCIDENCIAS", {});
-    console.log("Incidencias data:", incidencias);
     res.status(200).send(incidencias);
   } catch (error) {
     console.error("Error fetching incidencias:", error);

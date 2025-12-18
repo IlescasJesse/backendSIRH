@@ -75,8 +75,6 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       status: 1,
     });
 
-    console.log(licenses);
-
     let CUBRIENDO_LICENCIA = false;
 
     if (licenses.length > 0) {
@@ -97,8 +95,9 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       DOMICILIO: emp.DOMICILIO
         ? emp.DOMICILIO
         : emp.DIRECCION?.DOMICILIO ||
-        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
-        }, ${emp.DIRECCION?.ESTADO || ""}`,
+          `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${
+            emp.DIRECCION?.MUNICIPIO || ""
+          }, ${emp.DIRECCION?.ESTADO || ""}`,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
@@ -114,7 +113,7 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       SEXO: emp.SEXO,
       FECHA_INGRESO: emp.FECHA_INGRESO,
       DIRECCION: emp.DIRECCION,
-      CUBRIENDO_LICENCIA
+      CUBRIENDO_LICENCIA,
     }));
 
     res.json(formattedEmployees);
@@ -128,7 +127,6 @@ offEmployeeController.getDatatoOff = async (req, res) => {
 
 offEmployeeController.saveDataOff = async (req, res) => {
   const { data } = req.body;
-  console.log(data);
   const user = req.user;
   const currentYear = new Date().getFullYear();
   const currentDateTime = new Date().toLocaleString("en-US", {
@@ -171,11 +169,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
           },
         }
       );
-      await updateOne(
-        `PLAZAS`,
-        { NUMPLA: data.NUMPLA },
-        { $set: { status: 2 } }
-      );
     } else {
       res.status(404).json({ message: "Plaza no encontrada" });
       return;
@@ -183,7 +176,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
     const employee = await query("PLANTILLA", {
       _id: new ObjectId(data.id_employee),
     });
-
 
     const employee_old = await query("PLANTILLA", {
       _id: new ObjectId(data.id_employee),
@@ -198,7 +190,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
       id_employee: data.id_employee,
       id_licencia: data.id_licencia || null,
     };
-    console.log(licenseData);
     delete licenseData._id;
 
     if (data.reason === "L-SS" || data.reason === "L-IBASE") {
@@ -207,7 +198,10 @@ offEmployeeController.saveDataOff = async (req, res) => {
         const insertResult = await insertOne("LICENCIAS", licenseData);
         // adaptarse a la forma en que insertOne retorna el id
         const newLicenseId =
-          insertResult.insertedId || insertResult._id || insertResult?.ops?.[0]?._id || null;
+          insertResult.insertedId ||
+          insertResult._id ||
+          insertResult?.ops?.[0]?._id ||
+          null;
 
         await insertOne("HSY_LICENCIAS", {
           time: data.time || null,
@@ -243,75 +237,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
       );
     }
     if (employee.length > 0 && data.reason !== "L-PRRO") {
-      await updateOne(
-        "PLANTILLA",
-        { _id: new ObjectId(data.id_employee) },
-        {
-          $set: {
-            CONSEC: null,
-            CLAVE: null,
-            CURP: null,
-            RFC: null,
-            AFILIACI: null,
-            NUMEMP: null,
-            NUMQUIN: 0,
-            FECHA_INGRESO: null,
-            SANGRE: null,
-            AVISAR: null,
-            TEL_EMERGENCIA1: null,
-            TEL_EMERGENCIA2: null,
-            NUMTARJETA: null,
-            TURNOMAT: null,
-            TURNOVES: null,
-            SABADO: null,
-            SEXO: null,
-            FECHA_NAC: null,
-            LUGARNAC: null,
-            CP: null,
-            TEL_PERSONAL: null,
-            ALERGIA: null,
-            TIPOPAG: null,
-            BANCO: null,
-            CUENTA: null,
-            NOMINA: null,
-            EMAIL: null,
-            DOMICILIO: null,
-            PROFES: null,
-            APE_PAT: null,
-            APE_MAT: "VACANTE",
-            NOMBRES: null,
-            VACACIONES: {
-              PERIODO: 0,
-              FECHA_VACACIONES: null,
-              DIAS: null,
-              FECHAS: {
-                FECHA_INICIO: null,
-                FECHA_FINAL: null,
-              }
-            },
-            status: 2,
-            AREA_RESP: null,
-            STATUS_EMPLEADO: null,
-            GASCOM: 0,
-            GUARDE: 0,
-            SUELDO_GRV: 0,
-            CONYUGE: null,
-            DIRECCION: null,
-            DIRECCION_FISCAL: null,
-            EMAIL_INSTITUCIONAL: null,
-            ESTADONAC: null,
-            ESTADO_CIVIL: null,
-            ESTUDIOS: null,
-            FECHA_ENTRADA_DEFINITIVA: null,
-            NACIONALIDAD: null,
-            PARENTESCO: null,
-            TEL_CASA: null,
-          },
-        }
-      );
-      console.log("Empleado dado de baja");
-    } else {
-      console.log(`Empleado con ID ${data._id} no fue encontrado`);
+      // Empleado dado de baja
     }
   } catch (e) {
     console.error(e);
@@ -344,8 +270,9 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
   const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
-    } DE ${date.getFullYear()}`;
+  const formattedDate = `${date.getDate() + 1} DE ${
+    months[date.getMonth()]
+  } DE ${date.getFullYear()}`;
 
   if (data.TIPONOM === "F51" || data.TIPONOM === "M51") {
     relacionB = true;
@@ -479,7 +406,10 @@ offEmployeeController.getRecentCasualties = async (req, res) => {
 //Funcion para descargar el documento de baja
 offEmployeeController.downloadBaja = async (req, res) => {
   const { curp } = req.params;
-  const filePath = path.resolve(__dirname, `../../docs/bajas/BAJA_${curp}.docx`);
+  const filePath = path.resolve(
+    __dirname,
+    `../../docs/bajas/BAJA_${curp}.docx`
+  );
   res.setHeader(
     "Content-Disposition",
     `attachment; filename=BAJA_${curp}.docx`
@@ -503,9 +433,13 @@ offEmployeeController.getDataLicenses = async (req, res) => {
     if (licenses.length > 0) {
       if (ocupante.length > 0 && ocupante[0].CURP) {
         let OCUPANTE = {
-          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${ocupante[0]?.APE_MAT || ""} ${ocupante[0]?.NOMBRES || ""}`.trim(),
-        }
-        res.status(404).json({ message: "La plaza cuenta con un ocupante", OCUPANTE });
+          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${
+            ocupante[0]?.APE_MAT || ""
+          } ${ocupante[0]?.NOMBRES || ""}`.trim(),
+        };
+        res
+          .status(404)
+          .json({ message: "La plaza cuenta con un ocupante", OCUPANTE });
       } else {
         res.status(200).json(licenses);
       }
@@ -514,7 +448,6 @@ offEmployeeController.getDataLicenses = async (req, res) => {
         message: "No se encontraron licencias con este ID",
       });
     }
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al recuperar las licencias" });
@@ -535,18 +468,25 @@ offEmployeeController.getLicenses = async (req, res) => {
           if (numpla !== undefined && numpla !== null && numpla !== "") {
             plantilla = await query("PLANTILLA", { NUMPLA: numpla });
           }
-          const OCUPANTE_ACTIVO = Boolean(plantilla && plantilla[0] && plantilla[0].CURP);
+          const OCUPANTE_ACTIVO = Boolean(
+            plantilla && plantilla[0] && plantilla[0].CURP
+          );
           let OCUPANTE = {
-            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${plantilla[0]?.APE_MAT || ""} ${plantilla[0]?.NOMBRES || ""}`.trim(),
-          }
+            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${
+              plantilla[0]?.APE_MAT || ""
+            } ${plantilla[0]?.NOMBRES || ""}`.trim(),
+          };
           if (OCUPANTE_ACTIVO) {
             return { ...lic, OCUPANTE };
           } else {
             return { ...lic };
           }
-
         } catch (err) {
-          console.error("Error consultando PLANTILLA para NUMPLA:", lic.NUMPLA, err);
+          console.error(
+            "Error consultando PLANTILLA para NUMPLA:",
+            lic.NUMPLA,
+            err
+          );
           return { ...lic, OCUPANTE_ACTIVO: false };
         }
       })
@@ -555,7 +495,9 @@ offEmployeeController.getLicenses = async (req, res) => {
     return res.status(200).json(enhanced);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Error al recuperar las licencias" });
+    return res
+      .status(500)
+      .json({ message: "Error al recuperar las licencias" });
   }
 };
 // offEmployeeController.updateLicense = async (req, res) => {

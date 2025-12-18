@@ -4,6 +4,8 @@ const cors = require("cors");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
 const { Server } = require("socket.io");
+const { startAgenda } = require("./config/agenda");
+const { requestLogger, errorLogger } = require("./middleware/loggerMiddleware");
 
 require("dotenv").config();
 
@@ -14,6 +16,9 @@ app.use(morgan("dev"));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Middleware de logging con colores
+app.use(requestLogger);
 
 app.use(
   session({
@@ -79,10 +84,15 @@ app.use("/api/talon", require("./routes/talones/talones.routes"));
 // rutas para utilidades
 app.use("/api", require("./routes/calendar/calendar.routes"));
 app.use("/api", require("./routes/libs/libs.routes"));
+// rutas para monitor del servidor
+app.use("/api/monitor", require("./routes/monitor/monitor.routes"));
 
-// Iniciar el servidor
-app.listen(app.get("port"), () => {
-  console.log(`Servidor en puerto ${app.get("port")}`);
+// Middleware de manejo de errores (debe ir al final)
+app.use(errorLogger);
+
+// Iniciar Agenda (scheduler de tareas automáticas)
+startAgenda().catch((err) => {
+  console.error("Error al iniciar Agenda:", err);
 });
 
 module.exports = app;

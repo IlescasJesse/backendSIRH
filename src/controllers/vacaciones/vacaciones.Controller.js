@@ -25,8 +25,8 @@ vacacionesController.getProfile = async (req, res) => {
     const employee = employeePlantilla.length
       ? employeePlantilla
       : employeeForanea.length
-        ? employeeForanea
-        : [];
+      ? employeeForanea
+      : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
@@ -42,7 +42,10 @@ vacacionesController.getProfile = async (req, res) => {
 
     let yearsWorked = 0;
     if (!fechaIngreso.isValid()) {
-      console.warn(`FECHA_INGRESO inválida para empleado ${emp._id}:`, emp.FECHA_INGRESO);
+      console.warn(
+        `FECHA_INGRESO inválida para empleado ${emp._id}:`,
+        emp.FECHA_INGRESO
+      );
       yearsWorked = 0;
     } else {
       yearsWorked = ahora.diff(fechaIngreso, "years");
@@ -74,13 +77,12 @@ vacacionesController.getProfile = async (req, res) => {
         5: "PRIMER PERÍODO",
         6: "SEGUNDO PERÍODO",
         7: "TERCER PERÍODO",
-        8: "CUARTO PERÍODO"
+        8: "CUARTO PERÍODO",
       };
       return labels[p] || `PERIODO ${p}`;
     };
 
     if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {
-
       const docs = await query("PER_VACACIONALES_BASE", {});
 
       const matches = docs
@@ -114,7 +116,6 @@ vacacionesController.getProfile = async (req, res) => {
       );
 
       emp.PERIODOS_VACACIONALES = filteredMatches;
-
     } else {
       const docs = await query("PER_VACACIONALES_CONTRATO", {});
       const matches = docs
@@ -168,7 +169,6 @@ vacacionesController.getProfile = async (req, res) => {
       action: `CONSULTÓ EL PERFIL DE VACACIONES DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
     };
     await insertOne("USER_ACTIONS", userAction);
-    console.log("Profile data:", ASIST_PROFILE);
     res.send(ASIST_PROFILE);
   } catch (error) {
     console.error("Error fetching profile:", error);
@@ -196,14 +196,24 @@ vacacionesController.updateEmployee = async (req, res) => {
     // Evitar sobrescribir el _id si viene en el body
     if (data._id) delete data._id;
 
-    const update = { $set: { "VACACIONES.FECHA_VACACIONES": fecha_vacaciones } };
+    const update = {
+      $set: { "VACACIONES.FECHA_VACACIONES": fecha_vacaciones },
+    };
 
     // Intentar actualizar en PLANTILLA primero
-    let result = await updateOne("PLANTILLA", { _id: new ObjectId(id) }, update);
+    let result = await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(id) },
+      update
+    );
 
     // Si no hay coincidencia en PLANTILLA, intentar en PLANTILLA_FORANEA
     if (!result || (result.matchedCount === 0 && result.modifiedCount === 0)) {
-      result = await updateOne("PLANTILLA_FORANEA", { _id: new ObjectId(id) }, update);
+      result = await updateOne(
+        "PLANTILLA_FORANEA",
+        { _id: new ObjectId(id) },
+        update
+      );
     }
 
     // Si aun no se encontró, informar 404
@@ -221,7 +231,9 @@ vacacionesController.updateEmployee = async (req, res) => {
     res.send({ message: "Employee updated successfully", _id: id });
   } catch (error) {
     console.error("Error updating employee:", error);
-    res.status(500).send({ error: "An error occurred while updating employee" });
+    res
+      .status(500)
+      .send({ error: "An error occurred while updating employee" });
   }
 };
 vacacionesController.updateVacacionesBase = async (req, res) => {
@@ -276,8 +288,6 @@ vacacionesController.updateVacacionesContrato = async (req, res) => {
     action: `ACTUALIZÓ EL PERIODO DE VACACIONES DEL CONTRATO "${PERIODO}"`,
   };
   try {
-    console.log(data);
-
     const objectKey = Object.keys(objectsToUpdate)[0];
     const objectValue = objectsToUpdate[objectKey];
 
@@ -329,7 +339,10 @@ vacacionesController.savePeriodoVacacionalEmpleado = async (req, res) => {
       return res.status(400).send({ error: "ID inválido" });
     }
 
-    if (typeof data.PERIODO === "undefined" || typeof data.DIAS === "undefined") {
+    if (
+      typeof data.PERIODO === "undefined" ||
+      typeof data.DIAS === "undefined"
+    ) {
       return res.status(400).send({ error: "PERIODO y DIAS son requeridos" });
     }
 
@@ -340,16 +353,24 @@ vacacionesController.savePeriodoVacacionalEmpleado = async (req, res) => {
       $set: {
         "VACACIONES.PERIODO": data.PERIODO,
         "VACACIONES.DIAS": data.DIAS,
-        "VACACIONES.FECHAS": data.FECHAS
+        "VACACIONES.FECHAS": data.FECHAS,
       },
     };
 
     // Intentar actualizar en PLANTILLA primero
-    let result = await updateOne("PLANTILLA", { _id: new ObjectId(id) }, update);
+    let result = await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(id) },
+      update
+    );
 
     // Si no se actualizó, intentar en PLANTILLA_FORANEA
     if (!result || (result.modifiedCount === 0 && result.matchedCount === 0)) {
-      result = await updateOne("PLANTILLA_FORANEA", { _id: new ObjectId(id) }, update);
+      result = await updateOne(
+        "PLANTILLA_FORANEA",
+        { _id: new ObjectId(id) },
+        update
+      );
     }
 
     if (!result || (result.modifiedCount === 0 && result.matchedCount === 0)) {
@@ -366,7 +387,9 @@ vacacionesController.savePeriodoVacacionalEmpleado = async (req, res) => {
     res.status(200).send({ message: "Employee updated successfully", _id: id });
   } catch (error) {
     console.error("Error updating employee:", error);
-    res.status(500).send({ error: "An error occurred while updating employee" });
+    res
+      .status(500)
+      .send({ error: "An error occurred while updating employee" });
   }
 };
 module.exports = vacacionesController;

@@ -102,7 +102,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(percepciones.sueldo_base) -
             parseFloat(isrObjectB.limite_inf)) *
             parseFloat(isrObjectB.porcentajeliminf)) /
-          100 +
+            100 +
           parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
         const FONDO_PENSIONES = (
@@ -147,7 +147,7 @@ employeeController.getProfileData = async (req, res) => {
         deducciones.ISR = (
           ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
             parseFloat(isrObjectCC.porcentajeliminf)) /
-          100 +
+            100 +
           parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
@@ -204,7 +204,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(sueldoGravableMM) -
             parseFloat(isrObjectMM[0].limite_inf)) *
             isrObjectMM[0].porcentajeliminf) /
-          100 +
+            100 +
           parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
@@ -239,7 +239,6 @@ employeeController.getProfileData = async (req, res) => {
     employee[0].percepciones = percepciones;
     employee[0].deducciones = deducciones;
     employee[0].status_plaza = status_plaza;
-    console.log(employee[0]);
     const userAction = {
       username: user.username,
       module: "PSL-CE",
@@ -340,7 +339,6 @@ employeeController.updateProyect = async (req, res) => {
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
-  console.log(req.body);
 
   try {
     // Verificar si el empleado existe
@@ -478,7 +476,6 @@ employeeController.getUserActions = async (req, res) => {
 };
 employeeController.addCategory = async (req, res) => {
   const { CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA } = req.body;
-  console.log(req.body);
 
   try {
     // Validar que los campos requeridos no sean undefined
@@ -515,16 +512,16 @@ employeeController.getEmployeeCount = async (req, res) => {
   });
 
   const tipoNomMap = {
-    'F51': 'BASE FORÁNEA',
-    'M51': 'BASE CENTRAL',
-    'FCT': 'CONTRATO CONFIANZA FORANEO',
-    'CCT': 'CONTRATO CONFIANZA CENTRAL',
-    'FCO': 'NOMBRAMIENTO CONFIANZA FORANEO',
-    '511': 'NOMBRAMIENTO CONFIANZA CENTRAL',
-    'F53': 'CONTRATO FORÁNEO',
-    'M53': 'CONTRATO CENTRAL',
-    'FMM': 'MANDOS MEDIOS FORÁNEOS',
-    'MMS': 'MANDOS MEDIOS CENTRAL',
+    F51: "BASE FORÁNEA",
+    M51: "BASE CENTRAL",
+    FCT: "CONTRATO CONFIANZA FORANEO",
+    CCT: "CONTRATO CONFIANZA CENTRAL",
+    FCO: "NOMBRAMIENTO CONFIANZA FORANEO",
+    511: "NOMBRAMIENTO CONFIANZA CENTRAL",
+    F53: "CONTRATO FORÁNEO",
+    M53: "CONTRATO CENTRAL",
+    FMM: "MANDOS MEDIOS FORÁNEOS",
+    MMS: "MANDOS MEDIOS CENTRAL",
   };
 
   try {
@@ -542,11 +539,11 @@ employeeController.getEmployeeCount = async (req, res) => {
     let totalMujeres = 0;
 
     todosEmpleados.forEach((emp) => {
-      const tipoNom = emp.TIPONOM || 'SIN ASIGNAR';
+      const tipoNom = emp.TIPONOM || "SIN ASIGNAR";
       conteo[tipoNom] = (conteo[tipoNom] || 0) + 1;
-      if (emp.SEXO === 'H') {
+      if (emp.SEXO === "H") {
         totalHombres++;
-      } else if (emp.SEXO === 'M') {
+      } else if (emp.SEXO === "M") {
         totalMujeres++;
       }
     });
@@ -556,7 +553,7 @@ employeeController.getEmployeeCount = async (req, res) => {
       .sort()
       .map((clave) => ({
         clave,
-        descripcion: tipoNomMap[clave] || 'Tipo no definido',
+        descripcion: tipoNomMap[clave] || "Tipo no definido",
         cantidad: conteo[clave],
       }));
     // Registrar acción del usuario
@@ -576,10 +573,11 @@ employeeController.getEmployeeCount = async (req, res) => {
     });
   } catch (error) {
     console.error("Error counting employees by tipo de nombramiento:", error);
-    res.status(500).json({ error: "An error occurred while counting employees" });
+    res
+      .status(500)
+      .json({ error: "An error occurred while counting employees" });
   }
 };
-
 
 // Exportamos el controlador de empleados
 module.exports = employeeController;
