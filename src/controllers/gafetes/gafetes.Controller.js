@@ -248,14 +248,6 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
       const CM_TO_POINTS = 28.3465;
 
-      console.log(`
-      ════════════════════════════════════════
-      📄 Dimensiones del PDF:
-      Width: ${width} points (${(width / CM_TO_POINTS).toFixed(2)} cm)
-      Height: ${height} points (${(height / CM_TO_POINTS).toFixed(2)} cm)
-      ════════════════════════════════════════
-      `);
-
       // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
       const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
       // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
@@ -279,7 +271,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         CM_TO_POINTS
       );
 
-      // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
+      // Procesar APELLIDOS (APE_PAT + A|PE_MAT) con ancho de 6cm
       const apellidosText = `${employee.APE_PAT || ""} ${
         employee.APE_MAT || ""
       }`.trim();
@@ -1199,14 +1191,6 @@ gafetesController.printCredentialsServicios = async (req, res) => {
 
       // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
       const CM_TO_POINTS = 28.3465;
-
-      console.log(`
-      ════════════════════════════════════════
-      📄 Dimensiones del PDF:
-      Width: ${width} points (${(width / CM_TO_POINTS).toFixed(2)} cm)
-      Height: ${height} points (${(height / CM_TO_POINTS).toFixed(2)} cm)
-      ════════════════════════════════════════
-      `);
 
       // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
       const offsetY = (1.7 - 1.5) * CM_TO_POINTS;

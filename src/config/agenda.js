@@ -5,7 +5,7 @@ require("dotenv").config();
 
 // Crear instancia de Agenda conectada a MongoDB
 const agenda = new Agenda({
-  db: { address: process.env.MONGO_URI, collection: "agendaJobs" },
+  db: { address: process.env.MONGO_URI, collection: "AGENDA_LOGS" },
   processEvery: "1 minute", // Verificar trabajos cada minuto
   maxConcurrency: 20,
 });
@@ -382,11 +382,6 @@ agenda.define("crearTalones", async (job) => {
   const inicioTarea = Date.now();
   const nombreTarea = "crearTalones";
 
-  console.log(
-    "Ejecutando tarea de creación de talones:",
-    new Date().toISOString()
-  );
-
   let registrosProcesados = 0;
   let registrosExitosos = 0;
   let registrosErrores = 0;
@@ -402,8 +397,6 @@ agenda.define("crearTalones", async (job) => {
     let esQuincena2 = dia === ultimoDiaMes;
 
     if (!esQuincena1 && !esQuincena2) {
-      console.log(`Hoy no es día de pago (día ${dia} del mes ${mes})`);
-
       await registrarActividadAgenda({
         tarea: nombreTarea,
         estado: "omitido",
@@ -433,18 +426,7 @@ agenda.define("crearTalones", async (job) => {
       },
     });
 
-    console.log(
-      `Procesando quincena ${quincenaDelAño} del año ${año} - Fecha de pago: ${fechaPago
-        .toISOString()
-        .slice(0, 10)}`
-    );
-
     const empleadosActivos = await query("PLANTILLA", { status: 1 });
-
-    console.log(
-      `Se encontraron ${empleadosActivos.length} empleados activos para generar talones`
-    );
-
     registrosProcesados = empleadosActivos.length;
 
     for (const empleado of empleadosActivos) {
@@ -462,15 +444,10 @@ agenda.define("crearTalones", async (job) => {
         };
 
         if (talonExistente.length === 0) {
-          const nuevoDocumento = {
+          await insertOne("TALONES", {
             _idEmployee: empleado._id,
             TALONES: [nuevoTalon],
-          };
-
-          await insertOne("TALONES", nuevoDocumento);
-          console.log(
-            `Talón creado para empleado ${empleado.NOMBRES} ${empleado.APE_PAT} (primera quincena)`
-          );
+          });
           registrosExitosos++;
         } else {
           const empleadoActual = await query("PLANTILLA", {
@@ -489,26 +466,15 @@ agenda.define("crearTalones", async (job) => {
                 { _idEmployee: empleado._id },
                 { $push: { TALONES: nuevoTalon } }
               );
-              console.log(
-                `Talón agregado para empleado ${empleado.NOMBRES} ${empleado.APE_PAT} (quincena ${quincenaDelAño})`
-              );
               registrosExitosos++;
-            } else {
-              console.log(
-                `El talón para la quincena ${quincenaDelAño} ya existe para ${empleado.NOMBRES} ${empleado.APE_PAT}`
-              );
             }
-          } else {
-            console.log(
-              `Empleado ${empleado.NOMBRES} ${empleado.APE_PAT} ya no está activo, no se genera talón`
-            );
           }
         }
       } catch (errorTalon) {
         registrosErrores++;
         console.error(
           `Error procesando talón para empleado ${empleado._id}:`,
-          errorTalon
+          errorTalon.message
         );
       }
     }
@@ -518,7 +484,7 @@ agenda.define("crearTalones", async (job) => {
     await registrarActividadAgenda({
       tarea: nombreTarea,
       estado: "completado",
-      mensaje: `Talones creados exitosamente para la quincena ${quincenaDelAño}`,
+      mensaje: `Creados ${registrosExitosos} talones para quincena ${quincenaDelAño}`,
       detalles: {
         fechaEjecucion: new Date().toISOString(),
         quincena: quincenaDelAño,
@@ -530,7 +496,9 @@ agenda.define("crearTalones", async (job) => {
       duracion,
     });
 
-    console.log("Talones generados correctamente");
+    console.log(
+      `✓ Talones generados: ${registrosExitosos} de ${registrosProcesados} empleados (Quincena ${quincenaDelAño})`
+    );
   } catch (error) {
     const duracion = Date.now() - inicioTarea;
 
@@ -546,7 +514,7 @@ agenda.define("crearTalones", async (job) => {
       error: error.message,
     });
 
-    console.error("Error en tarea de creación de talones:", error);
+    console.error("✗ Error en tarea de creación de talones:", error.message);
   }
 });
 
