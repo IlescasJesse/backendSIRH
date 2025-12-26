@@ -23,4 +23,13 @@ router.get("/endpoints", monitorController.getEndpointStats);
 // Obtener estadísticas por rango de tiempo
 router.get("/stats/range", monitorController.getStatsByTimeRange);
 
+// Obtener logs de tareas de Agenda
+router.get("/agenda/logs", monitorController.getAgendaLogs);
+
+// Obtener estadísticas de tareas de Agenda
+router.get("/agenda/stats", monitorController.getAgendaStats);
+
+// Limpiar todos los logs (endpoint secreto)
+router.delete("/clean", monitorController.cleanAllLogs);
+
 module.exports = router;

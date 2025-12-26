@@ -37,13 +37,19 @@ const getLogCategory = (statusCode) => {
 
 // Middleware para logging de solicitudes HTTP
 const requestLogger = (req, res, next) => {
+  // Excluir rutas de monitor de los logs
+  const url = req.originalUrl || req.url;
+  if (url.startsWith("/api/monitor")) {
+    return next();
+  }
+
   const startTime = Date.now();
   const originalSend = res.send;
 
   // Capturar información de la solicitud
   const requestData = {
     method: req.method,
-    url: req.originalUrl || req.url,
+    url: url,
     ip: req.ip || req.connection.remoteAddress,
     userAgent: req.get("user-agent"),
     timestamp: new Date(),

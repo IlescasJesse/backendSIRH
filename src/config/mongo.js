@@ -40,6 +40,13 @@ async function deleteOne(collectionName, filter) {
   return result;
 }
 
+async function deleteMany(collectionName, filter) {
+  const database = await connect();
+  const collection = database.collection(collectionName);
+  const result = await collection.deleteMany(filter);
+  return result;
+}
+
 async function ping() {
   const database = await connect();
   await database.admin().ping();
@@ -60,5 +67,6 @@ module.exports = {
   insertOne,
   updateOne,
   deleteOne,
+  deleteMany,
   findById,
 };

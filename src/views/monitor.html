@@ -128,12 +128,18 @@
       .stat-card.client-error::before {
         background: linear-gradient(90deg, #525252, #737373, #525252);
       }
+      .stat-card.client-error {
+        cursor: pointer;
+      }
 
       .stat-card.server-error .value {
         color: #fca5a5;
       }
       .stat-card.server-error::before {
         background: linear-gradient(90deg, #7f1d1d, #991b1b, #7f1d1d);
+      }
+      .stat-card.server-error {
+        cursor: pointer;
       }
 
       .stat-card.total .value {
@@ -255,6 +261,40 @@
         border: 1px solid #7f1d1d;
       }
 
+      /* Estilos para badges de Agenda */
+      .agenda-badge {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .estado-completado {
+        background: #064e3b;
+        color: #6ee7b7;
+        border: 1px solid #10b981;
+      }
+
+      .estado-error {
+        background: #7f1d1d;
+        color: #fca5a5;
+        border: 1px solid #dc2626;
+      }
+
+      .estado-iniciado {
+        background: #1e3a8a;
+        color: #93c5fd;
+        border: 1px solid #3b82f6;
+      }
+
+      .estado-omitido {
+        background: #3f3f3f;
+        color: #d1d5db;
+        border: 1px solid #6b7280;
+      }
+
       .loading {
         text-align: center;
         color: #9ca3af;
@@ -325,6 +365,187 @@
         border: 1px solid #52525b;
       }
 
+      /* Modal de Errores */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.85);
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      .modal-content {
+        background: linear-gradient(135deg, #1f1f1f 0%, #2a2a2a 100%);
+        margin: 3% auto;
+        padding: 0;
+        border: 2px solid #9d2449;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 900px;
+        box-shadow: 0 20px 60px rgba(157, 36, 73, 0.5);
+        animation: slideDown 0.3s ease;
+      }
+
+      @keyframes slideDown {
+        from {
+          transform: translateY(-50px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .modal-header {
+        padding: 25px 30px;
+        background: linear-gradient(135deg, #9d2449 0%, #b82d54 100%);
+        color: white;
+        border-radius: 10px 10px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-header h2 {
+        margin: 0;
+        font-size: 1.5em;
+        font-weight: 600;
+      }
+
+      .close {
+        color: #ffffff;
+        font-size: 32px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        line-height: 1;
+      }
+
+      .close:hover,
+      .close:focus {
+        color: #fca5a5;
+        transform: scale(1.2);
+      }
+
+      .modal-body {
+        padding: 30px;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
+      .error-item {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-left: 4px solid #dc2626;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+      }
+
+      .error-item:hover {
+        border-left-color: #9d2449;
+        transform: translateX(5px);
+      }
+
+      .error-item .error-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .error-item .error-code {
+        background: #7f1d1d;
+        color: #fca5a5;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.9em;
+      }
+
+      .error-item .error-time {
+        color: #9ca3af;
+        font-size: 0.85em;
+      }
+
+      .error-item .error-url {
+        color: #d1d5db;
+        font-weight: 600;
+        margin-bottom: 8px;
+        word-break: break-all;
+      }
+
+      .error-item .error-method {
+        display: inline-block;
+        background: #9d2449;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: 600;
+        margin-right: 10px;
+      }
+
+      .error-item .error-description {
+        color: #9ca3af;
+        font-size: 0.9em;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #333;
+      }
+
+      /* Botón secreto de limpieza */
+      .secret-clean-btn {
+        position: fixed;
+        bottom: 90px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .secret-clean-btn.visible {
+        opacity: 1;
+      }
+
+      .secret-clean-btn svg {
+        width: 100%;
+        height: 100%;
+        filter: drop-shadow(0 0 10px rgba(220, 38, 38, 0.5));
+      }
+
+      .secret-clean-btn:hover svg {
+        filter: drop-shadow(0 0 15px rgba(220, 38, 38, 0.8));
+        transform: scale(1.1);
+      }
+
+      .no-errors {
+        text-align: center;
+        color: #6b7280;
+        padding: 40px;
+        font-size: 1.1em;
+      }
+
       @media (max-width: 768px) {
         .charts-grid {
           grid-template-columns: 1fr;
@@ -339,6 +560,16 @@
           right: 20px;
           padding: 12px 20px;
           font-size: 0.9em;
+        }
+
+        .modal-content {
+          width: 95%;
+          margin: 5% auto;
+        }
+
+        .secret-clean-btn {
+          bottom: 80px;
+          right: 20px;
         }
       }
     </style>
@@ -407,7 +638,7 @@
 
         <!-- Tabla de registros recientes -->
         <div class="table-card">
-          <h2>Registros Recientes</h2>
+          <h2>Registros Recientes de HTTP</h2>
           <table id="logsTable">
             <thead>
               <tr>
@@ -422,10 +653,63 @@
             <tbody></tbody>
           </table>
         </div>
+
+        <!-- Tabla de tareas automáticas (Agenda) -->
+        <div class="table-card">
+          <h2>Tareas Automáticas (Scheduler)</h2>
+          <table id="agendaLogsTable">
+            <thead>
+              <tr>
+                <th>Fecha/Hora</th>
+                <th>Tarea</th>
+                <th>Estado</th>
+                <th>Mensaje</th>
+                <th>Registros</th>
+                <th>Exitosos</th>
+                <th>Errores</th>
+                <th>Duración</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <button class="refresh-btn" onclick="loadData()">Actualizar Datos</button>
     </div>
+
+    <!-- Modal para mostrar errores -->
+    <div id="errorModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">Errores del Servidor</h2>
+          <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <div class="modal-body" id="modalBody">
+          <!-- Los errores se cargarán dinámicamente aquí -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Botón secreto para limpiar logs (aparece al hacer triple click en el logo) -->
+    <button class="secret-clean-btn" id="secretCleanBtn" onclick="cleanLogs()">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#dc2626"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path
+          d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+        ></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+    </button>
 
     <script>
       let charts = {};
@@ -447,11 +731,18 @@
           document.getElementById("stat-5xx").textContent =
             stats.byStatus["5xx"];
 
-          // Cargar logs recientes
-          const logsRes = await fetch("/api/monitor/recent");
+          // Cargar logs recientes HTTP (límite 50)
+          const logsRes = await fetch("/api/monitor/recent?limit=50");
           const logs = await logsRes.json();
 
+          // Cargar logs de Agenda
+          const agendaLogsRes = await fetch(
+            "/api/monitor/agenda/logs?limit=50"
+          );
+          const agendaLogs = await agendaLogsRes.json();
+
           renderTable(logs);
+          renderAgendaTable(agendaLogs);
           renderCharts(stats);
 
           document.getElementById("loading").style.display = "none";
@@ -622,6 +913,223 @@
         if (statusCode >= 400 && statusCode < 500) return "status-client-error";
         if (statusCode >= 500) return "status-server-error";
         return "";
+      }
+
+      function renderAgendaTable(logs) {
+        const tbody = document.querySelector("#agendaLogsTable tbody");
+        tbody.innerHTML = "";
+
+        logs.forEach((log) => {
+          const row = document.createElement("tr");
+
+          const date = new Date(log.timestamp);
+          const formattedDate = date.toLocaleString("es-MX");
+
+          const estadoClass = getAgendaEstadoClass(log.estado);
+          const duracionFormateada = formatDuration(log.duracion);
+
+          row.innerHTML = `
+            <td>${formattedDate}</td>
+            <td><strong>${formatTareaName(log.tarea)}</strong></td>
+            <td><span class="agenda-badge ${estadoClass}">${
+            log.estado
+          }</span></td>
+            <td>${log.mensaje || "N/A"}</td>
+            <td>${log.registrosProcesados || 0}</td>
+            <td style="color: #10b981;">${log.registrosExitosos || 0}</td>
+            <td style="color: #ef4444;">${log.registrosErrores || 0}</td>
+            <td>${duracionFormateada}</td>
+          `;
+
+          tbody.appendChild(row);
+        });
+      }
+
+      function getAgendaEstadoClass(estado) {
+        const clases = {
+          completado: "estado-completado",
+          error: "estado-error",
+          iniciado: "estado-iniciado",
+          omitido: "estado-omitido",
+        };
+        return clases[estado] || "";
+      }
+
+      function formatTareaName(tarea) {
+        const nombres = {
+          bajasExtemporaneas: "Bajas Extemporáneas",
+          altasExtemporaneas: "Altas Extemporáneas",
+          licenciasExtemporaneas: "Licencias Extemporáneas",
+          crearTalones: "Crear Talones",
+          gestionarPeriodoVacacional: "Gestionar Período Vacacional",
+        };
+        return nombres[tarea] || tarea;
+      }
+
+      function formatDuration(duracion) {
+        if (!duracion) return "N/A";
+        if (duracion >= 1000) {
+          return (duracion / 1000).toFixed(2) + "s";
+        }
+        return duracion + "ms";
+      }
+
+      // Funciones para el modal de errores
+      async function showErrorModal(category, title) {
+        const modal = document.getElementById("errorModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalBody = document.getElementById("modalBody");
+
+        modalTitle.textContent = title;
+        modalBody.innerHTML =
+          '<div style="text-align: center; padding: 20px;"><div style="color: #9ca3af;">Cargando errores...</div></div>';
+        modal.style.display = "block";
+
+        try {
+          const res = await fetch(`/api/monitor/logs/${category}`);
+          const data = await res.json();
+
+          if (data.logs && data.logs.length > 0) {
+            let html = "";
+            data.logs.forEach((log) => {
+              const date = new Date(log.timestamp);
+              const formattedDate = date.toLocaleString("es-MX");
+
+              html += `
+                <div class="error-item">
+                  <div class="error-header">
+                    <span class="error-code">${log.statusCode}</span>
+                    <span class="error-time">${formattedDate}</span>
+                  </div>
+                  <div>
+                    <span class="error-method">${log.method || "N/A"}</span>
+                    <span class="error-url">${log.url || "N/A"}</span>
+                  </div>
+                  ${
+                    log.error
+                      ? `<div class="error-description"><strong>Error:</strong> ${log.error}</div>`
+                      : ""
+                  }
+                  ${
+                    log.ip
+                      ? `<div class="error-description"><strong>IP:</strong> ${log.ip}</div>`
+                      : ""
+                  }
+                  ${
+                    log.userAgent
+                      ? `<div class="error-description"><strong>User Agent:</strong> ${log.userAgent}</div>`
+                      : ""
+                  }
+                </div>
+              `;
+            });
+            modalBody.innerHTML = html;
+          } else {
+            modalBody.innerHTML =
+              '<div class="no-errors">No hay errores registrados en esta categoría</div>';
+          }
+        } catch (error) {
+          modalBody.innerHTML =
+            '<div class="no-errors" style="color: #ef4444;">Error al cargar los datos</div>';
+          console.error("Error cargando errores:", error);
+        }
+      }
+
+      function closeModal() {
+        document.getElementById("errorModal").style.display = "none";
+      }
+
+      // Cerrar modal al hacer click fuera de él
+      window.onclick = function (event) {
+        const modal = document.getElementById("errorModal");
+        if (event.target == modal) {
+          closeModal();
+        }
+      };
+
+      // Agregar event listeners a las tarjetas de errores
+      document.addEventListener("DOMContentLoaded", function () {
+        const clientErrorCard = document.querySelector(
+          ".stat-card.client-error"
+        );
+        const serverErrorCard = document.querySelector(
+          ".stat-card.server-error"
+        );
+
+        if (clientErrorCard) {
+          clientErrorCard.addEventListener("click", function () {
+            showErrorModal("logs_400", "Errores del Cliente (4xx)");
+          });
+        }
+
+        if (serverErrorCard) {
+          serverErrorCard.addEventListener("click", function () {
+            showErrorModal("logs_500", "Errores del Servidor (5xx)");
+          });
+        }
+      });
+
+      // Activar botón secreto con triple click en el header
+      let clickCount = 0;
+      let clickTimer = null;
+
+      document
+        .querySelector(".header h1")
+        .addEventListener("click", function () {
+          clickCount++;
+
+          if (clickCount === 1) {
+            clickTimer = setTimeout(() => {
+              clickCount = 0;
+            }, 800);
+          } else if (clickCount === 3) {
+            clearTimeout(clickTimer);
+            clickCount = 0;
+            document.getElementById("secretCleanBtn").classList.add("visible");
+            setTimeout(() => {
+              document
+                .getElementById("secretCleanBtn")
+                .classList.remove("visible");
+            }, 5000);
+          }
+        });
+
+      // Función para limpiar logs (requiere confirmación)
+      async function cleanLogs() {
+        const confirmClean = confirm(
+          "⚠️ ¿Estás seguro de que deseas limpiar TODOS los logs?\n\nEsta acción NO se puede deshacer."
+        );
+
+        if (confirmClean) {
+          const doubleConfirm = confirm(
+            "🔴 ÚLTIMA CONFIRMACIÓN\n\n¿Realmente deseas eliminar todos los registros de logs?"
+          );
+
+          if (doubleConfirm) {
+            try {
+              const response = await fetch("/api/monitor/clean", {
+                method: "DELETE",
+              });
+
+              const result = await response.json();
+
+              if (response.ok) {
+                alert("✅ " + result.message);
+                // Recargar los datos para reflejar los cambios
+                loadData();
+              } else {
+                alert("❌ Error: " + result.error);
+              }
+
+              document
+                .getElementById("secretCleanBtn")
+                .classList.remove("visible");
+            } catch (error) {
+              alert("❌ Error al intentar limpiar los logs");
+              console.error("Error:", error);
+            }
+          }
+        }
       }
 
       // Cargar datos al inicio

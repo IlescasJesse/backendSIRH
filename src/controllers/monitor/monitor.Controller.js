@@ -200,6 +200,125 @@ monitorController.getEndpointStats = async (req, res) => {
   }
 };
 
+// Obtener logs de tareas de Agenda
+monitorController.getAgendaLogs = async (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  const tarea = req.query.tarea;
+
+  try {
+    let filtro = {};
+    if (tarea) {
+      filtro.tarea = tarea;
+    }
+
+    const logs = await query("AGENDA_LOGS", filtro);
+
+    const sortedLogs = logs
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, limit);
+
+    res.json(sortedLogs);
+  } catch (error) {
+    console.error("Error obteniendo logs de agenda:", error);
+    res.status(500).json({ error: "Error al obtener logs de agenda" });
+  }
+};
+
+// Obtener estadísticas de tareas de Agenda
+monitorController.getAgendaStats = async (req, res) => {
+  try {
+    const logs = await query("AGENDA_LOGS", {});
+
+    // Estadísticas por tarea
+    const statsPorTarea = {};
+    logs.forEach((log) => {
+      if (!statsPorTarea[log.tarea]) {
+        statsPorTarea[log.tarea] = {
+          total: 0,
+          completados: 0,
+          errores: 0,
+          omitidos: 0,
+          ultimaEjecucion: null,
+          totalRegistrosProcesados: 0,
+          totalRegistrosExitosos: 0,
+          totalRegistrosErrores: 0,
+          duracionPromedio: 0,
+          duraciones: [],
+        };
+      }
+
+      statsPorTarea[log.tarea].total++;
+
+      if (log.estado === "completado") {
+        statsPorTarea[log.tarea].completados++;
+      } else if (log.estado === "error") {
+        statsPorTarea[log.tarea].errores++;
+      } else if (log.estado === "omitido") {
+        statsPorTarea[log.tarea].omitidos++;
+      }
+
+      if (log.registrosProcesados) {
+        statsPorTarea[log.tarea].totalRegistrosProcesados +=
+          log.registrosProcesados;
+      }
+      if (log.registrosExitosos) {
+        statsPorTarea[log.tarea].totalRegistrosExitosos +=
+          log.registrosExitosos;
+      }
+      if (log.registrosErrores) {
+        statsPorTarea[log.tarea].totalRegistrosErrores += log.registrosErrores;
+      }
+
+      if (log.duracion) {
+        statsPorTarea[log.tarea].duraciones.push(log.duracion);
+      }
+
+      if (
+        !statsPorTarea[log.tarea].ultimaEjecucion ||
+        new Date(log.timestamp) >
+          new Date(statsPorTarea[log.tarea].ultimaEjecucion)
+      ) {
+        statsPorTarea[log.tarea].ultimaEjecucion = log.timestamp;
+      }
+    });
+
+    // Calcular duración promedio
+    Object.keys(statsPorTarea).forEach((tarea) => {
+      const duraciones = statsPorTarea[tarea].duraciones;
+      if (duraciones.length > 0) {
+        const suma = duraciones.reduce((a, b) => a + b, 0);
+        statsPorTarea[tarea].duracionPromedio = Math.round(
+          suma / duraciones.length
+        );
+      }
+      delete statsPorTarea[tarea].duraciones;
+    });
+
+    const totalEjecuciones = logs.length;
+    const totalCompletados = logs.filter(
+      (l) => l.estado === "completado"
+    ).length;
+    const totalErrores = logs.filter((l) => l.estado === "error").length;
+    const totalOmitidos = logs.filter((l) => l.estado === "omitido").length;
+
+    res.json({
+      resumen: {
+        totalEjecuciones,
+        totalCompletados,
+        totalErrores,
+        totalOmitidos,
+        tasaExito: ((totalCompletados / (totalEjecuciones || 1)) * 100).toFixed(
+          2
+        ),
+      },
+      porTarea: statsPorTarea,
+    });
+  } catch (error) {
+    console.error("Error obteniendo estadísticas de agenda:", error);
+    res.status(500).json({ error: "Error al obtener estadísticas de agenda" });
+  }
+};
+
 // Obtener estadísticas por rango de tiempo
 monitorController.getStatsByTimeRange = async (req, res) => {
   const { start, end } = req.query;
@@ -239,6 +358,28 @@ monitorController.getStatsByTimeRange = async (req, res) => {
   } catch (error) {
     console.error("Error obteniendo estadísticas por rango:", error);
     res.status(500).json({ error: "Error al obtener estadísticas" });
+  }
+};
+
+// Limpiar todos los logs (endpoint secreto)
+monitorController.cleanAllLogs = async (req, res) => {
+  try {
+    const { deleteMany } = require("../../config/mongo");
+
+    await Promise.all([
+      deleteMany("logs_200", {}),
+      deleteMany("logs_300", {}),
+      deleteMany("logs_400", {}),
+      deleteMany("logs_500", {}),
+    ]);
+
+    res.json({
+      success: true,
+      message: "Todos los logs han sido eliminados correctamente",
+    });
+  } catch (error) {
+    console.error("Error limpiando logs:", error);
+    res.status(500).json({ error: "Error al limpiar los logs" });
   }
 };
 
