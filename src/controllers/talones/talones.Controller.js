@@ -52,7 +52,7 @@ talonesController.getProfile = async (req, res) => {
 
     // Buscar documento de talones del empleado
     const talonesDoc = await query("TALONES", {
-      id_empleado: new ObjectId(emp._id),
+      _idEmployee: new ObjectId(emp._id),
     });
 
     const ASIST_PROFILE = {
@@ -113,7 +113,7 @@ talonesController.getAllTalonesPendientesRegresar = async (req, res) => {
     const talonesRegresar = [];
 
     talonesDocumentos.forEach((doc) => {
-      const empId = doc.id_empleado && doc.id_empleado.toString ? doc.id_empleado.toString() : null;
+      const empId = doc._idEmployee && doc._idEmployee.toString ? doc._idEmployee.toString() : null;
       const empleado = empId ? empleadosMap[empId] : null;
 
       if (empleado && Array.isArray(doc.TALONES)) {
@@ -184,7 +184,7 @@ talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
     const talonesEntregar = [];
 
     talonesDocumentos.forEach((doc) => {
-      const empId = doc.id_empleado && doc.id_empleado.toString ? doc.id_empleado.toString() : null;
+      const empId = doc._idEmployee && doc._idEmployee.toString ? doc._idEmployee.toString() : null;
       const empleado = empId ? empleadosMap[empId] : null;
 
       if (empleado && Array.isArray(doc.TALONES)) {
