@@ -85,31 +85,36 @@ talonesController.getAllTalonesPendientesRegresar = async (req, res) => {
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
   try {
-    // Obtener todos los documentos de talones
     const talonesDocumentos = await query("TALONES", {});
 
+    // Si no hay documentos de talones, devolver array vacío
     if (!talonesDocumentos || talonesDocumentos.length === 0) {
-      return res.status(404).send({ error: "No talones found" });
+      const userAction = {
+        username: user.username,
+        module: "TAL-REG",
+        action: `CONSULTÓ TALONES PENDIENTES A REGRESAR (NO HAY TALONES)`,
+        timestamp: currentDateTime,
+      };
+      await insertOne("USER_ACTIONS", userAction);
+      return res.status(200).send([]);
     }
 
-    // Obtener todos los empleados
     const [empleadosPlantilla = [], empleadosForanea = []] = await Promise.all([
       query("PLANTILLA", { status: 1 }),
       query("PLANTILLA_FORANEA", { status: 1 }),
     ]);
     const todosEmpleados = [...empleadosPlantilla, ...empleadosForanea];
 
-    // Mapeo de ID empleado a datos del empleado
     const empleadosMap = {};
     todosEmpleados.forEach((emp) => {
       empleadosMap[emp._id.toString()] = emp;
     });
 
-    // Filtrar talones con status === 2 y enriquecer con datos del empleado
     const talonesRegresar = [];
 
     talonesDocumentos.forEach((doc) => {
-      const empleado = empleadosMap[doc.id_empleado.toString()];
+      const empId = doc.id_empleado && doc.id_empleado.toString ? doc.id_empleado.toString() : null;
+      const empleado = empId ? empleadosMap[empId] : null;
 
       if (empleado && Array.isArray(doc.TALONES)) {
         doc.TALONES.forEach((talon) => {
@@ -130,7 +135,6 @@ talonesController.getAllTalonesPendientesRegresar = async (req, res) => {
       }
     });
 
-    // Registrar acción del usuario
     const userAction = {
       username: user.username,
       module: "TAL-REG",
@@ -139,7 +143,7 @@ talonesController.getAllTalonesPendientesRegresar = async (req, res) => {
     };
     await insertOne("USER_ACTIONS", userAction);
 
-    res.status(200).send(talonesRegresar);
+    return res.status(200).send(talonesRegresar);
   } catch (error) {
     console.error("Error fetching talones a regresar:", error);
     res.status(500).send({ error: "An error occurred while fetching talones" });
@@ -152,31 +156,36 @@ talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
   try {
-    // Obtener todos los documentos de talones
     const talonesDocumentos = await query("TALONES", {});
 
+    // Si no hay documentos de talones, devolver array vacío
     if (!talonesDocumentos || talonesDocumentos.length === 0) {
-      return res.status(404).send({ error: "No talones found" });
+      const userAction = {
+        username: user.username,
+        module: "TAL-ENT",
+        action: `CONSULTÓ TALONES PENDIENTES A ENTREGAR (NO HAY TALONES)`,
+        timestamp: currentDateTime,
+      };
+      await insertOne("USER_ACTIONS", userAction);
+      return res.status(200).send([]);
     }
 
-    // Obtener todos los empleados
     const [empleadosPlantilla = [], empleadosForanea = []] = await Promise.all([
       query("PLANTILLA", { status: 1 }),
       query("PLANTILLA_FORANEA", { status: 1 }),
     ]);
     const todosEmpleados = [...empleadosPlantilla, ...empleadosForanea];
 
-    // Mapeo de ID empleado a datos del empleado
     const empleadosMap = {};
     todosEmpleados.forEach((emp) => {
       empleadosMap[emp._id.toString()] = emp;
     });
 
-    // Filtrar talones con status === 2 y enriquecer con datos del empleado
     const talonesEntregar = [];
 
     talonesDocumentos.forEach((doc) => {
-      const empleado = empleadosMap[doc.id_empleado.toString()];
+      const empId = doc.id_empleado && doc.id_empleado.toString ? doc.id_empleado.toString() : null;
+      const empleado = empId ? empleadosMap[empId] : null;
 
       if (empleado && Array.isArray(doc.TALONES)) {
         doc.TALONES.forEach((talon) => {
@@ -196,7 +205,7 @@ talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
         });
       }
     });
-    // Registrar acción del usuario
+
     const userAction = {
       username: user.username,
       module: "TAL-ENT",
@@ -205,7 +214,7 @@ talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
     };
     await insertOne("USER_ACTIONS", userAction);
 
-    res.status(200).send(talonesEntregar);
+    return res.status(200).send(talonesEntregar);
   } catch (error) {
     console.error("Error fetching talones a entregar:", error);
     res.status(500).send({ error: "An error occurred while fetching talones" });
