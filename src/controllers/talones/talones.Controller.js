@@ -50,30 +50,16 @@ talonesController.getProfile = async (req, res) => {
       ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
     });
 
-    // Calcular número de quincena actual (1..24)
-    const now = moment();
-    const currentQuinHalf = now.date() <= 15 ? 1 : 2;
-    const currentMonth = now.month() + 1; // 1..12
-    const currentQuincenaNumber = (currentMonth - 1) * 2 + currentQuinHalf;
-
     // Buscar documento de talones del empleado
     const talonesDoc = await query("TALONES", {
       id_empleado: new ObjectId(emp._id),
     });
 
-    // Extraer y filtrar TALONES (quincenas <= actual)
-    let talonesHistorial = [];
-    if (talonesDoc && talonesDoc.length > 0 && Array.isArray(talonesDoc[0].TALONES)) {
-      talonesHistorial = talonesDoc[0].TALONES
-        .filter((t) => typeof t.QUINCENA === "number" && t.QUINCENA <= currentQuincenaNumber)
-        .sort((a, b) => a.QUINCENA - b.QUINCENA); // orden ascendente por QUINCENA
-    }
-
     const ASIST_PROFILE = {
       employee: [emp],
       incapacidades: incapacidades,
       permisosExt: permisosExt,
-      talones: talonesHistorial, // <-- aquí están el talón actual y los anteriores
+      talones: talonesDoc, // <-- aquí están el talón actual y los anteriores
     };
 
     const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
