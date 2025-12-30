@@ -297,80 +297,80 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       const fieldsData = [
         {
           text: employee.NUP || "",
-          x: 6.7 * CM_TO_POINTS + offsetX,
-          y: height - 6.45 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
+          x: 6.5 * CM_TO_POINTS + offsetX,
+          y: height - 6.24 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.NUE || "",
-          x: 10.2 * CM_TO_POINTS + offsetX,
-          y: height - 6.45 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
+          x: 10 * CM_TO_POINTS + offsetX,
+          y: height - 6.24 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.RFC || "",
-          x: 6.7 * CM_TO_POINTS + offsetX,
-          y: height - 7.0 * CM_TO_POINTS - offsetY,
+          x: 6.5 * CM_TO_POINTS + offsetX,
+          y: height - 6.81 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.CURP || "",
-          x: 6.7 * CM_TO_POINTS + offsetX,
-          y: height - 7.55 * CM_TO_POINTS - offsetY, // Debajo de RFC
+          x: 6.5 * CM_TO_POINTS + offsetX,
+          y: height - 7.3 * CM_TO_POINTS - offsetY, // Debajo de RFC
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.TEL_PERSONAL || "",
-          x: 6.9 * CM_TO_POINTS + offsetX,
-          y: height - 10.75 * CM_TO_POINTS - offsetY,
+          x: 6.7 * CM_TO_POINTS + offsetX,
+          y: height - 10.53 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: avisarSingleLine,
-          x: 6.05 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 12.52 * CM_TO_POINTS - offsetY,
+          x: 5.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 12.31 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.TEL_EMERGENCIA1 || "",
-          x: 7.3 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
-          y: height - 13.1 * CM_TO_POINTS - offsetY,
+          x: 7 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
+          y: height - 12.9 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.AFILIACI || "",
-          x: 6.05 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 13.6 * CM_TO_POINTS - offsetY,
+          x: 5.75 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 13.39 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
         },
         {
           text: employee.SANGRE || "",
-          x: 7 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 14 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
+          x: 6.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 13.76 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
           font: fontBlack,
           size: 8,
           color: hexToRgb("#9D2449"),
         },
         {
           text: employee.ALERGIAS || "",
-          x: 6.1 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 14.55 * CM_TO_POINTS - offsetY,
+          x: 5.85 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+          y: height - 14.35 * CM_TO_POINTS - offsetY,
           font: fontBlack,
           size: 8,
           color: rgb(0, 0, 0),
@@ -398,8 +398,8 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         return centeredX;
       };
 
-      const startX = 12.5 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
-      const endX = 20.5 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+      const startX = 12.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+      const endX = 20.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
 
       // Insertar NOMBRES centrado
       if (employee.NOMBRES) {
@@ -440,9 +440,9 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       // Insertar ADSCRIPCION con múltiples líneas
       if (adscripcionLines.length > 0) {
         // Primera línea (máximo 5cm)
-        const pixelX1 = 7.6 * CM_TO_POINTS + offsetX;
+        const pixelX1 = 7.4 * CM_TO_POINTS + offsetX;
         const pixelY1 =
-          height - 8.2 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+          height - 8 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
 
         currentPage.drawText(adscripcionLines[0], {
           x: pixelX1,
@@ -514,9 +514,9 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       // Insertar DOMICILIO con múltiples líneas
       if (domicilioLines.length > 0) {
         // Primera línea (máximo 5cm) -> subir 0.3 cm
-        const pixelX1 = 7.3 * CM_TO_POINTS + offsetX;
+        const pixelX1 = 7.1 * CM_TO_POINTS + offsetX;
         const pixelY1 =
-          height - 10 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+          height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
 
         // Espacio vertical entre líneas reducido (0.25 cm)
         const LINE_SPACING = 0.3 * CM_TO_POINTS;
