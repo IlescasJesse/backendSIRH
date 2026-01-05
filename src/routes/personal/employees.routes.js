@@ -11,7 +11,11 @@ router.get(
 );
 router.get("/getemployees", verifyToken, employeeController.getEmployees);
 
-router.get("/getEmployeeCount", verifyToken, employeeController.getEmployeeCount);
+router.get(
+  "/getEmployeeCount",
+  verifyToken,
+  employeeController.getEmployeeCount
+);
 router.post(
   "/getemployee/profile/:id",
   verifyToken,
@@ -29,6 +33,11 @@ router.put(
   employeeController.recategorizeEmployee
 );
 router.get("/getUserActions", verifyToken, employeeController.getUserActions);
+router.get(
+  "/getUserActionsPersonal",
+  verifyToken,
+  employeeController.getUserActionsPersonal
+);
 router.post("/addCategory", verifyToken, employeeController.addCategory);
 
 module.exports = router;

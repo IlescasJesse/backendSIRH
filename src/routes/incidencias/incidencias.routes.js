@@ -98,6 +98,10 @@ router.get(
   verifyToken,
   incidenciasController.getAllIncidencias
 );
-
+router.get(
+  "/getUserActionsIncidencias",
+  verifyToken,
+  incidenciasController.getUserActionsIncidencias
+);
 
 module.exports = router;

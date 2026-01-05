@@ -475,6 +475,30 @@ employeeController.getUserActions = async (req, res) => {
     res.status(500).json({ error: "An error occurred while fetching data" });
   }
 };
+employeeController.getUserActionsPersonal = async (req, res) => {
+  try {
+    const actions = await query("USER_ACTIONS", {});
+    const users = await query("USUARIOS", {});
+
+    const filteredActions = actions.filter((a) => {
+      const text = (a.action || "").toString().trim();
+      const module = (a.module || "").toString().trim();
+      return !/^CONSULTÓ/i.test(text) && /^PSL/i.test(module);
+    });
+
+    filteredActions.forEach((action) => {
+      const matchedUser = users.find((u) => u.username === action.username);
+      if (matchedUser) {
+        action.name = matchedUser.name;
+      }
+    });
+
+    res.send(filteredActions);
+  } catch (error) {
+    console.error("Error fetching user actions:", error);
+    res.status(500).json({ error: "An error occurred while fetching data" });
+  }
+};
 employeeController.addCategory = async (req, res) => {
   const { CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA } = req.body;
 
