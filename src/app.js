@@ -86,6 +86,8 @@ app.use("/api", require("./routes/calendar/calendar.routes"));
 app.use("/api", require("./routes/libs/libs.routes"));
 // rutas para monitor del servidor
 app.use("/api/monitor", require("./routes/monitor/monitor.routes"));
+// rutas para app móvil (con IP whitelist)
+app.use("/api/mobile/monitor", require("./routes/monitor/mobile.routes"));
 
 // Middleware de manejo de errores (debe ir al final)
 app.use(errorLogger);

@@ -123,11 +123,11 @@ talonesController.getAllTalonesPendientesRegresar = async (req, res) => {
 
       if (empleado && Array.isArray(doc.TALONES)) {
         doc.TALONES.forEach((talon) => {
-          if (talon.status === 3) {
+          if (talon.STATUS === 3) {
             talonesRegresar.push({
               _id: talon._id,
-              QUINCENA: talon.QUINCENA,
-              status: talon.status,
+              QUINCENA: talon.QUIN,
+              status: talon.STATUS,
               empleado: {
                 _id: empleado._id,
                 NOMBRE: `${empleado.APE_PAT || ""} ${empleado.APE_MAT || ""} ${
@@ -199,11 +199,11 @@ talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
 
       if (empleado && Array.isArray(doc.TALONES)) {
         doc.TALONES.forEach((talon) => {
-          if (talon.status === 2) {
+          if (talon.STATUS === 2) {
             talonesEntregar.push({
               _id: talon._id,
-              QUINCENA: talon.QUINCENA,
-              status: talon.status,
+              QUINCENA: talon.QUIN,
+              status: talon.STATUS,
               empleado: {
                 _id: empleado._id,
                 NOMBRE: `${empleado.APE_PAT || ""} ${empleado.APE_MAT || ""} ${

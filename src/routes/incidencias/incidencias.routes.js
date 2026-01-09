@@ -103,5 +103,10 @@ router.get(
   verifyToken,
   incidenciasController.getUserActionsIncidencias
 );
+router.get(
+  "/getAllEmployeesByArea/:area",
+  verifyToken,
+  incidenciasController.getAllEmployeesByArea
+);
 
 module.exports = router;

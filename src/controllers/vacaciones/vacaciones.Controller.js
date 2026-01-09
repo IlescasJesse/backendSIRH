@@ -35,23 +35,44 @@ vacacionesController.getProfile = async (req, res) => {
 
     let totalDays = 0;
     const emp = employee[0];
+    const vacFechaStr =
+      emp && emp.VACACIONES && emp.VACACIONES.FECHA_VACACIONES
+        ? String(emp.VACACIONES.FECHA_VACACIONES).trim()
+        : null;
 
-    // Validar y calcular años trabajados de forma segura
+    const parseFormats = [
+      "YYYY-MM-DD",
+      "YYYY/MM/DD",
+      "DD/MM/YYYY",
+      "DD-MM-YYYY",
+      "MM/DD/YYYY",
+      moment.ISO_8601,
+    ];
+
+    let fechaVacaciones = null;
+    if (vacFechaStr) {
+      fechaVacaciones = moment(vacFechaStr, parseFormats, true); // intento estricto
+      if (!fechaVacaciones.isValid()) {
+        fechaVacaciones = moment(vacFechaStr); // fallback menos estricto
+      }
+    }
+
     const fechaIngreso = moment(emp.FECHA_INGRESO, "YYYY-MM-DD", true);
     const ahora = moment();
 
     let yearsWorked = 0;
-    if (!fechaIngreso.isValid()) {
-      console.warn(
-        `FECHA_INGRESO inválida para empleado ${emp._id}:`,
-        emp.FECHA_INGRESO
-      );
-      yearsWorked = 0;
-    } else {
+    if (fechaVacaciones && fechaVacaciones.isValid()) {
+      yearsWorked = ahora.diff(fechaVacaciones, "years");
+    } else if (fechaIngreso.isValid()) {
       yearsWorked = ahora.diff(fechaIngreso, "years");
-      if (!Number.isFinite(yearsWorked) || yearsWorked < 0) yearsWorked = 0;
+    } else {
+      console.warn(`Fecha inválida para empleado ${emp._id}:`, {
+        fechaVacaciones: vacFechaStr,
+        fechaIngreso: emp.FECHA_INGRESO,
+      });
+      yearsWorked = 0;
     }
-
+    if (!Number.isFinite(yearsWorked) || yearsWorked < 0) yearsWorked = 0;
     // Determinar días según años trabajados
     if (yearsWorked <= 5) {
       totalDays = 11;

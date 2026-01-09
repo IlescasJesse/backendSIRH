@@ -81,17 +81,17 @@ reportesPersonalController.getReportVacants = async (req, res) => {
     vacants.sort((a, b) => {
       const nameA = a.status_plaza?.previousOcuppants?.length
         ? (
-          a.status_plaza.previousOcuppants[
-            a.status_plaza.previousOcuppants.length - 1
-          ].NOMBRE || ""
-        ).toUpperCase()
+            a.status_plaza.previousOcuppants[
+              a.status_plaza.previousOcuppants.length - 1
+            ].NOMBRE || ""
+          ).toUpperCase()
         : "";
       const nameB = b.status_plaza?.previousOcuppants?.length
         ? (
-          b.status_plaza.previousOcuppants[
-            b.status_plaza.previousOcuppants.length - 1
-          ].NOMBRE || ""
-        ).toUpperCase()
+            b.status_plaza.previousOcuppants[
+              b.status_plaza.previousOcuppants.length - 1
+            ].NOMBRE || ""
+          ).toUpperCase()
         : "";
       return nameA.localeCompare(nameB);
     });
@@ -271,7 +271,8 @@ reportesPersonalController.getReportVacants = async (req, res) => {
       }
 
       doc.text(
-        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${vacants.length} ${vacants.length > 1 ? "VACANTES" : "VACANTES ACTIVAS"
+        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${vacants.length} ${
+          vacants.length > 1 ? "VACANTES" : "VACANTES ACTIVAS"
         }.`,
         doc.page.margins.left,
         y + 10,
@@ -282,10 +283,16 @@ reportesPersonalController.getReportVacants = async (req, res) => {
         }
       );
       doc.moveDown();
-      doc.text(`ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
-        width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-        align: "left",
-      });
+      doc.text(
+        `ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`,
+        doc.page.margins.left,
+        doc.y,
+        {
+          width:
+            doc.page.width - doc.page.margins.left - doc.page.margins.right,
+          align: "left",
+        }
+      );
 
       doc.end();
     } catch (error) {
@@ -485,7 +492,8 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
       }
 
       doc.text(
-        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${licenses.length
+        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${
+          licenses.length
         } ${licenses.length > 1 ? "LICENCIAS ACTIVAS" : "LICENCIA ACTIVA"}.`,
         doc.page.margins.left,
         y + 10,
@@ -496,10 +504,16 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
         }
       );
       doc.moveDown();
-      doc.text(`ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
-        width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-        align: "left",
-      });
+      doc.text(
+        `ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`,
+        doc.page.margins.left,
+        doc.y,
+        {
+          width:
+            doc.page.width - doc.page.margins.left - doc.page.margins.right,
+          align: "left",
+        }
+      );
 
       doc.end();
     } catch (error) {
@@ -520,6 +534,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     TIPONOM,
     NOMCATE,
     ADSCRIPCION,
+    CLAVE,
     STATUS_EMPLEADO,
     PRINT,
     RESPONSABLE,
@@ -532,6 +547,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
   let tipoNomText = "";
   let nomcateText = "";
   let adscripText = "";
+  let claveText = "";
   let statusText = "";
   if (SEXO) {
     filtro.SEXO = SEXO;
@@ -554,7 +570,6 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     }
   }
   if (NOMCATE) {
-
     console.log(NOMCATE.CLAVE_CATEGORIA);
 
     filtro.CLAVECAT = NOMCATE.CLAVE_CATEGORIA;
@@ -563,6 +578,17 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
   if (ADSCRIPCION) {
     filtro.ADSCRIPCION = ADSCRIPCION;
     adscripText = `LA ADSCRIPCIÓN "${ADSCRIPCION}"`;
+  }
+  if (CLAVE) {
+    if (Array.isArray(CLAVE)) {
+      filtro.CLAVE = { $in: CLAVE };
+      claveText = `${
+        CLAVE.length > 1 ? "LAS CLAVES" : "LA CLAVE"
+      } "${CLAVE.join(", ")}"`;
+    } else {
+      filtro.CLAVE = CLAVE;
+      claveText = `LA CLAVE "${CLAVE}"`;
+    }
   }
   if (STATUS_EMPLEADO) {
     if (STATUS_EMPLEADO === "ACTIVO") {
@@ -631,8 +657,9 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
         return edad >= minEdad && edad <= maxEdad;
       });
     }
-    edadText = `LA EDAD ENTRE "${match ? `${match[1]} A ${match[2]} AÑOS"` : ""
-      }`;
+    edadText = `LA EDAD ENTRE "${
+      match ? `${match[1]} A ${match[2]} AÑOS"` : ""
+    }`;
   }
 
   empleadosFiltrados = empleadosFiltrados
@@ -864,6 +891,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       if (tipoNomText) filtros.push(tipoNomText);
       if (nomcateText) filtros.push(nomcateText);
       if (adscripText) filtros.push(adscripText);
+      if (claveText) filtros.push(claveText);
       if (statusText) filtros.push(statusText);
 
       let filtrosStr = "";
@@ -872,34 +900,45 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       } else if (filtros.length === 2) {
         filtrosStr = `${filtros[0]} Y ${filtros[1]}`;
       } else if (filtros.length > 2) {
-        filtrosStr = `${filtros.slice(0, -1).join(", ")} Y ${filtros[filtros.length - 1]
-          }`;
+        filtrosStr = `${filtros.slice(0, -1).join(", ")} Y ${
+          filtros[filtros.length - 1]
+        }`;
       }
 
       const filtroTexto =
         filtros.length === 1
-          ? `CONFORME AL FILTRO DE ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${empleadosFiltrados.length
-          } ${empleadosFiltrados.length > 1
-            ? "EMPLEADOS QUE CUMPLEN"
-            : "EMPLEADO QUE CUMPLE"
-          } CON EL CRITERIO.`
+          ? `CONFORME AL FILTRO DE ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
+              empleadosFiltrados.length
+            } ${
+              empleadosFiltrados.length > 1
+                ? "EMPLEADOS QUE CUMPLEN"
+                : "EMPLEADO QUE CUMPLE"
+            } CON EL CRITERIO.`
           : filtros.length > 1
-            ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${empleadosFiltrados.length
-            } ${empleadosFiltrados.length > 1
-              ? "EMPLEADOS QUE CUMPLEN"
-              : "EMPLEADO QUE CUMPLE"
+          ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
+              empleadosFiltrados.length
+            } ${
+              empleadosFiltrados.length > 1
+                ? "EMPLEADOS QUE CUMPLEN"
+                : "EMPLEADO QUE CUMPLE"
             } CON LOS CRITERIOS.`
-            : "";
+          : "";
 
       doc.text(filtroTexto, doc.page.margins.left, y + 10, {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
         align: "justify",
       });
       doc.moveDown();
-      doc.text(`ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`, doc.page.margins.left, doc.y, {
-        width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-        align: "left",
-      });
+      doc.text(
+        `ESTE REPORTE FUE DESCARGADO MEDIANTE EL SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH), Y FUE GENEARADO POR EL USUARIO: ${RESPONSABLE}`,
+        doc.page.margins.left,
+        doc.y,
+        {
+          width:
+            doc.page.width - doc.page.margins.left - doc.page.margins.right,
+          align: "left",
+        }
+      );
 
       doc.end();
     } catch (error) {
@@ -908,5 +947,75 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     }
   }
 };
+reportesPersonalController.getPlantillaXLSX = async (req, res) => {
+  try {
+    // Obtener el parámetro status de los params de la ruta y convertirlo a entero
+    const statusParam = req.params.status ? parseInt(req.params.status, 10) : 1;
 
+    const filtro = { status: statusParam };
+    const excludeFields = {
+      ID_CTRL_ASSIST: 0,
+      ID_CTRL_TALON: 0,
+      ID_CTRL_NOM: 0,
+      ID_CTRL_CAP: 0,
+      VACACIONES: 0,
+      status: 0,
+      AREA_RESP: 0,
+      ID_BITACORA: 0,
+      STATUS_EMPLEADO: 0,
+      ID_CTRL_ASIST: 0,
+      _id: 0,
+    };
+    const plantilla = await query("PLANTILLA", filtro, excludeFields);
+
+    if (!plantilla || plantilla.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No hay registros de plantilla." });
+    }
+
+    // Crea el libro y la hoja
+    const ExcelJS = require("exceljs");
+    const moment = require("moment");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("PLANTILLA");
+
+    // Determina las columnas a exportar
+    const campos = Object.keys(plantilla[0]);
+
+    // Agrega solo los encabezados de las columnas
+    worksheet.addRow(campos.map((c) => c.toUpperCase()));
+
+    // Agrega los datos
+    plantilla.forEach((item) => {
+      worksheet.addRow(campos.map((c) => item[c]));
+    });
+
+    // Ajusta el ancho de columnas
+    worksheet.columns.forEach((col) => {
+      col.width = 20;
+    });
+
+    // Genera el archivo y responde para descarga
+    const fechaStr = moment().format("YYYY-MM-DD_HH-mm-ss");
+    const tipoRegistro =
+      statusParam === 1
+        ? "ACTIVOS"
+        : statusParam === 2
+        ? "VACANTES"
+        : "PLANTILLA";
+    const fileName = `PLANTILLA_${tipoRegistro}_${fechaStr}.xlsx`;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error al generar el archivo Excel:", error.message);
+    res.status(500).json({ message: "Error al generar el archivo Excel." });
+  }
+};
 module.exports = reportesPersonalController;

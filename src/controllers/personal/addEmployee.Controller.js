@@ -256,8 +256,9 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
-    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${
+    data?.DIRECCION.COLONIA || ""
+  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.CALLE || "";
@@ -265,8 +266,9 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
-    } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${
+    months[parseInt(month, 10) - 1]
+  } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -355,8 +357,9 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
-      } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
+      months[parseInt(monthIMSS, 10) - 1]
+    } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -581,6 +584,23 @@ employeeController.updateEmployee = async (req, res) => {
       { NUMPLA: data.NUMPLA },
       { $unset: { templateData: "" } }
     );
+
+    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+      query("PLANTILLA", { NUMPLA: data.NUMPLA }),
+      query("PLANTILLA_FORANEA", { NUMPLA: data.NUMPLA }),
+    ]);
+
+    const updatedEmployee = employeePlantilla.length
+      ? employeePlantilla[0]
+      : employeeForanea.length
+      ? employeeForanea[0]
+      : null;
+
+    if (!updatedEmployee) {
+      return res
+        .status(404)
+        .json({ message: "Employee not found after update" });
+    }
     const userAction = {
       username: user.username,
       module: "PSL-UPDATE",
@@ -588,9 +608,10 @@ employeeController.updateEmployee = async (req, res) => {
       timestamp: currentDateTime,
     };
     await insertOne("USER_ACTIONS", userAction);
-    res
-      .status(200)
-      .json({ message: "Employee updated and templateData removed" });
+    res.status(200).json({
+      message: "Employee updated and templateData removed",
+      _id: updatedEmployee._id,
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Error updating employee", error });

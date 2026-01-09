@@ -4,21 +4,27 @@ const reportesPersonalController = require("../../controllers/personal/reportesP
 const verifyToken = require("../../middleware/authMiddleware");
 
 router.post(
-    "/getReportVacants/:queryParam",
-    verifyToken,
-    reportesPersonalController.getReportVacants
+  "/getReportVacants/:queryParam",
+  verifyToken,
+  reportesPersonalController.getReportVacants
 );
 
 router.post(
-    "/getReportLicenses",
-    verifyToken,
-    reportesPersonalController.getReportLicenses
+  "/getReportLicenses",
+  verifyToken,
+  reportesPersonalController.getReportLicenses
 );
 
 router.post(
-    "/getDataPersonalizada",
-    verifyToken,
-    reportesPersonalController.getDataPersonalizada
+  "/getDataPersonalizada",
+  verifyToken,
+  reportesPersonalController.getDataPersonalizada
+);
+
+router.get(
+  "/getPlantillaXLSX/:status",
+  verifyToken,
+  reportesPersonalController.getPlantillaXLSX
 );
 
 module.exports = router;

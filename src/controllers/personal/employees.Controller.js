@@ -48,7 +48,7 @@ employeeController.getProfileData = async (req, res) => {
     // Buscar el empleado por su ID
     const employee = await query("PLANTILLA", {
       _id: new ObjectId(id),
-      status: 1,
+      $or: [{ STATUS: 1 }, { STATUS: 2 }, { status: 1 }, { status: 2 }],
     });
     if (!employee || employee.length === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });

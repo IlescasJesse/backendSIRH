@@ -21,7 +21,19 @@ incidenciasController.getEmployee = async (req, res) => {
   const queryParam = req.params.queryParam;
 
   let searchCriteria;
-  if (/^\d+$/.test(queryParam)) {
+
+  // Criterio especial para COMISIONADOS
+  if (queryParam.toUpperCase() === "COMISIONADOS") {
+    searchCriteria = {
+      "STATUS_EMPLEADO.STATUS": "COM_SDCL",
+    };
+  }
+  // Criterio especial para VACANTES
+  else if (queryParam.toUpperCase() === "VACANTES") {
+    searchCriteria = {
+      status: 2,
+    };
+  } else if (/^\d+$/.test(queryParam)) {
     const paramNumTarjeta = parseInt(queryParam, 10);
 
     // Si contiene solo números, buscar por NUMTARJETA
@@ -37,7 +49,7 @@ incidenciasController.getEmployee = async (req, res) => {
         { status: 1 },
       ],
     };
-  } else if (/^[a-zA-Z\s]+$/.test(queryParam)) {
+  } else if (/^[a-zA-ZñÑ\s]+$/.test(queryParam)) {
     // Si contiene solo letras o espacios, buscar por nombres y apellidos por separado
     searchCriteria = {
       $or: [
@@ -68,7 +80,7 @@ incidenciasController.getEmployee = async (req, res) => {
         },
       ],
     };
-  } else if (/^[a-zA-Z0-9]+$/.test(queryParam)) {
+  } else if (/^[a-zA-ZñÑ0-9]+$/.test(queryParam)) {
     // Si contiene una mezcla de números y letras, buscar por RFC o CURP
     searchCriteria = {
       $and: [
@@ -88,14 +100,20 @@ incidenciasController.getEmployee = async (req, res) => {
   let currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
   try {
     const user = req.user;
-    const resultPlantilla = await query("PLANTILLA", {
-      ...searchCriteria,
-      status: 1,
-    });
-    const resultForanea = await query("PLANTILLA_FORANEA", {
-      ...searchCriteria,
-      status: 1,
-    });
+
+    // Determinar si se debe agregar el filtro status: 1
+    const isSpecialCriteria =
+      queryParam.toUpperCase() === "COMISIONADOS" ||
+      queryParam.toUpperCase() === "VACANTES";
+
+    const resultPlantilla = await query(
+      "PLANTILLA",
+      isSpecialCriteria ? searchCriteria : { ...searchCriteria, status: 1 }
+    );
+    const resultForanea = await query(
+      "PLANTILLA_FORANEA",
+      isSpecialCriteria ? searchCriteria : { ...searchCriteria, status: 1 }
+    );
     const resultGafetes = await query("GAFETES_TEMPO", {
       ...searchCriteria,
     });
@@ -137,7 +155,7 @@ incidenciasController.getEmployebyArea = async (req, res) => {
         { AREA_RESP: area }, // Coincidencia con AREA_RESP
       ],
     };
-  } else if (/^[a-zA-Z]+$/.test(queryParam)) {
+  } else if (/^[a-zA-ZñÑ]+$/.test(queryParam)) {
     // Si contiene solo letras, buscar por NOMBRES, APE_PAT, APE_MAT o combinación de ellos
     searchCriteria = {
       $and: [
@@ -162,7 +180,7 @@ incidenciasController.getEmployebyArea = async (req, res) => {
         { AREA_RESP: area }, // Coincidencia con AREA_RESP
       ],
     };
-  } else if (/^[a-zA-Z0-9]+$/.test(queryParam)) {
+  } else if (/^[a-zA-ZñÑ0-9]+$/.test(queryParam)) {
     // Si contiene una mezcla de números y letras, buscar por RFC o CURP
     searchCriteria = {
       $and: [
@@ -264,10 +282,13 @@ incidenciasController.getProfile = async (req, res) => {
     });
     emp.bitacora = bitacora;
 
-    // Obtener permisos del empleado en el año actual
+    // Obtener permisos del empleado en el año actual y, si aplica, del año anterior
+    const previousQuarter = currentQuarter === 1 ? 3 : currentQuarter - 1;
+    const previousYear = currentQuarter === 1 ? currentYear - 1 : currentYear;
+
     const permits = await query("PERMISOS_ECONOMICOS", {
       ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
-      AÑO: currentYear,
+      AÑO: { $in: [previousYear, currentYear] },
     });
 
     const justificantes = await query("JUSTIFICACIONES", {
@@ -284,20 +305,23 @@ incidenciasController.getProfile = async (req, res) => {
     // Máximo 4 días por cuatrimestre, pero se acumulan 2 días si no se usaron en el cuatrimestre anterior
     let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
-    // Verificar si el cuatrimestre anterior tuvo permisos
-    const previousQuarter = currentQuarter - 1;
+    // Verificar si el cuatrimestre anterior tuvo permisos (considerando año anterior cuando aplique)
     const hasPreviousQuarterPermits = permits.some(
-      (permit) => permit.CUATRIMESTRE === previousQuarter
+      (permit) =>
+        permit.CUATRIMESTRE === previousQuarter && permit.AÑO === previousYear
     );
 
     // Si no hay permisos en el cuatrimestre anterior, agregar 2 días acumulados
-    if (!hasPreviousQuarterPermits && previousQuarter > 0) {
+    if (!hasPreviousQuarterPermits) {
       leftDays = maxAccumulatedDays; // 6 días en lugar de 4
     }
 
-    // Restar los días ya usados en el cuatrimestre actual
+    // Restar los días ya usados en el cuatrimestre actual (solo para el año actual)
     permits.forEach((permit) => {
-      if (permit.CUATRIMESTRE === currentQuarter) {
+      if (
+        permit.CUATRIMESTRE === currentQuarter &&
+        permit.AÑO === currentYear
+      ) {
         leftDays -= permit.NUM_DIAS || 0;
       }
     });
@@ -476,29 +500,36 @@ incidenciasController.newEconomicPermit = async (req, res) => {
     const currentQuarter = desdeQuarter;
     const currentYear = hastaYear;
 
+    // Determinar cuatrimestre y año anteriores para permitir acumulación entre año anterior y enero
+    const previousQuarter = currentQuarter === 1 ? 3 : currentQuarter - 1;
+    const previousYear = currentQuarter === 1 ? currentYear - 1 : currentYear;
+
     const permits = await query("PERMISOS_ECONOMICOS", {
       ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
-      AÑO: currentYear,
+      AÑO: { $in: [previousYear, currentYear] },
     });
 
     // Calcular los días restantes según las reglas de los cuatrimestres
     // Máximo 4 días por cuatrimestre, pero se acumulan 2 días si no se usaron en el cuatrimestre anterior
     let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
-    // Verificar si el cuatrimestre anterior tuvo permisos
-    const previousQuarter = currentQuarter - 1;
+    // Verificar si el cuatrimestre anterior (posible año anterior) tuvo permisos
     const hasPreviousQuarterPermits = permits.some(
-      (permit) => permit.CUATRIMESTRE === previousQuarter
+      (permit) =>
+        permit.CUATRIMESTRE === previousQuarter && permit.AÑO === previousYear
     );
 
     // Si no hay permisos en el cuatrimestre anterior, agregar 2 días acumulados
-    if (!hasPreviousQuarterPermits && previousQuarter > 0) {
+    if (!hasPreviousQuarterPermits) {
       leftDays = maxAccumulatedDays; // 6 días en lugar de 4
     }
 
-    // Restar los días ya usados en el cuatrimestre actual
+    // Restar los días ya usados en el cuatrimestre actual (solo para el año actual)
     permits.forEach((permit) => {
-      if (permit.CUATRIMESTRE === currentQuarter) {
+      if (
+        permit.CUATRIMESTRE === currentQuarter &&
+        permit.AÑO === currentYear
+      ) {
         leftDays -= permit.NUM_DIAS || 0;
       }
     });
@@ -710,7 +741,7 @@ incidenciasController.saveIncidencia = async (req, res) => {
   const userAction = {
     username: user.username,
     module: "AEI-CAI",
-    action: `GUARDÓ INCIDENCIA DEL EMPLEADO "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+    action: `GUARDÓ INCIDENCIA DEL EMPLEADO "${data.NOMBRE}"`,
     timestamp: currentDateTime,
   };
 
@@ -930,9 +961,13 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
     }
 
     // Obtener permisos existentes del empleado en el año actual
+    // Incluir permisos del año anterior si el cuatrimestre actual es el 1 (enero-abril)
+    const previousQuarter = currentQuarter === 1 ? 3 : currentQuarter - 1;
+    const previousYear = currentQuarter === 1 ? currentYear - 1 : currentYear;
+
     const permits = await query("PERMISOS_ECONOMICOS", {
       ID_CTRL_ASIST: new ObjectId(permitData.ID_CTRL_ASIST),
-      AÑO: permitData.AÑO,
+      AÑO: { $in: [previousYear, currentYear] },
     });
 
     // Calcular los días restantes según las reglas de los cuatrimestres
@@ -941,22 +976,26 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
     // Calcular los días restantes según las reglas de los cuatrimestres
     let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
-    // Determinar cuatrimestre anterior
-    const previousQuarter = currentQuarter - 1;
-
-    // Verificar si el cuatrimestre anterior tuvo permisos (excluir el propio permiso)
+    // Verificar si el cuatrimestre anterior (posible año anterior) tuvo permisos (excluir el propio permiso)
     const hasPreviousQuarterPermits = permits.some(
-      (p) => p.CUATRIMESTRE === previousQuarter && p._id.toString() !== _id
+      (p) =>
+        p.CUATRIMESTRE === previousQuarter &&
+        p.AÑO === previousYear &&
+        p._id.toString() !== _id
     );
 
     // Si no hay permisos en el cuatrimestre anterior, permitir acumulación a 6 días
-    if (!hasPreviousQuarterPermits && previousQuarter > 0) {
+    if (!hasPreviousQuarterPermits) {
       leftDays = maxAccumulatedDays; // 6 días en lugar de 4
     }
 
-    // Restar los días ya usados en el cuatrimestre actual (excluir el permiso que se está actualizando)
+    // Restar los días ya usados en el cuatrimestre actual (excluir el permiso que se está actualizando) y solo del año actual
     permits.forEach((p) => {
-      if (p._id.toString() !== _id && p.CUATRIMESTRE === currentQuarter) {
+      if (
+        p._id.toString() !== _id &&
+        p.CUATRIMESTRE === currentQuarter &&
+        p.AÑO === currentYear
+      ) {
         leftDays -= p.NUM_DIAS || 0;
       }
     });
@@ -1455,6 +1494,32 @@ incidenciasController.getUserActionsIncidencias = async (req, res) => {
   } catch (error) {
     console.error("Error fetching user actions:", error);
     res.status(500).json({ error: "An error occurred while fetching data" });
+  }
+};
+// Función para obtener todos los empleados
+incidenciasController.getAllEmployeesByArea = async (req, res) => {
+  const area = req.params.area;
+
+  try {
+    const criteria = {
+      AREA_RESP: area,
+      status: 1,
+      NUMTARJETA: { $exists: true, $nin: [null, ""] },
+      $or: [
+        { STATUS_EMPLEADO: null },
+        { "STATUS_EMPLEADO.STATUS": "COM_SDCL" },
+      ],
+    };
+
+    const [plantilla = [], foranea = []] = await Promise.all([
+      query("PLANTILLA", criteria),
+      query("PLANTILLA_FORANEA", criteria),
+    ]);
+
+    const employees = [...plantilla, ...foranea];
+    res.status(200).json(employees);
+  } catch (err) {
+    res.status(500).json({ message: "Error retrieving employees", error: err });
   }
 };
 
