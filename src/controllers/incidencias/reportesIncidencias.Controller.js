@@ -13,12 +13,26 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
     "SELECT * FROM unidad_responsable"
   );
   const doc = new PDFDocument();
-  const quin = req.query.quincena || req.params.quincena;
+  const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
+  const areaResp = req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
   console.log(quin);
+  console.log(areaResp);
 
-  const economicos_quincena = await query("PERMISOS_ECONOMICOS", {
+  // Construir el filtro
+  const filtro = {
     QUINCENA: parseInt(quin, 10),
-  });
+  };
+
+  // Si AREA_RESP es un array, usamos $in; si es un string, usamos igualdad
+  if (areaResp) {
+    if (Array.isArray(areaResp)) {
+      filtro.AREA_RESP = { $in: areaResp };
+    } else {
+      filtro.AREA_RESP = areaResp;
+    }
+  }
+
+  const economicos_quincena = await query("PERMISOS_ECONOMICOS", filtro);
   console.log(economicos_quincena);
 
   // Validar si no hay datos

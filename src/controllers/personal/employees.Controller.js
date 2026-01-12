@@ -103,16 +103,27 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(percepciones.sueldo_base) -
             parseFloat(isrObjectB.limite_inf)) *
             parseFloat(isrObjectB.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
-        const FONDO_PENSIONES = (
-          parseFloat(percepciones.sueldo_base) * 0.09
-        ).toFixed(2);
-        deducciones.FONDO_PENSIONES = FONDO_PENSIONES;
-        deducciones.CUOTA_SINDICAL = (
-          parseFloat(percepciones.sueldo_base) * 0.01
-        ).toFixed(2);
+        if (employee[0].FECHA_NOMBRAMIENTO !== null) {
+          const FONDO_PENSIONES = (
+            parseFloat(percepciones.sueldo_base) * 0.09
+          ).toFixed(2);
+          deducciones.FONDO_PENSIONES = FONDO_PENSIONES;
+        }
+        // const FONDO_PENSIONES = (
+        //   parseFloat(percepciones.sueldo_base) * 0.09
+        // ).toFixed(2);
+        // deducciones.FONDO_PENSIONES = FONDO_PENSIONES;
+        if (employee[0].DELEGACION) {
+          deducciones.CUOTA_SINDICAL = (
+            parseFloat(percepciones.sueldo_base) * 0.01
+          ).toFixed(2);
+        }
+        // deducciones.CUOTA_SINDICAL = (
+        //   parseFloat(percepciones.sueldo_base) * 0.01
+        // ).toFixed(2);
         deducciones.IMSS = (
           parseFloat(percepciones.sueldo_base) * 0.041219
         ).toFixed(2);
@@ -148,7 +159,7 @@ employeeController.getProfileData = async (req, res) => {
         deducciones.ISR = (
           ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
             parseFloat(isrObjectCC.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
@@ -205,7 +216,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(sueldoGravableMM) -
             parseFloat(isrObjectMM[0].limite_inf)) *
             isrObjectMM[0].porcentajeliminf) /
-            100 +
+          100 +
           parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);

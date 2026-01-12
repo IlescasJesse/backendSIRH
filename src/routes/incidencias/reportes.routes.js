@@ -4,8 +4,8 @@ const reportesIncidenciasController = require("../../controllers/incidencias/rep
 const asistenceCards = require("../../controllers/incidencias/asistenceCards.Controller");
 const verifyToken = require("../../middleware/authMiddleware");
 
-router.get(
-  "/printEconomicDays/:quincena",
+router.post(
+  "/printEconomicDays",
   verifyToken,
   reportesIncidenciasController.printEconomicDays
 );
