@@ -184,7 +184,7 @@ El middleware muestra en consola:
 - [ ] App móvil configurada con URL correcta
 
 ## 🚀 Siguiente Paso
-
+README
 Ahora puedes ejecutar la aplicación Flutter y conectarte al servidor!
 
-Ver: `C:\SIRH-IOS-ANDROID-APP\README.md`
+Ver: `C:\SIRH-IOS-ANDROID-APP\.md`
