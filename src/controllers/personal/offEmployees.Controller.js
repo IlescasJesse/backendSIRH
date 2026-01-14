@@ -10,6 +10,7 @@ const { ObjectId } = require("mongodb");
 const { querysql } = require("../../config/mysql");
 const { insertOne } = require("../../config/mongo");
 const { off } = require("process");
+const { last } = require("pdf-lib");
 offEmployeeController.getVacants = async (req, res) => {
   try {
     const vacants = await query("PLANTILLA", { status: 2 });
@@ -95,9 +96,8 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       DOMICILIO: emp.DOMICILIO
         ? emp.DOMICILIO
         : emp.DIRECCION?.DOMICILIO ||
-          `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${
-            emp.DIRECCION?.MUNICIPIO || ""
-          }, ${emp.DIRECCION?.ESTADO || ""}`,
+        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
+        }, ${emp.DIRECCION?.ESTADO || ""}`,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
@@ -132,6 +132,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
   });
+  const lastTipoNom = data.TIPONOM;
   let relacionB = false;
   let relacionCN = false;
   let relacionCC = false;
@@ -148,6 +149,17 @@ offEmployeeController.saveDataOff = async (req, res) => {
   let DEF = false;
   try {
     delete data._id;
+
+    // CAMBIAR TIPONOM SEGUN LA LOGICA
+    if (data.TIPONOM === 'FCO') {
+      // NOMBRAMIENTO CONFIANZA FORANEO cambia a CONTRATO CONFIANZA FORANEO
+      data.TIPONOM = 'FCT';
+    } else if (data.TIPONOM === '511') {
+      // NOMBRAMIENTO CONFIANZA CENTRAL cambia a CONTRATO CONFIANZA CENTRAL
+      data.TIPONOM = 'CCT';
+    } else {
+      data.TIPONOM = data.TIPONOM;
+    }
 
     await insertOne(`BAJAS`, data);
     const plaza = await query(`PLAZAS`, { NUMPLA: data.NUMPLA });
@@ -270,22 +282,21 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
   const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${
-    months[date.getMonth()]
-  } DE ${date.getFullYear()}`;
+  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
+    } DE ${date.getFullYear()}`;
 
-  if (data.TIPONOM === "F51" || data.TIPONOM === "M51") {
+  if (lastTipoNom === "F51" || lastTipoNom === "M51") {
     relacionB = true;
-  } else if (data.TIPONOM === "FCO" || data.TIPONOM === "511") {
+  } else if (lastTipoNom === "FCO" || lastTipoNom === "511") {
     relacionCN = true;
   }
-  if (data.TIPONOM === "FCT" || data.TIPONOM === "CCT") {
+  if (lastTipoNom === "FCT" || lastTipoNom === "CCT") {
     relacionCC = true;
   }
-  if (data.TIPONOM === "F53" || data.TIPONOM === "M53") {
+  if (lastTipoNom === "F53" || lastTipoNom === "M53") {
     relacionC = true;
   }
-  if (data.TIPONOM === "FMM" || data.TIPONOM === "MMS") {
+  if (lastTipoNom === "FMM" || lastTipoNom === "MMS") {
     relacionMM = true;
   }
   if (data.reason === "R-DEF") {
@@ -433,9 +444,8 @@ offEmployeeController.getDataLicenses = async (req, res) => {
     if (licenses.length > 0) {
       if (ocupante.length > 0 && ocupante[0].CURP) {
         let OCUPANTE = {
-          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${
-            ocupante[0]?.APE_MAT || ""
-          } ${ocupante[0]?.NOMBRES || ""}`.trim(),
+          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${ocupante[0]?.APE_MAT || ""
+            } ${ocupante[0]?.NOMBRES || ""}`.trim(),
         };
         res
           .status(404)
@@ -472,9 +482,8 @@ offEmployeeController.getLicenses = async (req, res) => {
             plantilla && plantilla[0] && plantilla[0].CURP
           );
           let OCUPANTE = {
-            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${
-              plantilla[0]?.APE_MAT || ""
-            } ${plantilla[0]?.NOMBRES || ""}`.trim(),
+            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${plantilla[0]?.APE_MAT || ""
+              } ${plantilla[0]?.NOMBRES || ""}`.trim(),
           };
           if (OCUPANTE_ACTIVO) {
             return { ...lic, OCUPANTE };
