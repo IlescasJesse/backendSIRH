@@ -136,6 +136,7 @@ incidenciasController.getEmployee = async (req, res) => {
     res.status(500).send({ error: "An error occurred while fetching data" });
   }
 };
+
 incidenciasController.getEmployebyArea = async (req, res) => {
   const area = req.params.area;
   const queryParam = req.params.queryParam;
@@ -299,6 +300,9 @@ incidenciasController.getProfile = async (req, res) => {
     const permisosExt = await query("PERMISOS_EXT", {
       ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
     });
+    const comisiones = await query("COMISIONES", {
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
+    });
 
     let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
@@ -334,6 +338,7 @@ incidenciasController.getProfile = async (req, res) => {
       justificantes: justificantes,
       incapacidades: incapacidades,
       permisosExt: permisosExt,
+      comisiones: comisiones,
     };
     const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
     const userAction = {
@@ -635,6 +640,7 @@ incidenciasController.newEconomicPermit = async (req, res) => {
       .send({ error: "An error occurred while creating the permit" });
   }
 };
+// Crear un nuevo justificante
 incidenciasController.newJustification = async (req, res) => {
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
@@ -685,7 +691,7 @@ incidenciasController.newJustification = async (req, res) => {
     .status(200)
     .send({ message: "Justification created", data: justificationData });
 };
-
+// Crear una nueva incapacidad
 incidenciasController.newInability = async (req, res) => {
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
@@ -732,6 +738,60 @@ incidenciasController.newInability = async (req, res) => {
       .send({ error: "An error occurred while creating the incapacity" });
   }
 };
+// Crear una nueva comisión
+incidenciasController.newCommission = async (req, res) => {
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+  const {
+    _id,
+    ID_CTRL_ASIST,
+    COMISIONES,
+    NUMTARJETA,
+    OBSERVACIONES
+  } = req.body;
+
+  // Crear el nuevo registro de comisión
+  const comisionData = {
+    id_empoyee: _id,
+    ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
+    COMISIONES,
+    OBSERVACIONES
+  };
+
+  const userAction = {
+    username: user.username,
+    module: "AEI-IP",
+    action: `CREÓ UNA NUEVA COMISIÓN DEL EMPLEADO CON TARJETA "${NUMTARJETA}"`,
+    timestamp: currentDateTime,
+  };
+
+  try {
+    // Buscar empleado en PLANTILLA y PLANTILLA_FORANEA
+    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(_id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(_id) }),
+    ]);
+
+    const employee = employeePlantilla.length
+      ? employeePlantilla
+      : employeeForanea.length
+        ? employeeForanea
+        : [];
+
+    if (!employee || employee.length === 0) {
+      res.status(404).send({ error: "No data found" });
+      return;
+    }
+
+    await insertOne("COMISIONES", comisionData);
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).send({ message: "Commission created", data: comisionData });
+  } catch (error) {
+    console.error("Error creating commission:", error);
+    res.status(500).send({ error: "An error occurred while creating the commission" });
+  }
+};
+
 incidenciasController.saveIncidencia = async (req, res) => {
   const data = req.body;
   const user = req.user;
@@ -1129,7 +1189,6 @@ incidenciasController.updateJustification = async (req, res) => {
       .send({ error: "An error occurred while updating the justification" });
   }
 };
-
 incidenciasController.updateInability = async (req, res) => {
   const { _id, ...updateData } = req.body;
   const user = req.user;
@@ -1165,6 +1224,44 @@ incidenciasController.updateInability = async (req, res) => {
     res
       .status(500)
       .send({ error: "An error occurred while updating the inability" });
+  }
+};
+incidenciasController.updateCommission = async (req, res) => {
+  const { _id, ...updateData } = req.body;
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+  const userAction = {
+    username: user.username,
+    module: "AEI-IP",
+    action: `ACTUALIZÓ UNA COMISIÓN DEL EMPLEADO CON TARJETA "${updateData.NUMTARJETA}"`,
+    timestamp: currentDateTime,
+  };
+
+  try {
+    const result = await query("COMISIONES", {
+      _id: new ObjectId(_id),
+    });
+
+    if (!result || result.length === 0) {
+      return res.status(404).send({ error: "Commission not found" });
+    }
+
+    const employee = result[0];
+    await updateOne(
+      "COMISIONES",
+      { _id: new ObjectId(_id) },
+      { $set: updateData }
+    );
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).send({
+      message: "Commission updated successfully",
+      data: employee,
+    });
+  } catch (error) {
+    console.error("Error updating commission:", error);
+    res
+      .status(500)
+      .send({ error: "An error occurred while updating the commission" });
   }
 };
 
@@ -1460,6 +1557,41 @@ incidenciasController.deleteIncidencia = async (req, res) => {
       .send({ error: "An error occurred while deleting the incidence" });
   }
 };
+incidenciasController.deleteCommission = async (req, res) => {
+  const { id } = req.params;
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+  const userAction = {
+    username: user.username,
+    module: "AEI-PRO",
+    action: `ELIMINÓ COMISIÓN DEL EMPLEADO CON ID "${id}"`,
+    timestamp: currentDateTime,
+  };
+
+  try {
+
+    const dataResult = await query("COMISIONES", { _id: new ObjectId(id) });
+    if (dataResult.length === 0) {
+      return res.status(404).send({ error: "Commission not found" });
+    }
+    // Crear el nuevo registro de comisión
+    const comisionData = {
+      id_empoyee: dataResult[0].id_empoyee,
+    };
+
+    const result = await deleteOne("COMISIONES", { _id: new ObjectId(id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).send({ error: "Commission not found" });
+    }
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).send({ message: "Commission deleted successfully", data: comisionData });
+  } catch (error) {
+    console.error("Error deleting commission:", error);
+    res
+      .status(500)
+      .send({ error: "An error occurred while deleting the commission" });
+  }
+};
 incidenciasController.getAllIncidencias = async (req, res) => {
   try {
     const incidencias = await query("INCIDENCIAS", {});
@@ -1502,10 +1634,7 @@ incidenciasController.getAllEmployeesByArea = async (req, res) => {
       AREA_RESP: area,
       status: 1,
       NUMTARJETA: { $exists: true, $nin: [null, ""] },
-      $or: [
-        { STATUS_EMPLEADO: null },
-        { "STATUS_EMPLEADO.STATUS": "COM_SDCL" },
-      ],
+      "STATUS_EMPLEADO.STATUS": { $nin: ["EXIMA", "COM_LAB"] },
     };
 
     const [plantilla = [], foranea = []] = await Promise.all([
