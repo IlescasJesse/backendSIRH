@@ -1,0 +1,21 @@
+2026-01-19 15:41:51 -06:00: TypeError: Cannot read properties of null (reading 'split')
+2026-01-19 15:41:51 -06:00:     at offEmployeeController.saveDataOff (C:\SIRH-NODE\backendSIRH\src\controllers\personal\offEmployees.Controller.js:261:49)
+2026-01-19 15:41:51 -06:00:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-01-19 15:45:37 -06:00: TypeError: Cannot read properties of null (reading 'split')
+2026-01-19 15:45:37 -06:00:     at offEmployeeController.saveDataOff (C:\SIRH-NODE\backendSIRH\src\controllers\personal\offEmployees.Controller.js:261:49)
+2026-01-19 15:45:37 -06:00:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-01-20 13:15:19 -06:00: Error starting server: Error
+2026-01-20 13:15:19 -06:00:     at Object.createConnectionPromise [as createConnection] (C:\SIRH-NODE\backendSIRH\node_modules\mysql2\promise.js:19:31)
+2026-01-20 13:15:19 -06:00:     at ping (C:\SIRH-NODE\backendSIRH\src\config\mysql.js:22:34)
+2026-01-20 13:15:19 -06:00:     at startServer (C:\SIRH-NODE\backendSIRH\src\index.js:8:11)
+2026-01-20 13:15:19 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\index.js:18:1)
+2026-01-20 13:15:19 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-01-20 13:15:19 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-01-20 13:15:19 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-01-20 13:15:19 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-01-20 13:15:19 -06:00:     at Object.<anonymous> (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainerFork.js:33:23)
+2026-01-20 13:15:19 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14) {
+2026-01-20 13:15:19 -06:00:   code: 'ECONNREFUSED',
+2026-01-20 13:15:19 -06:00:   errno: undefined,
+2026-01-20 13:15:19 -06:00:   sqlState: undefined
+2026-01-20 13:15:19 -06:00: }
