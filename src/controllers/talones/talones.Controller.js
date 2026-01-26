@@ -27,8 +27,8 @@ talonesController.getProfile = async (req, res) => {
     const employee = employeePlantilla.length
       ? employeePlantilla
       : employeeForanea.length
-      ? employeeForanea
-      : [];
+        ? employeeForanea
+        : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
@@ -130,9 +130,8 @@ talonesController.getAllTalonesPendientesRegresar = async (req, res) => {
               status: talon.STATUS,
               empleado: {
                 _id: empleado._id,
-                NOMBRE: `${empleado.APE_PAT || ""} ${empleado.APE_MAT || ""} ${
-                  empleado.NOMBRES || ""
-                }`.trim(),
+                NOMBRE: `${empleado.APE_PAT || ""} ${empleado.APE_MAT || ""} ${empleado.NOMBRES || ""
+                  }`.trim(),
                 TIPONOM: empleado.TIPONOM,
                 ADSCRIPCION: empleado.ADSCRIPCION,
               },
@@ -206,9 +205,8 @@ talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
               status: talon.STATUS,
               empleado: {
                 _id: empleado._id,
-                NOMBRE: `${empleado.APE_PAT || ""} ${empleado.APE_MAT || ""} ${
-                  empleado.NOMBRES || ""
-                }`.trim(),
+                NOMBRE: `${empleado.APE_PAT || ""} ${empleado.APE_MAT || ""} ${empleado.NOMBRES || ""
+                  }`.trim(),
                 TIPONOM: empleado.TIPONOM,
                 ADSCRIPCION: empleado.ADSCRIPCION,
               },
@@ -277,7 +275,6 @@ talonesController.uploadTalonImage = async (req, res) => {
     // --- Validaciones de imagen desactivadas temporalmente ---
     // El reconocimiento OCR no es confiable, se comenta todo el código de validación
 
-    /*
     // Convertir base64 a buffer
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
     const imageBuffer = Buffer.from(base64Data, "base64");
@@ -320,6 +317,10 @@ talonesController.uploadTalonImage = async (req, res) => {
 
     // Validar que contenga "PAGADOR" con múltiples variaciones de OCR
     const pagadorPatterns = [
+      "PAAGADOR",
+      "PASADOR",
+      "PACADOR",
+      "PacaDOR",
       "PAGADOR",
       "PAG ADOR",
       "PAGAD0R",
@@ -472,7 +473,6 @@ talonesController.uploadTalonImage = async (req, res) => {
           "La imagen no contiene firma azul en la sección de FIRMA DE RECIBIDO.",
       });
     }
-    */
 
     // Si pasa ambas validaciones, guardar la imagen en base64 en el talón y cambiar status a 1
     talonesDoc.TALONES[talonIndex].IMAGE = image;
@@ -498,9 +498,7 @@ talonesController.uploadTalonImage = async (req, res) => {
       timestamp: currentDateTime,
     });
 
-    res
-      .status(200)
-      .send({ message: "Imagen guardada correctamente en el talón." });
+    res.status(200).send({ message: "Imagen guardada correctamente en el talón.", _id: talonesDoc._idEmployee });
   } catch (error) {
     console.error("Error al subir imagen al talón:", error);
     res.status(500).send({ error: "Ocurrió un error al guardar la imagen." });
