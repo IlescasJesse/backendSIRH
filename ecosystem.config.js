@@ -45,5 +45,27 @@ module.exports = {
       combine_logs: true,
       merge_logs: true,
     },
+    {
+      name: "testado-pdf",
+      script: "server.js",
+      cwd: "C:/Users/ilesm/Desktop/testado",
+      instances: 1,
+      exec_mode: "fork",
+      watch: false,
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s",
+      restart_delay: 4000,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+        PORT: 3001,
+      },
+      error_file: "./logs/err-testado.log",
+      out_file: "./logs/out-testado.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+      combine_logs: true,
+      merge_logs: true,
+    }
   ],
 };
