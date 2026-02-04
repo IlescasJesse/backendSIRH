@@ -1,5 +1,5 @@
-const app = require("./app");
 require("dotenv").config();
+const {server, app} = require("./app");
 const { ping: pingMySQL } = require("./config/mysql");
 const { ping: pingMongo } = require("./config/mongo");
 
@@ -7,7 +7,7 @@ async function startServer() {
   try {
     await pingMySQL();
     await pingMongo();
-    app.listen(app.get("port"), "0.0.0.0", () => {
+    server.listen(app.get("port"), "0.0.0.0", () => {
       console.log("Server running at http://0.0.0.0:" + app.get("port"));
     });
   } catch (err) {

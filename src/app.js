@@ -3,6 +3,7 @@ const morgan = require("morgan");
 const cors = require("cors");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
+const http = require("http");
 const { Server } = require("socket.io");
 const { startAgenda } = require("./config/agenda");
 const { requestLogger, errorLogger } = require("./middleware/loggerMiddleware");
@@ -33,28 +34,23 @@ app.use(
   })
 );
 
-// Middleware para imprimir la información de la sesión
-app.use((req, res, next) => {
-  if (req.session.user) {
-    console.log("Información de la sesión:", req.session.user.username);
-  }
-  next();
-});
-// Configuración de CORS para el servidor de Socket.IO
-const serverIO = require("http").createServer(app);
-const io = new Server(serverIO, {
+// ---- SOCKET.IO ----
+const server = http.createServer(app);
+
+const io = new Server(server, {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:4040",
     methods: ["GET", "POST"],
   },
 });
-// Middleware para manejar las conexiones de Socket.IO
-io.on("connection", (socket) => {
-  console.log("Nuevo cliente conectado:", socket.id);
 
-  // Aquí puedes manejar eventos específicos de Socket.IO
+app.set("io", io);
+
+io.on("connection", (socket) => {
+  console.log("🟢 Cliente conectado:", socket.id);
+
   socket.on("disconnect", () => {
-    console.log("Cliente desconectado:", socket.id);
+    console.log("🔴 Cliente desconectado:", socket.id);
   });
 });
 
@@ -102,4 +98,4 @@ startAgenda().catch((err) => {
   console.error("Error al iniciar Agenda:", err);
 });
 
-module.exports = app;
+module.exports = { app, server, io };
