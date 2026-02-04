@@ -3,9 +3,12 @@ const { ObjectId } = require("mongodb");
 const { query, insertOne, updateOne } = require("./mongo");
 require("dotenv").config();
 
-// Crear instancia de Agenda conectada a MongoDB
+// Crear instancia de Agenda conectada a MongoDB SIRH2026
 const agenda = new Agenda({
-  db: { address: process.env.MONGO_URI, collection: "AGENDA_LOGS" },
+  db: {
+    address: `${process.env.MONGO_URI}/SIRH2026`,
+    collection: "AGENDA_LOGS",
+  },
   processEvery: "1 minute", // Verificar trabajos cada minuto
   maxConcurrency: 20,
 });

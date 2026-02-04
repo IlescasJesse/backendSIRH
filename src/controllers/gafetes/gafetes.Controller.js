@@ -95,7 +95,7 @@ gafetesController.updateEmployee = async (req, res) => {
         { _id: new ObjectId(id) },
         { $set: updateData }
       );
-      res.send({ message: "Employee updated successfully" });
+      res.send({ message: "Employee updated successfully", _id: id });
     } else {
       // Buscar en PLANTILLA_FORANEA si no está en PLANTILLA
       const employeeForanea = await query("PLANTILLA_FORANEA", {
@@ -107,7 +107,7 @@ gafetesController.updateEmployee = async (req, res) => {
           { _id: new ObjectId(id) },
           { $set: updateData }
         );
-        res.send({ message: "Employee updated successfully" });
+        res.send({ message: "Employee updated successfully", _id: id });
       } else {
         // Si no está en PLANTILLA ni en PLANTILLA_FORANEA, buscar en GAFETES_TEMPO
         const employeeGafetesTempo = await query("GAFETES_TEMPO", {
