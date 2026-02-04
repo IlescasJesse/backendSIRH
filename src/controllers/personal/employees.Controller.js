@@ -91,22 +91,22 @@ employeeController.getProfileData = async (req, res) => {
       case "F51":
         percepciones = await querysql(
           `SELECT * FROM catalogo_base  WHERE nivel = ?`,
-          [employee[0].NIVEL]
+          [employee[0].NIVEL],
         );
         percepciones = percepciones[0];
         const isrDataB = await querysql(
           "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
-          [percepciones.sueldo_base, percepciones.sueldo_base]
+          [percepciones.sueldo_base, percepciones.sueldo_base],
         );
         const isrObjectB = isrDataB[0];
         deducciones.ISR = (
           ((parseFloat(percepciones.sueldo_base) -
             parseFloat(isrObjectB.limite_inf)) *
             parseFloat(isrObjectB.porcentajeliminf)) /
-          100 +
+            100 +
           parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
-        if (employee[0].FECHA_NOMBRAMIENTO !== null) {
+        if (employee[0].FECHA_NOMBRAMIENTO) {
           const FONDO_PENSIONES = (
             parseFloat(percepciones.sueldo_base) * 0.09
           ).toFixed(2);
@@ -130,7 +130,7 @@ employeeController.getProfileData = async (req, res) => {
         if (employee[0].NUMQUIN > 0) {
           const quinquenio = await querysql(
             `SELECT quin_${employee[0].NUMQUIN} FROM quin_base WHERE NIVEL = ?`,
-            [employee[0].NIVEL]
+            [employee[0].NIVEL],
           );
           percepciones[`QUINQUENIOS: ${employee[0].NUMQUIN}`] =
             quinquenio[0][`quin_${employee[0].NUMQUIN}`];
@@ -144,7 +144,7 @@ employeeController.getProfileData = async (req, res) => {
       case "511":
         percepciones = await querysql(
           `SELECT * FROM catalogo_contrato WHERE nivel = ?`,
-          [employee[0].NIVEL]
+          [employee[0].NIVEL],
         );
         percepciones = percepciones[0];
         const sueldoGravable = (
@@ -153,17 +153,17 @@ employeeController.getProfileData = async (req, res) => {
         ).toFixed(2);
         const isrDataCC = await querysql(
           "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
-          [sueldoGravable, sueldoGravable]
+          [sueldoGravable, sueldoGravable],
         );
         const isrObjectCC = isrDataCC[0];
         deducciones.ISR = (
           ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
             parseFloat(isrObjectCC.porcentajeliminf)) /
-          100 +
+            100 +
           parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
-          "SELECT * FROM subsidio_isr WHERE id = 1"
+          "SELECT * FROM subsidio_isr WHERE id = 1",
         );
         if (
           parseFloat(sueldoGravable) < parseFloat(limiteSubsidio[0].lim_sup)
@@ -182,7 +182,7 @@ employeeController.getProfileData = async (req, res) => {
         if (employee[0].NUMQUIN > 0 && employee[0].TIPONOM === "CN") {
           const quinquenio = await querysql(
             `SELECT quin_${employee[0].NUMQUIN} FROM quin_confianza WHERE nivel = ?`,
-            [employee[0].NIVEL]
+            [employee[0].NIVEL],
           );
           percepciones[`QUINQUENIOS: ${employee[0].NUMQUIN}`] =
             quinquenio[0][`quin_${employee[0].NUMQUIN}`];
@@ -193,7 +193,7 @@ employeeController.getProfileData = async (req, res) => {
       case "MMS":
         percepciones = await querysql(
           `SELECT * FROM catalogo_mandosmedios WHERE nivel = ?`,
-          [employee[0].NIVEL]
+          [employee[0].NIVEL],
         );
         percepciones = percepciones[0];
 
@@ -205,18 +205,18 @@ employeeController.getProfileData = async (req, res) => {
 
         const isrObjectMM = await querysql(
           "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
-          [sueldoGravableMM, sueldoGravableMM]
+          [sueldoGravableMM, sueldoGravableMM],
         );
         const CAT_SEGURO = await querysql(
           "SELECT * FROM seg_vida WHERE nivel = ?",
-          [employee[0].NIVEL]
+          [employee[0].NIVEL],
         );
 
         deducciones.ISR = (
           ((parseFloat(sueldoGravableMM) -
             parseFloat(isrObjectMM[0].limite_inf)) *
             isrObjectMM[0].porcentajeliminf) /
-          100 +
+            100 +
           parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
@@ -231,7 +231,7 @@ employeeController.getProfileData = async (req, res) => {
         if (employee[0].NUMQUIN > 0 && employee[0].TIPONOM === "CN") {
           const quinquenio = await querysql(
             `SELECT quin_${employee[0].NUMQUIN} FROM quin_mandosmedios WHERE nivel = ?`,
-            [employee[0].NIVEL]
+            [employee[0].NIVEL],
           );
           percepciones[`QUINQUENIOS: ${employee[0].NUMQUIN}`] =
             quinquenio[0][`quin_${employee[0].NUMQUIN}`];
@@ -278,7 +278,7 @@ employeeController.getEmployee = async (req, res) => {
       // Si la consulta contiene solo letras y espacios
       const regex = new RegExp(
         `^${searchQuery.trim().replace(/\s+/g, " ")}$`,
-        "i"
+        "i",
       );
       empleados = await query("PLANTILLA", {
         $and: [
@@ -372,7 +372,7 @@ employeeController.updateProyect = async (req, res) => {
     const result = await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
-      { $set: { PROYECTO, ADSCRIPCION, AREA_RESP } }
+      { $set: { PROYECTO, ADSCRIPCION, AREA_RESP } },
     );
     await insertOne("HSY_PROYECTOS", hsy_data);
 
@@ -431,7 +431,7 @@ employeeController.recategorizeEmployee = async (req, res) => {
     const result = await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
-      { $set: { CLAVECAT, NOMCATE, NIVEL, TIPONOM } }
+      { $set: { CLAVECAT, NOMCATE, NIVEL, TIPONOM } },
     );
     await insertOne("HSY_RECATEGORIZACIONES", hsy_data);
 
@@ -524,7 +524,7 @@ employeeController.addCategory = async (req, res) => {
     // Insertar la nueva categoría en la base de datos
     const result = await querysql(
       `INSERT INTO categorias_catalogo (CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA) VALUES (?, ?, ?, ?)`,
-      [CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA]
+      [CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA],
     );
 
     res.status(201).json({ message: "Categoría agregada correctamente" });
