@@ -7,42 +7,42 @@ const verifyToken = require("../../middleware/authMiddleware");
 router.post(
   "/printEconomicDays",
   verifyToken,
-  reportesIncidenciasController.printEconomicDays
+  reportesIncidenciasController.printEconomicDays,
 );
 router.get(
   "/printIncidenciasCentral/:quincena",
   verifyToken,
-  reportesIncidenciasController.printIncidenciasCentral
+  reportesIncidenciasController.printIncidenciasCentral,
 );
 
 // Auditoria Reportes
 router.get(
   "/printIncidenciasAuditoria/:quincena",
   verifyToken,
-  reportesIncidenciasController.printIncidenciasAuditoria
+  reportesIncidenciasController.printIncidenciasAuditoria,
 );
 router.get(
   "/printInasistenciasAuditoria/:quincena",
   verifyToken,
-  reportesIncidenciasController.printInasistenciasAuditoria
+  reportesIncidenciasController.printInasistenciasAuditoria,
 );
 router.get(
   "/printInasistenciasCentral/:quincena",
   verifyToken,
-  reportesIncidenciasController.printInasistenciasCentral
+  reportesIncidenciasController.printInasistenciasCentral,
 );
 router.get(
   "/printIncidenciasPlaneacion/:quincena",
-  reportesIncidenciasController.printIncidenciasPlaneacion
+  reportesIncidenciasController.printIncidenciasPlaneacion,
 );
 router.get(
   "/printInasistenciasPlaneacion/:quincena",
-  reportesIncidenciasController.printInasistenciasPlaneacion
+  reportesIncidenciasController.printInasistenciasPlaneacion,
 );
 
 router.post(
   "/printAsistenceCards/:area_resp",
-  asistenceCards.printAsistenceCards
+  asistenceCards.printAsistenceCards,
 );
 // router.get(
 //   "/printSingleAsistenceCard/:area_resp",
@@ -51,6 +51,11 @@ router.post(
 router.post(
   "/getReportStatus/:status",
   verifyToken,
-  reportesIncidenciasController.getReportStatus
+  reportesIncidenciasController.getReportStatus,
+);
+router.get(
+  "/printReporteVisitaDom/:quincena",
+  verifyToken,
+  reportesIncidenciasController.generateReporteVisitaDom,
 );
 module.exports = router;
