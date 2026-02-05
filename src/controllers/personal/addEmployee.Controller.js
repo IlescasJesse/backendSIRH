@@ -4,8 +4,7 @@ const { querysql } = require("../../config/mysql");
 const { getAdscripciones } = require("../../libs/adscriptions");
 const fs = require("fs");
 const path = require("path");
-const PizZip = require("pizzip");
-const Docxtemplater = require("docxtemplater");
+const { PDFDocument } = require("pdf-lib");
 const { console } = require("inspector");
 
 employeeController = {};
@@ -417,12 +416,11 @@ employeeController.makeProposal = async (req, res) => {
     DIRECCION,
   };
 
-  const content = fs.readFileSync(
-    path.resolve(__dirname, "../../templates/altaTemplate.docx"),
-    "binary"
-  );
-  const zip = new PizZip(content);
-  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+  // --- Generación del documento: usar template PDF ---
+  const pdfTemplatePath = path.resolve(__dirname, "../../templates/templateAlta.pdf");
+  if (!fs.existsSync(pdfTemplatePath)) {
+    return res.status(404).json({ message: "Template PDF no encontrado", path: pdfTemplatePath });
+  }
 
   try {
     const updatePlantillaResult = await updateOne(
@@ -446,35 +444,79 @@ employeeController.makeProposal = async (req, res) => {
         .status(404)
         .json({ message: "No matching document found in PLAZAS" });
     }
-    doc.render(templateData);
-    const buf = doc.getZip().generate({ type: "nodebuffer" });
-    const outputDir = path.resolve(__dirname, "../../docs/altas");
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-    const existingFilePath = path.join(outputDir, `ALTA_${data.CURP}.docx`);
-    if (fs.existsSync(existingFilePath)) {
-      fs.unlinkSync(existingFilePath); // Eliminar el archivo existente
-    }
-    const outputPath = path.join(outputDir, `ALTA_${data.CURP}.docx`);
-    fs.writeFileSync(outputPath, buf);
+    // Cargar PDF
+    const pdfBytes = fs.readFileSync(pdfTemplatePath);
+    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
 
+    // Obtener campos del formulario y mapear nombres reales
+    const form = pdfDoc.getForm();
+    const fieldsByName = Object.fromEntries(form.getFields().map(f => [f.getName(), f]));
+
+    const fieldMapping = {
+      FECHA_HOY: FECHA_HOY,
+      RFC: RFC,
+      CURP: CURP,
+      NUMPLA: NUMPLA,
+      NOMBRES: `${APE_PAT} ${APE_MAT} ${NOMBRES} `.trim(),
+      SUSTITUYE: `${APE_PAT_OCUPANT} ${APE_MAT_OCUPANT} ${NOM_OCUPANT}`.trim(),
+      UNI_EJECU: UNI_EJECU,
+      CLAVE_PRESUPUESTAL: CLAVE_PRESUPUESTAL,
+      C_TRABAJO: C_TRABAJO,
+      OBRA_ACT: OBRA_ACT,
+      CLAVECAT: CLAVECAT,
+      NOMCATE: NOMCATE,
+      FECHA_FORMATTED: FECHA_FORMATTED,
+      LEVEL2: LEVEL2,
+      LEVEL3: LEVEL3,
+      LEVEL4: LEVEL4,
+      LEVEL5: LEVEL5,
+      AFILIACI: AFILIACI
+    };
+
+    const missing = [];
+    for (const [pdfFieldName, value] of Object.entries(fieldMapping)) {
+      const fld = fieldsByName[pdfFieldName];
+      if (fld) {
+        try {
+          fld.setText(String(value || ""));
+        } catch (err) {
+          console.warn(`No se pudo rellenar el campo "${pdfFieldName}":`, err.message || err);
+        }
+      } else {
+        missing.push(pdfFieldName);
+      }
+    }
+    if (missing.length) console.info("Campos no encontrados en el PDF (ajustar mapping):", missing);
+
+    // No aplanamos por defecto (evita corrupción). Use ?flatten=1 para aplanar si quieres.
+    if (req.query && req.query.flatten === "1") {
+      form.flatten();
+    }
+
+    // Guardar PDF en docs/altas
+    const outputDir = path.resolve(__dirname, "../../docs/altas");
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+    const outputPath = path.join(outputDir, `ALTA_${data.CURP}.pdf`);
+    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+
+    const pdfBytesOutput = await pdfDoc.save();
+    fs.writeFileSync(outputPath, pdfBytesOutput);
+
+    // Registrar acción del usuario
+    await insertOne("USER_ACTIONS", userAction);
+
+    // Enviar el archivo al cliente
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=ALTA_${data.CURP}.docx`
+      `attachment; filename=ALTA_${data.CURP}.pdf`
     );
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
-    await insertOne("USER_ACTIONS", userAction);
-    res.status(200).sendFile(outputPath);
+    res.setHeader("Content-Type", "application/pdf");
+    return res.status(200).sendFile(outputPath);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Error +al generar el documento" });
+    return res.status(500).json({ message: "Error al generar el documento PDF", error });
   }
-
-  res.status(200).json({ message: "Employee saved" });
 };
 //Funcion para descargar el formato de alta
 employeeController.downloadAlta = async (req, res) => {
@@ -482,16 +524,18 @@ employeeController.downloadAlta = async (req, res) => {
 
   const filePath = path.resolve(
     __dirname,
-    `../../docs/altas/ALTA_${curp}.docx`
+    `../../docs/altas/ALTA_${curp}.pdf`
   );
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ message: "Archivo no encontrado" });
+  }
+
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename=ALTA_${curp}.docx`
+    `attachment; filename=ALTA_${curp}.pdf`
   );
-  res.setHeader(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  );
+  res.setHeader("Content-Type", "application/pdf");
   res.status(200).sendFile(filePath);
 };
 //funcion para obtener la plantilla de un empleado pre guardada de una propuesta
@@ -606,15 +650,15 @@ employeeController.updateEmployee = async (req, res) => {
     };
     await insertOne("USER_ACTIONS", userAction);
 
-    // const io = req.app.get("io");
+    const io = req.app.get("io");
 
-    // io.emit("empleado-actualizado", {
-    //   numpla: data.NUMPLA,
-    //   nombre: `${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}`,
-    //   usuario: user.username,
-    //   fecha: currentDateTime,
-    //   mensaje: `El empleado ${data.NOMBRES} ${data.APE_PAT} fue actualizado`,
-    // });
+    io.emit("empleado-actualizado", {
+      numpla: data.NUMPLA,
+      nombre: `${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}`,
+      usuario: user.username,
+      fecha: currentDateTime,
+      mensaje: `El empleado ${data.NOMBRES} ${data.APE_PAT} fue actualizado`,
+    });
 
     res.status(200).json({
       message: "Employee updated and templateData removed",
