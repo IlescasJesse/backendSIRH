@@ -39,10 +39,10 @@ gafetesController.getProfile = async (req, res) => {
     const employee = employeePlantilla.length
       ? employeePlantilla
       : employeeForanea.length
-      ? employeeForanea
-      : employeeGafetes.length
-      ? employeeGafetes
-      : [];
+        ? employeeForanea
+        : employeeGafetes.length
+          ? employeeGafetes
+          : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
@@ -93,7 +93,7 @@ gafetesController.updateEmployee = async (req, res) => {
       await updateOne(
         "PLANTILLA",
         { _id: new ObjectId(id) },
-        { $set: updateData }
+        { $set: updateData },
       );
       res.send({ message: "Employee updated successfully", _id: id });
     } else {
@@ -105,7 +105,7 @@ gafetesController.updateEmployee = async (req, res) => {
         await updateOne(
           "PLANTILLA_FORANEA",
           { _id: new ObjectId(id) },
-          { $set: updateData }
+          { $set: updateData },
         );
         res.send({ message: "Employee updated successfully", _id: id });
       } else {
@@ -117,7 +117,7 @@ gafetesController.updateEmployee = async (req, res) => {
           await updateOne(
             "GAFETES_TEMPO",
             { _id: new ObjectId(id) },
-            { $set: updateData }
+            { $set: updateData },
           );
           res
             .status(200)
@@ -158,7 +158,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
     const templatePath = path.join(
       __dirname,
       "../../templates",
-      "g_estructura.pdf"
+      "g_estructura.pdf",
     );
 
     if (!fs.existsSync(templatePath)) {
@@ -178,12 +178,12 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
     const fontBlackPath = path.join(
       __dirname,
       "../../assets/fonts",
-      "Montserrat-Black.ttf"
+      "Montserrat-Black.ttf",
     );
     const fontMediumPath = path.join(
       __dirname,
       "../../assets/fonts",
-      "Montserrat-Medium.ttf"
+      "Montserrat-Medium.ttf",
     );
 
     const fontBlackBytes = fs.readFileSync(fontBlackPath);
@@ -199,7 +199,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         ? rgb(
             parseInt(result[1], 16) / 255,
             parseInt(result[2], 16) / 255,
-            parseInt(result[3], 16) / 255
+            parseInt(result[3], 16) / 255,
           )
         : rgb(0, 0, 0);
     };
@@ -259,7 +259,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         fontBlack,
         8,
         5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
@@ -268,7 +268,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         fontBlack,
         8,
         5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Procesar APELLIDOS (APE_PAT + A|PE_MAT) con ancho de 6cm
@@ -280,7 +280,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
         fontMedium,
         12,
         6,
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
@@ -290,7 +290,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
           fontBlack,
           8,
           5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
-          CM_TO_POINTS
+          CM_TO_POINTS,
         )[0] || "";
 
       // Configuración de campos según las coordenadas proporcionadas
@@ -408,7 +408,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
           fontBlack,
           12,
           startX,
-          endX
+          endX,
         );
         currentPage.drawText(employee.NOMBRES, {
           x: nombresX,
@@ -426,7 +426,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
           fontMedium,
           10,
           startX,
-          endX
+          endX,
         );
         currentPage.drawText(employee.NOMCATE, {
           x: nomcateX,
@@ -463,7 +463,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
             fontBlack,
             8,
             5, // ancho 5cm para la segunda línea
-            CM_TO_POINTS
+            CM_TO_POINTS,
           );
 
           if (secondLineParts.length > 0) {
@@ -494,7 +494,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
                 fontBlack,
                 8,
                 5, // ancho 5cm para la tercera línea
-                CM_TO_POINTS
+                CM_TO_POINTS,
               );
               if (thirdLineParts.length > 0) {
                 const pixelY3 = pixelY2 - LINE_SPACING_ADS;
@@ -552,7 +552,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
               fontBlack,
               8,
               5, // ancho 5cm
-              CM_TO_POINTS
+              CM_TO_POINTS,
             );
             if (thirdLineParts.length > 0) {
               const pixelY3 = pixelY2 - LINE_SPACING;
@@ -575,7 +575,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
           fontMedium,
           12,
           startX,
-          endX
+          endX,
         );
         const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
 
@@ -596,7 +596,7 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=credenciales_${Date.now()}.pdf`
+      `attachment; filename=credenciales_${Date.now()}.pdf`,
     );
     res.send(Buffer.from(pdfBytes));
 
@@ -638,7 +638,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
     const templatePath = path.join(
       __dirname,
       "../../templates",
-      "g_honorarios.pdf"
+      "g_honorarios.pdf",
     );
 
     if (!fs.existsSync(templatePath)) {
@@ -658,12 +658,12 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
     const fontBlackPath = path.join(
       __dirname,
       "../../assets/fonts",
-      "Montserrat-Black.ttf"
+      "Montserrat-Black.ttf",
     );
     const fontMediumPath = path.join(
       __dirname,
       "../../assets/fonts",
-      "Montserrat-Medium.ttf"
+      "Montserrat-Medium.ttf",
     );
 
     const fontBlackBytes = fs.readFileSync(fontBlackPath);
@@ -679,7 +679,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
         ? rgb(
             parseInt(result[1], 16) / 255,
             parseInt(result[2], 16) / 255,
-            parseInt(result[3], 16) / 255
+            parseInt(result[3], 16) / 255,
           )
         : rgb(0, 0, 0);
     };
@@ -747,7 +747,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
         fontBlack,
         8,
         5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
@@ -756,7 +756,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
         fontBlack,
         8,
         5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
@@ -768,7 +768,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
         fontMedium,
         12,
         6,
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
@@ -778,7 +778,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
           fontBlack,
           8,
           5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
-          CM_TO_POINTS
+          CM_TO_POINTS,
         )[0] || "";
 
       // Configuración de campos según las coordenadas proporcionadas
@@ -872,7 +872,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
           fontBlack,
           12,
           startX,
-          endX
+          endX,
         );
         currentPage.drawText(employee.NOMBRES, {
           x: nombresX,
@@ -890,7 +890,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
           fontMedium,
           10,
           startX,
-          endX
+          endX,
         );
         currentPage.drawText(employee.NOMCATE, {
           x: nomcateX,
@@ -927,7 +927,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
             fontBlack,
             8,
             5, // ancho 5cm para la segunda línea
-            CM_TO_POINTS
+            CM_TO_POINTS,
           );
 
           if (secondLineParts.length > 0) {
@@ -958,7 +958,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
                 fontBlack,
                 8,
                 5, // ancho 5cm para la tercera línea
-                CM_TO_POINTS
+                CM_TO_POINTS,
               );
               if (thirdLineParts.length > 0) {
                 const pixelY3 = pixelY2 - LINE_SPACING_ADS;
@@ -1016,7 +1016,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
               fontBlack,
               8,
               5, // ancho 5cm
-              CM_TO_POINTS
+              CM_TO_POINTS,
             );
             if (thirdLineParts.length > 0) {
               const pixelY3 = pixelY2 - LINE_SPACING;
@@ -1039,7 +1039,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
           fontMedium,
           12,
           startX,
-          endX
+          endX,
         );
         const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
 
@@ -1060,7 +1060,7 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=credenciales_${Date.now()}.pdf`
+      `attachment; filename=credenciales_${Date.now()}.pdf`,
     );
     res.send(Buffer.from(pdfBytes));
 
@@ -1102,7 +1102,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
     const templatePath = path.join(
       __dirname,
       "../../templates",
-      "g_servicios.pdf"
+      "g_servicios.pdf",
     );
 
     if (!fs.existsSync(templatePath)) {
@@ -1122,12 +1122,12 @@ gafetesController.printCredentialsServicios = async (req, res) => {
     const fontBlackPath = path.join(
       __dirname,
       "../../assets/fonts",
-      "Montserrat-Black.ttf"
+      "Montserrat-Black.ttf",
     );
     const fontMediumPath = path.join(
       __dirname,
       "../../assets/fonts",
-      "Montserrat-Medium.ttf"
+      "Montserrat-Medium.ttf",
     );
 
     const fontBlackBytes = fs.readFileSync(fontBlackPath);
@@ -1143,7 +1143,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
         ? rgb(
             parseInt(result[1], 16) / 255,
             parseInt(result[2], 16) / 255,
-            parseInt(result[3], 16) / 255
+            parseInt(result[3], 16) / 255,
           )
         : rgb(0, 0, 0);
     };
@@ -1203,7 +1203,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
         fontBlack,
         8,
         5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
@@ -1212,7 +1212,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
         fontBlack,
         8,
         5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
@@ -1224,7 +1224,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
         fontMedium,
         12,
         6,
-        CM_TO_POINTS
+        CM_TO_POINTS,
       );
 
       // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
@@ -1234,7 +1234,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
           fontBlack,
           8,
           5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
-          CM_TO_POINTS
+          CM_TO_POINTS,
         )[0] || "";
 
       // Configuración de campos según las coordenadas proporcionadas
@@ -1336,7 +1336,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
           fontBlack,
           12,
           startX,
-          endX
+          endX,
         );
         currentPage.drawText(employee.NOMBRES, {
           x: nombresX,
@@ -1354,7 +1354,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
           fontMedium,
           10,
           startX,
-          endX
+          endX,
         );
         currentPage.drawText(employee.NOMCATE, {
           x: nomcateX,
@@ -1391,7 +1391,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
             fontBlack,
             8,
             5, // ancho 5cm para la segunda línea
-            CM_TO_POINTS
+            CM_TO_POINTS,
           );
 
           if (secondLineParts.length > 0) {
@@ -1422,7 +1422,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
                 fontBlack,
                 8,
                 5, // ancho 5cm para la tercera línea
-                CM_TO_POINTS
+                CM_TO_POINTS,
               );
               if (thirdLineParts.length > 0) {
                 const pixelY3 = pixelY2 - LINE_SPACING_ADS;
@@ -1480,7 +1480,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
               fontBlack,
               8,
               5, // ancho 5cm
-              CM_TO_POINTS
+              CM_TO_POINTS,
             );
             if (thirdLineParts.length > 0) {
               const pixelY3 = pixelY2 - LINE_SPACING;
@@ -1503,7 +1503,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
           fontMedium,
           12,
           startX,
-          endX
+          endX,
         );
         const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
 
@@ -1524,7 +1524,7 @@ gafetesController.printCredentialsServicios = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=credenciales_${Date.now()}.pdf`
+      `attachment; filename=credenciales_${Date.now()}.pdf`,
     );
     res.send(Buffer.from(pdfBytes));
 

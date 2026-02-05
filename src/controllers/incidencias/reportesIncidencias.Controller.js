@@ -10,11 +10,12 @@ const reportesIncidenciasController = {};
 
 reportesIncidenciasController.printEconomicDays = async (req, res) => {
   const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable"
+    "SELECT * FROM unidad_responsable",
   );
   const doc = new PDFDocument();
   const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
-  const areaResp = req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
+  const areaResp =
+    req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
   console.log(quin);
   console.log(areaResp);
 
@@ -44,7 +45,7 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/p_economicos/QUINCENA${quin}.pdf`
+    `../../docs/reportes/p_economicos/QUINCENA${quin}.pdf`,
   );
 
   try {
@@ -60,7 +61,7 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=QUINCENA${quin}.pdf`
+        `attachment; filename=QUINCENA${quin}.pdf`,
       );
       res.download(filePath, `QUINCENA${quin}.pdf`, (err) => {
         if (err) {
@@ -80,18 +81,18 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
     const fechas = economicos_quincena.map((permiso) => permiso.FECHA_CAPTURA);
     const FECHA_CAPTURA_INICIAL = fechas.reduce(
       (min, fecha) => (new Date(fecha) < new Date(min) ? fecha : min),
-      fechas[0]
+      fechas[0],
     );
     const FECHA_CAPTURA_FINAL = fechas.reduce(
       (max, fecha) => (new Date(fecha) > new Date(max) ? fecha : max),
-      fechas[0]
+      fechas[0],
     );
     const invertDateFormat = (date) => {
       const [year, month, day] = date.split("/");
       return `${day}-${month}-${year}`;
     };
     const FECHA_CAPTURA_INICIAL_INVERTIDA = invertDateFormat(
-      FECHA_CAPTURA_INICIAL
+      FECHA_CAPTURA_INICIAL,
     );
     const FECHA_CAPTURA_FINAL_INVERTIDA = invertDateFormat(FECHA_CAPTURA_FINAL);
 
@@ -124,7 +125,7 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
     doc.moveDown();
     doc.text(
       `PERIODO DE CAPTURA DEL : ${FECHA_CAPTURA_INICIAL_INVERTIDA} AL ${FECHA_CAPTURA_FINAL_INVERTIDA}`,
-      { align: "center" }
+      { align: "center" },
     );
     doc.moveDown();
 
@@ -141,7 +142,7 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
     // Generar tablas por cada proyecto
     Object.keys(proyectosAgrupados).forEach((proyecto) => {
       const unidadResponsable = unidades_responsables.find(
-        (unidad) => unidad.PROYECTO === proyecto
+        (unidad) => unidad.PROYECTO === proyecto,
       );
       const unidadResponsableNombre = unidadResponsable
         ? ` - ${unidadResponsable.UNIDAD_RESPONSABLE}`
@@ -149,17 +150,17 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
       doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
         align: "left",
       });
-      doc.text(
-        "---------------------------------------------------------------------------------------"
+      (doc.text(
+        "---------------------------------------------------------------------------------------",
       ),
-        { align: "center" };
+        { align: "center" });
       doc.text(
         "R.F.C             N O M B R E                      CATG.        DESDE     HASTA   #DÍAS",
-        { align: "right" }
+        { align: "right" },
       );
       doc.text(
         "---------------------------------------------------------------------------------------",
-        { align: "center" }
+        { align: "center" },
       );
 
       proyectosAgrupados[proyecto].forEach((permiso) => {
@@ -171,55 +172,55 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
           return `${day}-${month}-${year}`;
         };
 
-        doc.text(
+        (doc.text(
           `${RFC.padEnd(14)} ${truncatedName.padEnd(30)}      ${CLAVECAT.padEnd(
-            10
+            10,
           )} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(
-            10
-          )}  ${NUM_DIAS.toString().padStart(2)}`
+            10,
+          )}  ${NUM_DIAS.toString().padStart(2)}`,
         ),
-          { align: "rigth" };
+          { align: "rigth" });
       });
 
       const totalDias = proyectosAgrupados[proyecto].reduce(
         (sum, permiso) => sum + permiso.NUM_DIAS,
-        0
+        0,
       );
       const uniquePersons = new Set(
-        proyectosAgrupados[proyecto].map((permiso) => permiso.RFC)
+        proyectosAgrupados[proyecto].map((permiso) => permiso.RFC),
       );
       doc.text(
-        "---------------------------------------------------------------------------------------"
+        "---------------------------------------------------------------------------------------",
       );
 
       doc.text(
         `PERSONAS POR PROYECTO: ${uniquePersons.size}                                TOTAL DE DIAS POR PROYECTO: ${totalDias}`,
         {
           align: "center",
-        }
+        },
       );
     });
     doc.moveDown();
     // Calcular el total general de personas y días
     const totalGeneralDias = economicos_quincena.reduce(
       (sum, permiso) => sum + permiso.NUM_DIAS,
-      0
+      0,
     );
     const totalGeneralPersonas = new Set(
-      economicos_quincena.map((permiso) => permiso.RFC)
+      economicos_quincena.map((permiso) => permiso.RFC),
     ).size;
     doc.text(
       "---------------------------------------------------------------------------------------",
-      { align: "center" }
+      { align: "center" },
     );
     doc.text(
       `TOTAL GENERAL DE PERSONAS: ${totalGeneralPersonas}                                 TOTAL GENERAL DE DÍAS: ${totalGeneralDias}`,
-      { align: "center" }
+      { align: "center" },
     );
 
     doc.text(
       "---------------------------------------------------------------------------------------- ",
-      { align: "center" }
+      { align: "center" },
     );
     doc.moveDown(6);
 
@@ -252,7 +253,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias_central/INCIDENCIAS${quin}.pdf`
+    `../../docs/reportes/incidencias_central/INCIDENCIAS${quin}.pdf`,
   );
 
   try {
@@ -268,7 +269,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=INCIDENCIAS_CENTRAL_${quin}.pdf`
+        `attachment; filename=INCIDENCIAS_CENTRAL_${quin}.pdf`,
       );
       res.download(filePath, `INCIDENCIAS_CENTRAL_${quin}.pdf`, (err) => {
         if (err) {
@@ -314,8 +315,9 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -352,19 +354,19 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0")
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0")
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -446,13 +448,14 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
           INCIDENCIAS && INCIDENCIAS[day]
             ? replaceIncidenciasValue(INCIDENCIAS[day])
-            : ""
+            : "",
         ),
       ];
 
@@ -500,7 +503,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias_auditoria/INCIDENCIAS${quin}.pdf`
+    `../../docs/reportes/incidencias_auditoria/INCIDENCIAS${quin}.pdf`,
   );
 
   try {
@@ -516,7 +519,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=INCIDENCIAS_AUDITORIA_${quin}.pdf`
+        `attachment; filename=INCIDENCIAS_AUDITORIA_${quin}.pdf`,
       );
       res.download(filePath, `INCIDENCIAS_AUDITORIA_${quin}.pdf`, (err) => {
         if (err) {
@@ -562,8 +565,9 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -600,19 +604,19 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0")
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0")
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -694,13 +698,14 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
           INCIDENCIAS && INCIDENCIAS[day]
             ? replaceIncidenciasValue(INCIDENCIAS[day])
-            : ""
+            : "",
         ),
       ];
 
@@ -731,7 +736,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
   const quin = req.query.quincena || req.params.quincena;
   const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable"
+    "SELECT * FROM unidad_responsable",
   );
 
   const inasistencias_central = await query("INCIDENCIAS", {
@@ -798,8 +803,9 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -807,7 +813,7 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
   const doc = new PDFDocument();
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/inasistencias_central/INASISTENCIAS_CENTRAL_${quin}.pdf`
+    `../../docs/reportes/inasistencias_central/INASISTENCIAS_CENTRAL_${quin}.pdf`,
   );
 
   const stream = fs.createWriteStream(filePath);
@@ -821,7 +827,7 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=INASISTENCIAS_CENTRAL_${quin}.pdf`
+      `attachment; filename=INASISTENCIAS_CENTRAL_${quin}.pdf`,
     );
     res.download(filePath, `INASISTENCIAS_CENTRAL_${quin}.pdf`, (err) => {
       if (err) {
@@ -870,15 +876,15 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
       doc.text(`NÓMINA: ${group.label} (${tiponom})`, { align: "left" });
       doc.text(
         "---------------------------------------------------------------------------------------",
-        { align: "center" }
+        { align: "center" },
       );
       doc.text(
         "R.F.C           N O M B R E                          RETARDOS            INASISTENCIAS",
-        { align: "left" }
+        { align: "left" },
       );
       doc.text(
         "---------------------------------------------------------------------------------------",
-        { align: "center" }
+        { align: "center" },
       );
       doc.moveDown(0.5);
 
@@ -895,7 +901,7 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
       // Generar tablas por cada proyecto
       Object.keys(proyectosAgrupados).forEach((proyecto) => {
         const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto
+          (unidad) => unidad.PROYECTO === proyecto,
         );
         const unidadResponsableNombre = unidadResponsable
           ? ` - ${unidadResponsable.OBRA_ACTIVIDAD}`
@@ -925,16 +931,16 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
 
           doc.text(
             `${RFC.padEnd(14)} ${truncatedName.padEnd(
-              30
+              30,
             )}     ${retardosText.padStart(
-              10
+              10,
             )}     ${inasistenciasText.padStart(15)}`,
-            { align: "left" }
+            { align: "left" },
           );
         });
         doc.text(
           "---------------------------------------------------------------------------------------",
-          { align: "center" }
+          { align: "center" },
         );
 
         doc.moveDown();
@@ -954,11 +960,11 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
 };
 reportesIncidenciasController.printInasistenciasAuditoria = async (
   req,
-  res
+  res,
 ) => {
   const quin = req.query.quincena || req.params.quincena;
   const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable"
+    "SELECT * FROM unidad_responsable",
   );
 
   const inasistencias_auditoria = await query("INCIDENCIAS", {
@@ -1025,8 +1031,9 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1034,7 +1041,7 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
   const doc = new PDFDocument();
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/inasistencias_auditoria/INASISTENCIAS_AUDITORIA_${quin}.pdf`
+    `../../docs/reportes/inasistencias_auditoria/INASISTENCIAS_AUDITORIA_${quin}.pdf`,
   );
 
   const stream = fs.createWriteStream(filePath);
@@ -1048,7 +1055,7 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=INASISTENCIAS_AUDITORIA_${quin}.pdf`
+      `attachment; filename=INASISTENCIAS_AUDITORIA_${quin}.pdf`,
     );
     res.download(filePath, `INASISTENCIAS_AUDITORIA_${quin}.pdf`, (err) => {
       if (err) {
@@ -1097,15 +1104,15 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
       doc.text(`NÓMINA: ${group.label} (${tiponom})`, { align: "left" });
       doc.text(
         "---------------------------------------------------------------------------------------",
-        { align: "center" }
+        { align: "center" },
       );
       doc.text(
         "R.F.C           N O M B R E                          RETARDOS            INASISTENCIAS",
-        { align: "left" }
+        { align: "left" },
       );
       doc.text(
         "---------------------------------------------------------------------------------------",
-        { align: "center" }
+        { align: "center" },
       );
       doc.moveDown(0.5);
 
@@ -1122,7 +1129,7 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
       // Generar tablas por cada proyecto
       Object.keys(proyectosAgrupados).forEach((proyecto) => {
         const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto
+          (unidad) => unidad.PROYECTO === proyecto,
         );
         const unidadResponsableNombre = unidadResponsable
           ? ` - ${unidadResponsable.OBRA_ACTIVIDAD}`
@@ -1152,16 +1159,16 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
 
           doc.text(
             `${RFC.padEnd(14)} ${truncatedName.padEnd(
-              30
+              30,
             )}     ${retardosText.padStart(
-              10
+              10,
             )}     ${inasistenciasText.padStart(15)}`,
-            { align: "left" }
+            { align: "left" },
           );
         });
         doc.text(
           "---------------------------------------------------------------------------------------",
-          { align: "center" }
+          { align: "center" },
         );
 
         doc.moveDown();
@@ -1199,7 +1206,7 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias_planeacion/INCIDENCIAS${quin}.pdf`
+    `../../docs/reportes/incidencias_planeacion/INCIDENCIAS${quin}.pdf`,
   );
 
   try {
@@ -1215,7 +1222,7 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=INCIDENCIAS_PLANEACION_${quin}.pdf`
+        `attachment; filename=INCIDENCIAS_PLANEACION_${quin}.pdf`,
       );
       res.download(filePath, `INCIDENCIAS_PLANEACION_${quin}.pdf`, (err) => {
         if (err) {
@@ -1261,8 +1268,9 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1299,19 +1307,19 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0")
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0")
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -1393,13 +1401,14 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
           INCIDENCIAS && INCIDENCIAS[day]
             ? replaceIncidenciasValue(INCIDENCIAS[day])
-            : ""
+            : "",
         ),
       ];
 
@@ -1429,11 +1438,11 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 };
 reportesIncidenciasController.printInasistenciasPlaneacion = async (
   req,
-  res
+  res,
 ) => {
   const quin = req.query.quincena || req.params.quincena;
   const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable"
+    "SELECT * FROM unidad_responsable",
   );
 
   const inasistencias_planeacion = await query("INCIDENCIAS", {
@@ -1500,8 +1509,9 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1509,7 +1519,7 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
   const doc = new PDFDocument();
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/inasistencias_planeacion/INASISTENCIAS_PLANEACION_${quin}.pdf`
+    `../../docs/reportes/inasistencias_planeacion/INASISTENCIAS_PLANEACION_${quin}.pdf`,
   );
 
   const stream = fs.createWriteStream(filePath);
@@ -1523,7 +1533,7 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=INASISTENCIAS_PLANEACION_${quin}.pdf`
+      `attachment; filename=INASISTENCIAS_PLANEACION_${quin}.pdf`,
     );
     res.download(filePath, `INASISTENCIAS_PLANEACION_${quin}.pdf`, (err) => {
       if (err) {
@@ -1572,15 +1582,15 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
       doc.text(`NÓMINA: ${group.label} (${tiponom})`, { align: "left" });
       doc.text(
         "---------------------------------------------------------------------------------------",
-        { align: "center" }
+        { align: "center" },
       );
       doc.text(
         "R.F.C           N O M B R E                          RETARDOS            INASISTENCIAS",
-        { align: "left" }
+        { align: "left" },
       );
       doc.text(
         "---------------------------------------------------------------------------------------",
-        { align: "center" }
+        { align: "center" },
       );
       doc.moveDown(0.5);
 
@@ -1597,7 +1607,7 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
       // Generar tablas por cada proyecto
       Object.keys(proyectosAgrupados).forEach((proyecto) => {
         const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto
+          (unidad) => unidad.PROYECTO === proyecto,
         );
         const unidadResponsableNombre = unidadResponsable
           ? ` - ${unidadResponsable.OBRA_ACTIVIDAD}`
@@ -1627,16 +1637,16 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
 
           doc.text(
             `${RFC.padEnd(14)} ${truncatedName.padEnd(
-              30
+              30,
             )}     ${retardosText.padStart(
-              10
+              10,
             )}     ${inasistenciasText.padStart(15)}`,
-            { align: "left" }
+            { align: "left" },
           );
         });
         doc.text(
           "---------------------------------------------------------------------------------------",
-          { align: "center" }
+          { align: "center" },
         );
 
         doc.moveDown();
@@ -1744,7 +1754,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias/PERSONAL_STATUS.pdf`
+    `../../docs/reportes/incidencias/PERSONAL_STATUS.pdf`,
   );
 
   try {
@@ -1761,7 +1771,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=PERSONAL_STATUS.pdf`
+        `attachment; filename=PERSONAL_STATUS.pdf`,
       );
       res.download(filePath, `PERSONAL_STATUS.pdf`, (err) => {
         if (err) {
@@ -1890,7 +1900,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
           doc.heightOfString(String(cell), {
             width: columns[j] - 4,
             align: "left",
-          }) + 4
+          }) + 4,
       );
       const maxRowHeight = Math.max(...cellHeights, 18);
       const FOOTER_HEIGHT = 20;
@@ -1937,15 +1947,17 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     doc.moveDown(3);
 
     doc.text(
-      `CONFORME Al STATUS DE ${statusText} SE ${empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
-      } UN TOTAL DE: ${empleadosFiltrados.length} ${empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
+      `CONFORME Al STATUS DE ${statusText} SE ${
+        empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
+      } UN TOTAL DE: ${empleadosFiltrados.length} ${
+        empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
       }`,
       doc.page.margins.left,
       y + 10,
       {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
         align: "justify",
-      }
+      },
     );
     doc.moveDown();
     doc.text(
@@ -1955,7 +1967,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
       {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
         align: "left",
-      }
+      },
     );
 
     doc.end();
@@ -1964,5 +1976,210 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     res.status(500).json({ message: "Error al generar el reporte." });
   }
 };
+reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
+  const quin = parseInt(req.params.quincena, 10);
 
+  try {
+    // Función auxiliar para calcular la quincena de una fecha
+    const getQuincenaFromFecha = (fecha) => {
+      const date = new Date(fecha);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1; // getMonth() devuelve 0-11
+      const day = date.getDate();
+
+      // Calcular número de quincena dentro del año (1-24)
+      let quincenaDelMes = day <= 15 ? 1 : 2;
+      let quincenaDelAnio = (month - 1) * 2 + quincenaDelMes;
+
+      return quincenaDelAnio;
+    };
+
+    // Consultar todos los justificantes sin filtro primero
+    const todosJustificantes = await query("JUSTIFICACIONES", {});
+
+    // Filtrar por tipo de comprobante (case insensitive y trimmed)
+    const justificantes = todosJustificantes.filter((j) => {
+      if (!j.TIPO_COMPROBANTE) return false;
+      const tipo = j.TIPO_COMPROBANTE.toString().trim().toLowerCase();
+      return tipo === "visita domiciliaria";
+    });
+
+    // Filtrar por quincena
+    const justificantesFiltrados = justificantes.filter((j) => {
+      if (j.QUIN !== undefined && j.QUIN !== null) {
+        // Si existe el campo QUIN, comparar directamente
+        return parseInt(j.QUIN, 10) === quin;
+      } else if (j.FECHA) {
+        // Si no existe QUIN, calcular quincena a partir de FECHA
+        return getQuincenaFromFecha(j.FECHA) === quin;
+      }
+      return false;
+    });
+
+    // Validar si no hay datos
+    if (justificantesFiltrados.length === 0) {
+      return res.status(404).json({
+        message:
+          "No se encontraron visitas domiciliarias para la quincena especificada.",
+      });
+    }
+
+    // Ordenar por NUMTARJETA
+    justificantesFiltrados.sort((a, b) => {
+      const numA = parseInt(a.NUMTARJETA, 10) || 0;
+      const numB = parseInt(b.NUMTARJETA, 10) || 0;
+      return numA - numB;
+    });
+
+    const doc = new PDFDocument({ margin: 50 });
+    const filePath = path.join(
+      __dirname,
+      `../../docs/reportes/incidencias/VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
+    );
+
+    const stream = fs.createWriteStream(filePath);
+
+    stream.on("error", (err) => {
+      console.error("Error al escribir el archivo:", err.message);
+      res.status(500).json({ message: "Error al generar el reporte." });
+      doc.end();
+    });
+
+    stream.on("finish", () => {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
+      );
+      res.download(filePath, `VISITA_DOMICILIARIA_QUIN${quin}.pdf`, (err) => {
+        if (err) {
+          console.error("Error al descargar el archivo:", err.message);
+          res.status(500).json({ message: "Error al descargar el archivo." });
+        }
+      });
+    });
+
+    doc.pipe(stream);
+
+    // Registrar fuente personalizada
+    doc.registerFont("Consolas", fontPath);
+    doc.font("Consolas").fontSize(8);
+
+    // Encabezado del documento
+    doc
+      .fontSize(12)
+      .text("REPORTE DE VISITAS DOMICILIARIAS", { align: "center" });
+    doc.fontSize(10).text(`QUINCENA: ${quin}`, { align: "center" });
+    doc.moveDown(2);
+
+    // Configurar tabla
+    const tableTop = doc.y;
+    const colWidths = {
+      numTarjeta: 80,
+      tipo: 50,
+      fecha: 100,
+      tipoRegistro: 100,
+    };
+
+    // Encabezados de columna
+    doc.fontSize(9).font("Consolas");
+    let currentX = 50;
+    doc.text("N.TARJ", currentX, tableTop, {
+      width: colWidths.numTarjeta,
+      align: "left",
+    });
+    currentX += colWidths.numTarjeta;
+    doc.text("TIPO", currentX, tableTop, {
+      width: colWidths.tipo,
+      align: "left",
+    });
+    currentX += colWidths.tipo;
+    doc.text("FECHA", currentX, tableTop, {
+      width: colWidths.fecha,
+      align: "left",
+    });
+    currentX += colWidths.fecha;
+    doc.text("", currentX, tableTop, {
+      width: colWidths.tipoRegistro,
+      align: "left",
+    });
+
+    // Línea separadora
+    doc.moveDown(0.5);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(0.5);
+
+    // Contenido de la tabla
+    doc.fontSize(8);
+    justificantesFiltrados.forEach((justificante, index) => {
+      const numTarjeta = justificante.NUMTARJETA || "";
+      const tipo = "CC"; // Según la imagen parece ser siempre "CC"
+      const fecha = justificante.FECHA
+        ? new Date(justificante.FECHA)
+            .toLocaleDateString("es-MX")
+            .split("/")
+            .join("/")
+        : "";
+
+      // Determinar tipo de registro (ENT/SALIDA o ENT/SALIDA)
+      let tipoRegistro = "";
+      if (justificante.HORARIO_ENTRADA && justificante.HORARIO_SALIDA) {
+        tipoRegistro = "ENT/SALIDA";
+      } else if (justificante.HORARIO_ENTRADA) {
+        tipoRegistro = "ENT/SALIDA";
+      } else if (justificante.HORARIO_SALIDA) {
+        tipoRegistro = "ENT/SALIDA";
+      } else {
+        tipoRegistro = "ENT/SALIDA"; // Por defecto según la imagen
+      }
+
+      const rowY = doc.y;
+
+      // Verificar si necesitamos una nueva página
+      if (rowY > 700) {
+        doc.addPage();
+        doc.y = 50;
+      }
+
+      currentX = 50;
+      doc.text(numTarjeta, currentX, doc.y, {
+        width: colWidths.numTarjeta,
+        align: "left",
+        continued: false,
+      });
+      currentX += colWidths.numTarjeta;
+      doc.text(tipo, currentX, rowY, {
+        width: colWidths.tipo,
+        align: "left",
+        continued: false,
+      });
+      currentX += colWidths.tipo;
+      doc.text(fecha, currentX, rowY, {
+        width: colWidths.fecha,
+        align: "left",
+        continued: false,
+      });
+      currentX += colWidths.fecha;
+      doc.text(tipoRegistro, currentX, rowY, {
+        width: colWidths.tipoRegistro,
+        align: "left",
+        continued: false,
+      });
+
+      doc.moveDown(0.8);
+    });
+
+    // Pie de página
+    doc.moveDown(2);
+    doc.fontSize(9);
+    doc.text(`Total de registros: ${justificantesFiltrados.length}`, {
+      align: "center",
+    });
+
+    doc.end();
+  } catch (error) {
+    console.error("Error al generar el reporte:", error.message);
+    res.status(500).json({ message: "Error al generar el reporte." });
+  }
+};
 module.exports = reportesIncidenciasController;
