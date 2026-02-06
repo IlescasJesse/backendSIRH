@@ -2064,7 +2064,7 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
       const b = items[k + 1] || null;
       const nombre = a.NOMBRE || "";
       const numTarj = a.NUMTARJETA || "";
-      const tipo = a.TIPONOM || "";
+      const tipo = a.TIPONOM === "F51" || a.TIPONOM === "M51" ? "CC" : a.TIPONOM === "FCT" || a.TIPONOM === "CCT" ? "CC" : a.TIPONOM === "F51" || a.TIPONOM === "M51" ? "CN" : "";
       const fecha1 = formatDateDDMMYYYY(a.FECHA);
       const fecha2 = b ? formatDateDDMMYYYY(b.FECHA) : "";
       const tipoRegistro = "ENT/SALIDA";

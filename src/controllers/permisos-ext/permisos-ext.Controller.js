@@ -70,9 +70,9 @@ permisosExtController.getProfile = async (req, res) => {
 
         const ASIST_PROFILE = {
             employee: [emp],
-            permisos: permits,
-            justificantes: justificantes,
-            incapacidades: incapacidades,
+            // permisos: permits,
+            // justificantes: justificantes,
+            // incapacidades: incapacidades,
             permisosExt: permisosExt,
         };
         const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
