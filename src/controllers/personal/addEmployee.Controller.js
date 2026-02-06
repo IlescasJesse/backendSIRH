@@ -4,8 +4,7 @@ const { querysql } = require("../../config/mysql");
 const { getAdscripciones } = require("../../libs/adscriptions");
 const fs = require("fs");
 const path = require("path");
-const { PDFDocument } = require("pdf-lib");
-const { console } = require("inspector");
+const { PDFDocument, StandardFonts } = require("pdf-lib");
 
 employeeController = {};
 
@@ -231,11 +230,37 @@ employeeController.makeProposal = async (req, res) => {
     "DICIEMBRE",
   ];
 
+  // Calcula FECHA_HOY como FECHA_INGRESO menos 10 días (si FECHA_INGRESO es válida)
+  // Si FECHA_INGRESO no existe o no es válida, se usa la fecha actual.
+  function formatFechaEsp(date) {
+    const meses = [
+      "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+      "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
+    ];
+    const day = String(date.getDate()).padStart(2, "0");
+    const monthNameCapitalized =
+      meses[date.getMonth()].charAt(0).toUpperCase() +
+      meses[date.getMonth()].slice(1).toLowerCase();
+    const year = date.getFullYear();
+    return `Oaxaca de Juárez, Oax. ${day} de ${monthNameCapitalized} de ${year}`;
+  }
+
+  let fechaHoyDate = new Date(); // fallback si FECHA_INGRESO inválida
+  if (data.FECHA_INGRESO && /^\d{4}-\d{1,2}-\d{1,2}$/.test(data.FECHA_INGRESO)) {
+    const [iy, im, id] = data.FECHA_INGRESO.split("-").map(Number);
+    const fechaIngreso = new Date(iy, im - 1, id);
+    if (!isNaN(fechaIngreso)) {
+      fechaHoyDate = new Date(fechaIngreso);
+      fechaHoyDate.setDate(fechaHoyDate.getDate() - 9); // FECHA_INGRESO - 10 días
+    }
+  }
+  const FECHA_HOY = formatFechaEsp(fechaHoyDate);
+
   const monthName = months[parseInt(monthToday, 10) - 1];
   const ID_PLAZA = data.ID_PLAZA ? data.ID_PLAZA : "";
   const monthNameCapitalized =
     monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase();
-  const FECHA_HOY = `Oaxaca de Juárez, Oax. ${dayToday} de ${monthNameCapitalized} de ${yeartoday}`;
+  // const FECHA_HOY = `Oaxaca de Juárez, Oax. ${dayToday} de ${monthNameCapitalized} de ${yeartoday}`;
   const RFC = data.RFC ? data.RFC : "";
   const NUMPLA = data.NUMPLA ? data.NUMPLA : "";
   const CURP = data.CURP ? data.CURP : "";
@@ -255,11 +280,11 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.CALLE || ""} ${data?.DIRECCION.COLONIA || ""
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.DOMICILIO || ""} ${data?.DIRECCION.NUM_EXT || ""} ${data?.DIRECCION.COLONIA || ""
     } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
-  const DOMICILIO = data?.DIRECCION.CALLE || "";
+  const DOMICILIO = data?.DIRECCION.DOMICILIO || "";
   const MUNICIPIO = data?.DIRECCION.MUNICIPIO || "";
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
@@ -457,7 +482,7 @@ employeeController.makeProposal = async (req, res) => {
       RFC: RFC,
       CURP: CURP,
       NUMPLA: NUMPLA,
-      NOMBRES: `${APE_PAT} ${APE_MAT} ${NOMBRES} `.trim(),
+      NOMBRE_COMPLETO: `${APE_PAT} ${APE_MAT} ${NOMBRES} `.trim(),
       SUSTITUYE: `${APE_PAT_OCUPANT} ${APE_MAT_OCUPANT} ${NOM_OCUPANT}`.trim(),
       UNI_EJECU: UNI_EJECU,
       CLAVE_PRESUPUESTAL: CLAVE_PRESUPUESTAL,
@@ -470,7 +495,25 @@ employeeController.makeProposal = async (req, res) => {
       LEVEL3: LEVEL3,
       LEVEL4: LEVEL4,
       LEVEL5: LEVEL5,
-      AFILIACI: AFILIACI
+      AFILIACI: AFILIACI,
+      APE_PAT: APE_PAT,
+      APE_MAT: APE_MAT,
+      NOMBRES: NOMBRES,
+      SEXO: SEXO,
+      LUGARNAC: LUGARNAC,
+      NAC_DAY: NAC_DAY,
+      NAC_MONTH: NAC_MONTH,
+      NAC_YEAR: NAC_YEAR,
+      DIRECCION_COMPLETA: DIRECCION_COMPLETA,
+      CP: CP,
+      APEPAT_PAPA: APEPAT_PAPA,
+      APEMAT_PAPA: APEMAT_PAPA,
+      NOMBRE_PAPA: NOMBRE_PAPA,
+      APEPAT_MAMA: APEPAT_MAMA,
+      APEMAT_MAMA: APEMAT_MAMA,
+      NOMBRE_MAMA: NOMBRE_MAMA,
+      NUM_UNI_MED_FAM: NUM_UNI_MED_FAM,
+      FECHA_IMSS_FORMATTED: FECHA_IMSS_FORMATTED,
     };
 
     const missing = [];
@@ -487,6 +530,19 @@ employeeController.makeProposal = async (req, res) => {
       }
     }
     if (missing.length) console.info("Campos no encontrados en el PDF (ajustar mapping):", missing);
+
+    // Regenerar appearance streams usando una fuente embebida
+    try {
+      const helvFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      try {
+        form.updateFieldAppearances(helvFont);
+        console.log("updateFieldAppearances: OK");
+      } catch (uErr) {
+        console.warn("No se pudo actualizar apariencias de campos:", uErr);
+      }
+    } catch (embedErr) {
+      console.warn("No se pudo embeber la fuente para apariencias:", embedErr);
+    }
 
     // No aplanamos por defecto (evita corrupción). Use ?flatten=1 para aplanar si quieres.
     if (req.query && req.query.flatten === "1") {
