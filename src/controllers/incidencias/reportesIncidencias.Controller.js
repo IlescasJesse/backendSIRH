@@ -1,11 +1,14 @@
 const { querysql } = require("../../config/mysql");
 const { query } = require("../../config/mongo");
+const { ObjectId } = require("mongodb");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
 
 const PizZip = require("pizzip");
 const fontPath = path.join(__dirname, "../../assets/fonts/Consolas.ttf");
+const fontPathArial = path.join(__dirname, "../../assets/fonts/arial.ttf");
+const fontPathArialBlack = path.join(__dirname, "../../assets/fonts/ARIALBD 1.TTF");
 const reportesIncidenciasController = {};
 
 reportesIncidenciasController.printEconomicDays = async (req, res) => {
@@ -315,9 +318,8 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-        monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -354,19 +356,19 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-          (i + 1).toString().padStart(2, "0"),
-        )
+        (i + 1).toString().padStart(2, "0"),
+      )
       : Array.from(
-          {
-            length:
-              new Date(
-                new Date().getFullYear(),
-                parseInt(quin / 2),
-                0,
-              ).getDate() - 15,
-          },
-          (_, i) => (i + 16).toString().padStart(2, "0"),
-        );
+        {
+          length:
+            new Date(
+              new Date().getFullYear(),
+              parseInt(quin / 2),
+              0,
+            ).getDate() - 15,
+        },
+        (_, i) => (i + 16).toString().padStart(2, "0"),
+      );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -448,8 +450,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${
-          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -565,9 +566,8 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-        monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -604,19 +604,19 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-          (i + 1).toString().padStart(2, "0"),
-        )
+        (i + 1).toString().padStart(2, "0"),
+      )
       : Array.from(
-          {
-            length:
-              new Date(
-                new Date().getFullYear(),
-                parseInt(quin / 2),
-                0,
-              ).getDate() - 15,
-          },
-          (_, i) => (i + 16).toString().padStart(2, "0"),
-        );
+        {
+          length:
+            new Date(
+              new Date().getFullYear(),
+              parseInt(quin / 2),
+              0,
+            ).getDate() - 15,
+        },
+        (_, i) => (i + 16).toString().padStart(2, "0"),
+      );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -698,8 +698,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${
-          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -803,9 +802,8 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-      monthNames[month - 1]
-    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1031,9 +1029,8 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-      monthNames[month - 1]
-    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1268,9 +1265,8 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-        monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1307,19 +1303,19 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-          (i + 1).toString().padStart(2, "0"),
-        )
+        (i + 1).toString().padStart(2, "0"),
+      )
       : Array.from(
-          {
-            length:
-              new Date(
-                new Date().getFullYear(),
-                parseInt(quin / 2),
-                0,
-              ).getDate() - 15,
-          },
-          (_, i) => (i + 16).toString().padStart(2, "0"),
-        );
+        {
+          length:
+            new Date(
+              new Date().getFullYear(),
+              parseInt(quin / 2),
+              0,
+            ).getDate() - 15,
+        },
+        (_, i) => (i + 16).toString().padStart(2, "0"),
+      );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -1401,8 +1397,7 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${
-          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -1509,9 +1504,8 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-      monthNames[month - 1]
-    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1947,10 +1941,8 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     doc.moveDown(3);
 
     doc.text(
-      `CONFORME Al STATUS DE ${statusText} SE ${
-        empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
-      } UN TOTAL DE: ${empleadosFiltrados.length} ${
-        empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
+      `CONFORME Al STATUS DE ${statusText} SE ${empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
+      } UN TOTAL DE: ${empleadosFiltrados.length} ${empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
       }`,
       doc.page.margins.left,
       y + 10,
@@ -1977,66 +1969,112 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
   }
 };
 reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
+  const PDFDocument = require("pdfkit");
+  const doc = new PDFDocument({ margin: 40 });
+
   const quin = parseInt(req.params.quincena, 10);
 
-  try {
-    // Función auxiliar para calcular la quincena de una fecha
-    const getQuincenaFromFecha = (fecha) => {
-      const date = new Date(fecha);
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1; // getMonth() devuelve 0-11
-      const day = date.getDate();
+  const getQuincenaFromFecha = (fecha) => {
+    const date = new Date(fecha);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    let quincenaDelMes = day <= 15 ? 1 : 2;
+    let quincenaDelAnio = (month - 1) * 2 + quincenaDelMes;
+    return quincenaDelAnio;
+  };
 
-      // Calcular número de quincena dentro del año (1-24)
-      let quincenaDelMes = day <= 15 ? 1 : 2;
-      let quincenaDelAnio = (month - 1) * 2 + quincenaDelMes;
+  const todosJustificantes = await query("JUSTIFICACIONES", {});
+  const justificantes = todosJustificantes.filter((j) => {
+    if (!j.TIPO_COMPROBANTE) return false;
+    const tipo = j.TIPO_COMPROBANTE.toString().trim().toLowerCase();
+    return tipo === "visita domiciliaria";
+  });
 
-      return quincenaDelAnio;
-    };
-
-    // Consultar todos los justificantes sin filtro primero
-    const todosJustificantes = await query("JUSTIFICACIONES", {});
-
-    // Filtrar por tipo de comprobante (case insensitive y trimmed)
-    const justificantes = todosJustificantes.filter((j) => {
-      if (!j.TIPO_COMPROBANTE) return false;
-      const tipo = j.TIPO_COMPROBANTE.toString().trim().toLowerCase();
-      return tipo === "visita domiciliaria";
-    });
-
-    // Filtrar por quincena
-    const justificantesFiltrados = justificantes.filter((j) => {
-      if (j.QUIN !== undefined && j.QUIN !== null) {
-        // Si existe el campo QUIN, comparar directamente
-        return parseInt(j.QUIN, 10) === quin;
-      } else if (j.FECHA) {
-        // Si no existe QUIN, calcular quincena a partir de FECHA
-        return getQuincenaFromFecha(j.FECHA) === quin;
-      }
-      return false;
-    });
-
-    // Validar si no hay datos
-    if (justificantesFiltrados.length === 0) {
-      return res.status(404).json({
-        message:
-          "No se encontraron visitas domiciliarias para la quincena especificada.",
-      });
+  const justificantesFiltrados = justificantes.filter((j) => {
+    if (j.QUIN !== undefined && j.QUIN !== null) {
+      return parseInt(j.QUIN, 10) === quin;
+    } else if (j.FECHA) {
+      return getQuincenaFromFecha(j.FECHA) === quin;
     }
+    return false;
+  });
 
-    // Ordenar por NUMTARJETA
-    justificantesFiltrados.sort((a, b) => {
-      const numA = parseInt(a.NUMTARJETA, 10) || 0;
-      const numB = parseInt(b.NUMTARJETA, 10) || 0;
-      return numA - numB;
+  if (justificantesFiltrados.length === 0) {
+    return res.status(404).json({
+      message: "No se encontraron visitas domiciliarias para la quincena especificada.",
     });
+  }
 
-    const doc = new PDFDocument({ margin: 50 });
-    const filePath = path.join(
-      __dirname,
-      `../../docs/reportes/incidencias/VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
-    );
+  justificantesFiltrados.sort((a, b) => {
+    const numA = parseInt(a.NUMTARJETA, 10) || 0;
+    const numB = parseInt(b.NUMTARJETA, 10) || 0;
+    return numA - numB;
+  });
 
+  // Deduplicar IDs (usar strings, luego ObjectId)
+  const employeeIdStrings = Array.from(
+    new Set(
+      justificantesFiltrados
+        .map((j) => j.id_empoyee && j.id_empoyee.toString && j.id_empoyee.toString())
+        .filter(Boolean)
+    )
+  );
+  const objectIds = employeeIdStrings.map((id) => new ObjectId(id));
+
+  const empleados = objectIds.length > 0 ? await query("PLANTILLA", { _id: { $in: objectIds } }) : [];
+  const plantillaById = Object.fromEntries(empleados.map((e) => [e._id.toString(), e]));
+
+  // Unir datos, manteniendo la info del justificante
+  const justificantesConEmpleado = justificantesFiltrados.map((j) => {
+    const empleado = plantillaById[j.id_empoyee?.toString()] || {};
+    return {
+      ...j,
+      NOMBRE: `${empleado?.APE_PAT || ""} ${empleado?.APE_MAT || ""} ${empleado?.NOMBRES || ""}`.trim(),
+      TIPONOM: empleado?.TIPONOM || "",
+    };
+  });
+
+  const formatDateDDMMYYYY = (d) => {
+    if (!d) return "";
+    const s = String(d).trim();
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+    m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})/);
+    if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+    m = s.match(/^(\d{2})(\d{2})(\d{4})$/);
+    if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+    return s;
+  };
+
+  // Agrupar por id_empoyee (usar id_empoyee tal cual)
+  const byEmployee = justificantesConEmpleado.reduce((acc, j) => {
+    const id = (j.id_empoyee || j.NUMTARJETA || "sin_id").toString();
+    acc[id] = acc[id] || [];
+    acc[id].push(j);
+    return acc;
+  }, {});
+
+  // Construir filas: hasta 2 fechas por fila
+  const rows = [];
+  Object.values(byEmployee).forEach((items) => {
+    items.sort((a, b) => (a.FECHA || "").localeCompare(b.FECHA || ""));
+    for (let k = 0; k < items.length; k += 2) {
+      const a = items[k];
+      const b = items[k + 1] || null;
+      const nombre = a.NOMBRE || "";
+      const numTarj = a.NUMTARJETA || "";
+      const tipo = a.TIPONOM || "";
+      const fecha1 = formatDateDDMMYYYY(a.FECHA);
+      const fecha2 = b ? formatDateDDMMYYYY(b.FECHA) : "";
+      const tipoRegistro = "ENT/SALIDA";
+      rows.push([`${rows.length + 1}`, nombre, numTarj, tipo, fecha1, fecha2, tipoRegistro]);
+    }
+  });
+
+  const filePath = path.join(__dirname, `../../docs/reportes/incidencias/VISITA_DOMICILIARIA_QUIN${quin}.pdf`);
+
+  try {
     const stream = fs.createWriteStream(filePath);
 
     stream.on("error", (err) => {
@@ -2047,10 +2085,7 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
 
     stream.on("finish", () => {
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
-      );
+      res.setHeader("Content-Disposition", `attachment; filename=VISITA_DOMICILIARIA_QUIN${quin}.pdf`);
       res.download(filePath, `VISITA_DOMICILIARIA_QUIN${quin}.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
@@ -2060,125 +2095,93 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
     });
 
     doc.pipe(stream);
+    doc.registerFont("Consolas", fontPathArial);
+    doc.registerFont("Arial-black", fontPathArialBlack);
+    doc.font("Consolas").fontSize(9);
 
-    // Registrar fuente personalizada
-    doc.registerFont("Consolas", fontPath);
-    doc.font("Consolas").fontSize(8);
+    const currentDate = new Date().toLocaleDateString("es-MX");
 
-    // Encabezado del documento
-    doc
-      .fontSize(12)
-      .text("REPORTE DE VISITAS DOMICILIARIAS", { align: "center" });
-    doc.fontSize(10).text(`QUINCENA: ${quin}`, { align: "center" });
-    doc.moveDown(2);
-
-    // Configurar tabla
-    const tableTop = doc.y;
-    const colWidths = {
-      numTarjeta: 80,
-      tipo: 50,
-      fecha: 100,
-      tipoRegistro: 100,
+    let pageNumber = 0;
+    let isFirstPage = true;
+    const addHeaderAndFooter = () => {
+      pageNumber++;
+      const footerY = doc.page.height - doc.page.margins.bottom - 12;
+      doc.fontSize(10).text(`PÁGINA ${pageNumber}`, 60, footerY, { align: "right" });
+      doc.fontSize(10).text(`FECHA: ${currentDate}`, 60, 20, { align: "right" });
+      if (isFirstPage) {
+        doc.fontSize(12).font("Arial-black").text("REPORTE DE VISITAS DOMICILIARIAS", { align: "center" }).font("Consolas");
+        isFirstPage = false;
+      }
+      doc.fontSize(10);
     };
 
-    // Encabezados de columna
-    doc.fontSize(9).font("Consolas");
-    let currentX = 50;
-    doc.text("N.TARJ", currentX, tableTop, {
-      width: colWidths.numTarjeta,
-      align: "left",
-    });
-    currentX += colWidths.numTarjeta;
-    doc.text("TIPO", currentX, tableTop, {
-      width: colWidths.tipo,
-      align: "left",
-    });
-    currentX += colWidths.tipo;
-    doc.text("FECHA", currentX, tableTop, {
-      width: colWidths.fecha,
-      align: "left",
-    });
-    currentX += colWidths.fecha;
-    doc.text("", currentX, tableTop, {
-      width: colWidths.tipoRegistro,
-      align: "left",
-    });
+    doc.on("pageAdded", addHeaderAndFooter);
+    doc.margins = { top: 72, bottom: 72, left: 60, right: 60 };
+    addHeaderAndFooter();
 
-    // Línea separadora
-    doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown(0.5);
+    // --- Encabezado con FECHA abarcando 2 columnas (sin subheader) ---
+    const headersTop = ["#", "NOMBRE", "N. TARJ", "TIPO", "FECHA", "", ""];
+    const columns = [30, 220, 50, 40, 60, 60, 70]; // 7 columnas: fecha1=idx4, fecha2=idx5, ent/sal=idx6
 
-    // Contenido de la tabla
-    doc.fontSize(8);
-    justificantesFiltrados.forEach((justificante, index) => {
-      const numTarjeta = justificante.NUMTARJETA || "";
-      const tipo = "CC"; // Según la imagen parece ser siempre "CC"
-      const fecha = justificante.FECHA
-        ? new Date(justificante.FECHA)
-            .toLocaleDateString("es-MX")
-            .split("/")
-            .join("/")
-        : "";
+    let y = doc.y + 10;
+    const headerHeight = 18;
+    let x = doc.page.margins.left;
 
-      // Determinar tipo de registro (ENT/SALIDA o ENT/SALIDA)
-      let tipoRegistro = "";
-      if (justificante.HORARIO_ENTRADA && justificante.HORARIO_SALIDA) {
-        tipoRegistro = "ENT/SALIDA";
-      } else if (justificante.HORARIO_ENTRADA) {
-        tipoRegistro = "ENT/SALIDA";
-      } else if (justificante.HORARIO_SALIDA) {
-        tipoRegistro = "ENT/SALIDA";
-      } else {
-        tipoRegistro = "ENT/SALIDA"; // Por defecto según la imagen
-      }
+    // Dibujar única fila de encabezado (FECHA = columnas 4+5)
+    for (let i = 0; i < headersTop.length; i++) {
+      if (i === 5) continue; // skip the second FECHA cell (it is spanned)
+      const w = (i === 4) ? columns[4] + columns[5] : (i === 6 ? columns[6] : columns[i]);
+      doc.rect(x, y, w, headerHeight).fillAndStroke("#000000", "#000000");
+      doc.fillColor("#FFFFFF").text(headersTop[i], x + 2, y + 4, { width: w - 4, align: "center" });
+      doc.fillColor("#000000");
+      x += w;
+    }
+    y += headerHeight;
 
-      const rowY = doc.y;
+    // Dibuja filas y maneja salto de página (redibuja el encabezado igual)
+    for (let i = 0; i < rows.length; i++) {
+      x = doc.page.margins.left;
+      const cellHeights = rows[i].map((cell, j) =>
+        doc.heightOfString(String(cell), { width: columns[j] - 4, align: "left" }) + 4
+      );
+      const maxRowHeight = Math.max(...cellHeights, 18);
 
-      // Verificar si necesitamos una nueva página
-      if (rowY > 700) {
+      if (y + maxRowHeight > doc.page.height - doc.page.margins.bottom) {
         doc.addPage();
-        doc.y = 50;
+        y = doc.y + 10;
+        // Redibujar encabezado (misma lógica)
+        let xh = doc.page.margins.left;
+        for (let k = 0; k < headersTop.length; k++) {
+          if (k === 5) continue;
+          const w = (k === 4) ? columns[4] + columns[5] : (k === 6 ? columns[6] : columns[k]);
+          doc.rect(xh, y, w, headerHeight).fillAndStroke("#000000", "#000000");
+          doc.fillColor("#FFFFFF").text(headersTop[k], xh + 2, y + 4, { width: w - 4, align: "center" });
+          doc.fillColor("#000000");
+          xh += w;
+        }
+        y += headerHeight;
       }
 
-      currentX = 50;
-      doc.text(numTarjeta, currentX, doc.y, {
-        width: colWidths.numTarjeta,
-        align: "left",
-        continued: false,
+      rows[i].forEach((cell, j) => {
+        if (i % 2 === 1) {
+          doc.rect(x, y, columns[j], maxRowHeight).fillAndStroke("#fff", "#000000");
+        } else {
+          doc.rect(x, y, columns[j], maxRowHeight).stroke();
+        }
+        const cellText = String(cell);
+        const cellWidth = columns[j] - 4;
+        const align = (j === 0 || j === 2 || j === 3 || j === 4 || j === 5 || j === 6) ? "center" : "left"; // centrar # y N. TARJ
+        const textHeight = doc.heightOfString(cellText, { width: cellWidth, align });
+        const textY = y + Math.max((maxRowHeight - textHeight) / 2, 4);
+        doc.fillColor("#000000").text(String(cell), x + 2, textY, { width: cellWidth, align });
+        x += columns[j];
       });
-      currentX += colWidths.numTarjeta;
-      doc.text(tipo, currentX, rowY, {
-        width: colWidths.tipo,
-        align: "left",
-        continued: false,
-      });
-      currentX += colWidths.tipo;
-      doc.text(fecha, currentX, rowY, {
-        width: colWidths.fecha,
-        align: "left",
-        continued: false,
-      });
-      currentX += colWidths.fecha;
-      doc.text(tipoRegistro, currentX, rowY, {
-        width: colWidths.tipoRegistro,
-        align: "left",
-        continued: false,
-      });
-
-      doc.moveDown(0.8);
-    });
-
-    // Pie de página
-    doc.moveDown(2);
-    doc.fontSize(9);
-    doc.text(`Total de registros: ${justificantesFiltrados.length}`, {
-      align: "center",
-    });
+      y += maxRowHeight;
+    }
 
     doc.end();
   } catch (error) {
-    console.error("Error al generar el reporte:", error.message);
+    console.error("Error al crear el archivo:", error.message);
     res.status(500).json({ message: "Error al generar el reporte." });
   }
 };
