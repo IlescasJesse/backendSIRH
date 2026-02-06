@@ -8,7 +8,10 @@ const PDFDocument = require("pdfkit");
 const PizZip = require("pizzip");
 const fontPath = path.join(__dirname, "../../assets/fonts/Consolas.ttf");
 const fontPathArial = path.join(__dirname, "../../assets/fonts/arial.ttf");
-const fontPathArialBlack = path.join(__dirname, "../../assets/fonts/ARIALBD 1.TTF");
+const fontPathArialBlack = path.join(
+  __dirname,
+  "../../assets/fonts/ARIALBD 1.TTF",
+);
 const reportesIncidenciasController = {};
 
 reportesIncidenciasController.printEconomicDays = async (req, res) => {
@@ -318,8 +321,9 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -356,19 +360,19 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -450,7 +454,8 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -566,8 +571,9 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -604,19 +610,19 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -698,7 +704,8 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -802,8 +809,9 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1029,8 +1037,9 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1265,8 +1274,9 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1303,19 +1313,19 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -1397,7 +1407,8 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -1504,8 +1515,9 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1941,8 +1953,10 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     doc.moveDown(3);
 
     doc.text(
-      `CONFORME Al STATUS DE ${statusText} SE ${empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
-      } UN TOTAL DE: ${empleadosFiltrados.length} ${empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
+      `CONFORME Al STATUS DE ${statusText} SE ${
+        empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
+      } UN TOTAL DE: ${empleadosFiltrados.length} ${
+        empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
       }`,
       doc.page.margins.left,
       y + 10,
@@ -2002,7 +2016,8 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
 
   if (justificantesFiltrados.length === 0) {
     return res.status(404).json({
-      message: "No se encontraron visitas domiciliarias para la quincena especificada.",
+      message:
+        "No se encontraron visitas domiciliarias para la quincena especificada.",
     });
   }
 
@@ -2016,21 +2031,30 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
   const employeeIdStrings = Array.from(
     new Set(
       justificantesFiltrados
-        .map((j) => j.id_empoyee && j.id_empoyee.toString && j.id_empoyee.toString())
-        .filter(Boolean)
-    )
+        .map(
+          (j) =>
+            j.id_empoyee && j.id_empoyee.toString && j.id_empoyee.toString(),
+        )
+        .filter(Boolean),
+    ),
   );
   const objectIds = employeeIdStrings.map((id) => new ObjectId(id));
 
-  const empleados = objectIds.length > 0 ? await query("PLANTILLA", { _id: { $in: objectIds } }) : [];
-  const plantillaById = Object.fromEntries(empleados.map((e) => [e._id.toString(), e]));
+  const empleados =
+    objectIds.length > 0
+      ? await query("PLANTILLA", { _id: { $in: objectIds } })
+      : [];
+  const plantillaById = Object.fromEntries(
+    empleados.map((e) => [e._id.toString(), e]),
+  );
 
   // Unir datos, manteniendo la info del justificante
   const justificantesConEmpleado = justificantesFiltrados.map((j) => {
     const empleado = plantillaById[j.id_empoyee?.toString()] || {};
     return {
       ...j,
-      NOMBRE: `${empleado?.APE_PAT || ""} ${empleado?.APE_MAT || ""} ${empleado?.NOMBRES || ""}`.trim(),
+      NOMBRE:
+        `${empleado?.APE_PAT || ""} ${empleado?.APE_MAT || ""} ${empleado?.NOMBRES || ""}`.trim(),
       TIPONOM: empleado?.TIPONOM || "",
     };
   });
@@ -2064,15 +2088,33 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
       const b = items[k + 1] || null;
       const nombre = a.NOMBRE || "";
       const numTarj = a.NUMTARJETA || "";
-      const tipo = a.TIPONOM === "F51" || a.TIPONOM === "M51" ? "CC" : a.TIPONOM === "FCT" || a.TIPONOM === "CCT" ? "CC" : a.TIPONOM === "F51" || a.TIPONOM === "M51" ? "CN" : "";
+      const tipo =
+        a.TIPONOM === "F51" || a.TIPONOM === "M51"
+          ? "CC"
+          : a.TIPONOM === "FCT" || a.TIPONOM === "CCT"
+            ? "CC"
+            : a.TIPONOM === "FCO" || a.TIPONOM === "511"
+              ? "CN"
+              : "";
       const fecha1 = formatDateDDMMYYYY(a.FECHA);
       const fecha2 = b ? formatDateDDMMYYYY(b.FECHA) : "";
       const tipoRegistro = "ENT/SALIDA";
-      rows.push([`${rows.length + 1}`, nombre, numTarj, tipo, fecha1, fecha2, tipoRegistro]);
+      rows.push([
+        `${rows.length + 1}`,
+        nombre,
+        numTarj,
+        tipo,
+        fecha1,
+        fecha2,
+        tipoRegistro,
+      ]);
     }
   });
 
-  const filePath = path.join(__dirname, `../../docs/reportes/incidencias/VISITA_DOMICILIARIA_QUIN${quin}.pdf`);
+  const filePath = path.join(
+    __dirname,
+    `../../docs/reportes/incidencias/VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
+  );
 
   try {
     const stream = fs.createWriteStream(filePath);
@@ -2085,7 +2127,10 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
 
     stream.on("finish", () => {
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename=VISITA_DOMICILIARIA_QUIN${quin}.pdf`);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
+      );
       res.download(filePath, `VISITA_DOMICILIARIA_QUIN${quin}.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
@@ -2106,10 +2151,18 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
     const addHeaderAndFooter = () => {
       pageNumber++;
       const footerY = doc.page.height - doc.page.margins.bottom - 12;
-      doc.fontSize(10).text(`PÁGINA ${pageNumber}`, 60, footerY, { align: "right" });
-      doc.fontSize(10).text(`FECHA: ${currentDate}`, 60, 20, { align: "right" });
+      doc
+        .fontSize(10)
+        .text(`PÁGINA ${pageNumber}`, 60, footerY, { align: "right" });
+      doc
+        .fontSize(10)
+        .text(`FECHA: ${currentDate}`, 60, 20, { align: "right" });
       if (isFirstPage) {
-        doc.fontSize(12).font("Arial-black").text("REPORTE DE VISITAS DOMICILIARIAS", { align: "center" }).font("Consolas");
+        doc
+          .fontSize(12)
+          .font("Arial-black")
+          .text("REPORTE DE VISITAS DOMICILIARIAS", { align: "center" })
+          .font("Consolas");
         isFirstPage = false;
       }
       doc.fontSize(10);
@@ -2130,9 +2183,12 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
     // Dibujar única fila de encabezado (FECHA = columnas 4+5)
     for (let i = 0; i < headersTop.length; i++) {
       if (i === 5) continue; // skip the second FECHA cell (it is spanned)
-      const w = (i === 4) ? columns[4] + columns[5] : (i === 6 ? columns[6] : columns[i]);
+      const w =
+        i === 4 ? columns[4] + columns[5] : i === 6 ? columns[6] : columns[i];
       doc.rect(x, y, w, headerHeight).fillAndStroke("#000000", "#000000");
-      doc.fillColor("#FFFFFF").text(headersTop[i], x + 2, y + 4, { width: w - 4, align: "center" });
+      doc
+        .fillColor("#FFFFFF")
+        .text(headersTop[i], x + 2, y + 4, { width: w - 4, align: "center" });
       doc.fillColor("#000000");
       x += w;
     }
@@ -2141,8 +2197,12 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
     // Dibuja filas y maneja salto de página (redibuja el encabezado igual)
     for (let i = 0; i < rows.length; i++) {
       x = doc.page.margins.left;
-      const cellHeights = rows[i].map((cell, j) =>
-        doc.heightOfString(String(cell), { width: columns[j] - 4, align: "left" }) + 4
+      const cellHeights = rows[i].map(
+        (cell, j) =>
+          doc.heightOfString(String(cell), {
+            width: columns[j] - 4,
+            align: "left",
+          }) + 4,
       );
       const maxRowHeight = Math.max(...cellHeights, 18);
 
@@ -2153,9 +2213,19 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
         let xh = doc.page.margins.left;
         for (let k = 0; k < headersTop.length; k++) {
           if (k === 5) continue;
-          const w = (k === 4) ? columns[4] + columns[5] : (k === 6 ? columns[6] : columns[k]);
+          const w =
+            k === 4
+              ? columns[4] + columns[5]
+              : k === 6
+                ? columns[6]
+                : columns[k];
           doc.rect(xh, y, w, headerHeight).fillAndStroke("#000000", "#000000");
-          doc.fillColor("#FFFFFF").text(headersTop[k], xh + 2, y + 4, { width: w - 4, align: "center" });
+          doc
+            .fillColor("#FFFFFF")
+            .text(headersTop[k], xh + 2, y + 4, {
+              width: w - 4,
+              align: "center",
+            });
           doc.fillColor("#000000");
           xh += w;
         }
@@ -2164,16 +2234,26 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
 
       rows[i].forEach((cell, j) => {
         if (i % 2 === 1) {
-          doc.rect(x, y, columns[j], maxRowHeight).fillAndStroke("#fff", "#000000");
+          doc
+            .rect(x, y, columns[j], maxRowHeight)
+            .fillAndStroke("#fff", "#000000");
         } else {
           doc.rect(x, y, columns[j], maxRowHeight).stroke();
         }
         const cellText = String(cell);
         const cellWidth = columns[j] - 4;
-        const align = (j === 0 || j === 2 || j === 3 || j === 4 || j === 5 || j === 6) ? "center" : "left"; // centrar # y N. TARJ
-        const textHeight = doc.heightOfString(cellText, { width: cellWidth, align });
+        const align =
+          j === 0 || j === 2 || j === 3 || j === 4 || j === 5 || j === 6
+            ? "center"
+            : "left"; // centrar # y N. TARJ
+        const textHeight = doc.heightOfString(cellText, {
+          width: cellWidth,
+          align,
+        });
         const textY = y + Math.max((maxRowHeight - textHeight) / 2, 4);
-        doc.fillColor("#000000").text(String(cell), x + 2, textY, { width: cellWidth, align });
+        doc
+          .fillColor("#000000")
+          .text(String(cell), x + 2, textY, { width: cellWidth, align });
         x += columns[j];
       });
       y += maxRowHeight;
