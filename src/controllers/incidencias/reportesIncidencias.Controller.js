@@ -145,67 +145,69 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
       return acc;
     }, {});
 
-    // Generar tablas por cada proyecto
-    Object.keys(proyectosAgrupados).forEach((proyecto) => {
-      const unidadResponsable = unidades_responsables.find(
-        (unidad) => unidad.PROYECTO === proyecto,
-      );
-      const unidadResponsableNombre = unidadResponsable
-        ? ` - ${unidadResponsable.UNIDAD_RESPONSABLE}`
-        : "";
-      doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
-        align: "left",
-      });
-      (doc.text(
-        "---------------------------------------------------------------------------------------",
-      ),
-        { align: "center" });
-      doc.text(
-        "R.F.C             N O M B R E                      CATG.        DESDE     HASTA   #DÍAS",
-        { align: "right" },
-      );
-      doc.text(
-        "---------------------------------------------------------------------------------------",
-        { align: "center" },
-      );
-
-      proyectosAgrupados[proyecto].forEach((permiso) => {
-        const { RFC, NOMBRE, CLAVECAT, DESDE, HASTA, NUM_DIAS } = permiso;
-        const truncatedName =
-          NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
-        const formatFecha = (fecha) => {
-          const [year, month, day] = fecha.split("-");
-          return `${day}-${month}-${year}`;
-        };
-
+    // Generar tablas por cada proyecto (ordenadas por PROYECTO)
+    Object.keys(proyectosAgrupados)
+      .sort((a, b) => a.localeCompare(b))
+      .forEach((proyecto) => {
+        const unidadResponsable = unidades_responsables.find(
+          (unidad) => unidad.PROYECTO === proyecto,
+        );
+        const unidadResponsableNombre = unidadResponsable
+          ? ` - ${unidadResponsable.UNIDAD_RESPONSABLE}`
+          : "";
+        doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
+          align: "left",
+        });
         (doc.text(
-          `${RFC.padEnd(14)} ${truncatedName.padEnd(30)}      ${CLAVECAT.padEnd(
-            10,
-          )} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(
-            10,
-          )}  ${NUM_DIAS.toString().padStart(2)}`,
+          "---------------------------------------------------------------------------------------",
         ),
-          { align: "rigth" });
+          { align: "center" });
+        doc.text(
+          "R.F.C             N O M B R E                      CATG.        DESDE     HASTA   #DÍAS",
+          { align: "right" },
+        );
+        doc.text(
+          "---------------------------------------------------------------------------------------",
+          { align: "center" },
+        );
+
+        proyectosAgrupados[proyecto].forEach((permiso) => {
+          const { RFC, NOMBRE, CLAVECAT, DESDE, HASTA, NUM_DIAS } = permiso;
+          const truncatedName =
+            NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
+          const formatFecha = (fecha) => {
+            const [year, month, day] = fecha.split("-");
+            return `${day}-${month}-${year}`;
+          };
+
+          (doc.text(
+            `${RFC.padEnd(14)} ${truncatedName.padEnd(30)}      ${CLAVECAT.padEnd(
+              10,
+            )} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(
+              10,
+            )}  ${NUM_DIAS.toString().padStart(2)}`,
+          ),
+            { align: "rigth" });
+        });
+
+        const totalDias = proyectosAgrupados[proyecto].reduce(
+          (sum, permiso) => sum + permiso.NUM_DIAS,
+          0,
+        );
+        const uniquePersons = new Set(
+          proyectosAgrupados[proyecto].map((permiso) => permiso.RFC),
+        );
+        doc.text(
+          "---------------------------------------------------------------------------------------",
+        );
+
+        doc.text(
+          `PERSONAS POR PROYECTO: ${uniquePersons.size}                                TOTAL DE DIAS POR PROYECTO: ${totalDias}`,
+          {
+            align: "center",
+          },
+        );
       });
-
-      const totalDias = proyectosAgrupados[proyecto].reduce(
-        (sum, permiso) => sum + permiso.NUM_DIAS,
-        0,
-      );
-      const uniquePersons = new Set(
-        proyectosAgrupados[proyecto].map((permiso) => permiso.RFC),
-      );
-      doc.text(
-        "---------------------------------------------------------------------------------------",
-      );
-
-      doc.text(
-        `PERSONAS POR PROYECTO: ${uniquePersons.size}                                TOTAL DE DIAS POR PROYECTO: ${totalDias}`,
-        {
-          align: "center",
-        },
-      );
-    });
     doc.moveDown();
     // Calcular el total general de personas y días
     const totalGeneralDias = economicos_quincena.reduce(
@@ -2220,12 +2222,10 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
                 ? columns[6]
                 : columns[k];
           doc.rect(xh, y, w, headerHeight).fillAndStroke("#000000", "#000000");
-          doc
-            .fillColor("#FFFFFF")
-            .text(headersTop[k], xh + 2, y + 4, {
-              width: w - 4,
-              align: "center",
-            });
+          doc.fillColor("#FFFFFF").text(headersTop[k], xh + 2, y + 4, {
+            width: w - 4,
+            align: "center",
+          });
           doc.fillColor("#000000");
           xh += w;
         }
