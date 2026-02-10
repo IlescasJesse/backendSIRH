@@ -848,53 +848,6 @@ incidenciasController.saveIncidencia = async (req, res) => {
       .send({ error: "An error occurred while saving the incidence" });
   }
 };
-
-incidenciasController.newExtPermit = async (req, res) => {
-  const user = req.user;
-
-  const {
-    _id,
-    TIPO,
-    DESDE,
-    HASTA,
-    NUM_DIAS,
-    OFICIO_SOLICITUD,
-    OFICIO_AUTORIZACION,
-    OBSERVACIONES,
-    ID_CTRL_ASIST,
-    NUMTARJETA,
-  } = req.body;
-  // Crear el nuevo registro de permiso extraordinario
-  const extPermitData = {
-    id_empoyee: _id,
-    TIPO,
-    DESDE,
-    HASTA,
-    NUM_DIAS,
-    OFICIO_SOLICITUD,
-    OFICIO_AUTORIZACION,
-    OBSERVACIONES,
-    ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
-    AÑO: moment(DESDE).year(),
-  };
-  const userAction = {
-    username: user.username,
-    module: "AEI-PEXT",
-    action: `CREÓ UN NUEVO PERMISO EXTRAORDINARIO DEL EMPLEADO CON TARJETA "${NUMTARJETA}"`,
-    timestamp: moment().format("YYYY-MM-DD HH:mm:ss"),
-  };
-  try {
-    await insertOne("PERMISOS_EXT", extPermitData);
-    res
-      .status(200)
-      .send({ message: "External permit created", data: extPermitData });
-  } catch (error) {
-    console.error("Error creating external permit:", error);
-    res
-      .status(500)
-      .send({ error: "An error occurred while creating the external permit" });
-  }
-};
 incidenciasController.newForeigner = async (req, res) => {
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
@@ -1268,36 +1221,6 @@ incidenciasController.updateCommission = async (req, res) => {
       .send({ error: "An error occurred while updating the commission" });
   }
 };
-
-incidenciasController.updateExtPermit = async (req, res) => {
-  const { _id, ...updateData } = req.body;
-
-  try {
-    const result = await query("PERMISOS_EXT", {
-      _id: new ObjectId(_id),
-    });
-
-    if (!result || result.length === 0) {
-      return res.status(404).send({ error: "External permit not found" });
-    }
-
-    await updateOne(
-      "PERMISOS_EXT",
-      { _id: new ObjectId(_id) },
-      { $set: updateData }
-    );
-    res
-      .status(200)
-      .send({ message: "External permit updated successfully", data: result });
-  } catch (error) {
-    console.error("Error updating external permit:", error);
-    const employee = result[0];
-    res.status(500).send({
-      error: "An error occurred while updating the external permit",
-      _id: employee.id_empoyee,
-    });
-  }
-};
 // incidenciasController.updateIncidencia = async (req, res) => {
 //   console.log(req.body);
 
@@ -1422,30 +1345,6 @@ incidenciasController.deleteEconomicPermit = async (req, res) => {
       .send({ error: "An error occurred while deleting the economic permit" });
   }
 };
-
-incidenciasController.deleteExtPermit = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const permitData = await query("PERMISOS_EXT", {
-      _id: new ObjectId(id),
-    });
-    const result = await deleteOne("PERMISOS_EXT", { _id: new ObjectId(id) });
-    if (result.deletedCount === 0) {
-      return res.status(404).send({ error: "External permit not found" });
-    }
-    res
-      .status(200)
-      .send({ message: "External permit deleted", data: permitData[0] });
-  } catch (error) {
-    console.error("Error deleting external permit:", error);
-    res.status(500).send({
-      error: "An error occurred while deleting the external permit",
-      data,
-    });
-  }
-};
-
 incidenciasController.getIncidencias = async (req, res) => {
   const id = req.params.id;
   try {

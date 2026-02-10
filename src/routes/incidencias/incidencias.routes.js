@@ -33,7 +33,6 @@ router.put(
 router.post("/newPermit", verifyToken, incidenciasController.newEconomicPermit);
 router.post("/newProof", verifyToken, incidenciasController.newJustification);
 router.post("/newInability", verifyToken, incidenciasController.newInability);
-router.post("/newExtPermit", verifyToken, incidenciasController.newExtPermit);
 router.post("/newCommission", verifyToken, incidenciasController.newCommission);
 router.post(
   "/saveIncidencia",
@@ -57,11 +56,6 @@ router.put(
   "/updateInability",
   verifyToken,
   incidenciasController.updateInability
-);
-router.put(
-  "/updateExtPermit",
-  verifyToken,
-  incidenciasController.updateExtPermit
 );
 router.put(
   "/updateCommission",
@@ -88,11 +82,6 @@ router.delete(
   "/deleteInability/:id",
   verifyToken,
   incidenciasController.deleteInability
-);
-router.delete(
-  "/deleteExtPermit/:id",
-  verifyToken,
-  incidenciasController.deleteExtPermit
 );
 router.delete(
   "/deleteIncidencia/:id",
