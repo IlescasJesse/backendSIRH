@@ -9,6 +9,11 @@ router.post(
   verifyToken,
   reportesIncidenciasController.printEconomicDays,
 );
+router.post(
+  "/printIndividualEconomicDays",
+  verifyToken,
+  reportesIncidenciasController.printIndividualEconomicDays,
+);
 router.get(
   "/printIncidenciasCentral/:quincena",
   verifyToken,
