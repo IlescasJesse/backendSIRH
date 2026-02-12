@@ -240,7 +240,10 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
     res.status(500).json({ message: "Error al generar el reporte." });
   }
 };
-reportesIncidenciasController.printIndividualEconomicDays = async (req, res) => {
+reportesIncidenciasController.printIndividualEconomicDays = async (
+  req,
+  res,
+) => {
   const unidades_responsables = await querysql(
     "SELECT * FROM unidad_responsable",
   );
@@ -256,17 +259,21 @@ reportesIncidenciasController.printIndividualEconomicDays = async (req, res) => 
 
   // Filtro por área responsable
   if (areaResp) {
-    filtro.AREA_RESP = Array.isArray(areaResp)
-      ? { $in: areaResp }
-      : areaResp;
+    filtro.AREA_RESP = Array.isArray(areaResp) ? { $in: areaResp } : areaResp;
   }
 
-  // Filtro por rango de fechas (cruce de fechas)
+  // Filtro por rango de fechas usando FECHA_CAPTURA
+  const normalizeFechaCaptura = (fecha) => {
+    if (!fecha) return fecha;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      return fecha.replace(/-/g, "/");
+    }
+    return fecha;
+  };
   if (fechaDesde && fechaHasta) {
-    filtro.$and = [
-      { DESDE: { $lte: fechaHasta } },
-      { HASTA: { $gte: fechaDesde } },
-    ];
+    const desde = normalizeFechaCaptura(fechaDesde);
+    const hasta = normalizeFechaCaptura(fechaHasta);
+    filtro.FECHA_CAPTURA = { $gte: desde, $lte: hasta };
   }
 
   const economicos_quincena = await query("PERMISOS_ECONOMICOS", filtro);
@@ -295,10 +302,7 @@ reportesIncidenciasController.printIndividualEconomicDays = async (req, res) => 
 
     stream.on("finish", () => {
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=QUINCENA.pdf`,
-      );
+      res.setHeader("Content-Disposition", `attachment; filename=QUINCENA.pdf`);
       res.download(filePath, `QUINCENA.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
@@ -314,26 +318,17 @@ reportesIncidenciasController.printIndividualEconomicDays = async (req, res) => 
     doc.font("Consolas").fontSize(10);
 
     const currentDate = new Date().toLocaleDateString("es-MX");
-    const fechas = economicos_quincena.map((permiso) => permiso.FECHA_CAPTURA);
-    const FECHA_CAPTURA_INICIAL = fechas.reduce(
-      (min, fecha) => (new Date(fecha) < new Date(min) ? fecha : min),
-      fechas[0],
-    );
-    const FECHA_CAPTURA_FINAL = fechas.reduce(
-      (max, fecha) => (new Date(fecha) > new Date(max) ? fecha : max),
-      fechas[0],
-    );
-    const invertDateFormat = (date) => {
-      const [year, month, day] = date.split("/");
-      return `${day}-${month}-${year}`;
-    };
-    const FECHA_CAPTURA_INICIAL_INVERTIDA = invertDateFormat(
-      FECHA_CAPTURA_INICIAL,
-    );
-    const FECHA_CAPTURA_FINAL_INVERTIDA = invertDateFormat(FECHA_CAPTURA_FINAL);
-
     // Configurar márgenes
-
+    const formatFechaCaptura = (fecha) => {
+      if (!fecha) return fecha;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+        const [year, month, day] = fecha.split("-");
+        return `${day}-${month}-${year}`;
+      }
+      return fecha;
+    };
+    const FECHA_CAPTURA_INICIAL_INVERTIDA = formatFechaCaptura(fechaDesde);
+    const FECHA_CAPTURA_FINAL_INVERTIDA = formatFechaCaptura(fechaHasta);
     // Agregar encabezado y pie de página dinámico
     let pageNumber = 0;
     const addHeaderAndFooter = () => {
@@ -553,8 +548,9 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -591,19 +587,19 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -685,7 +681,8 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -801,8 +798,9 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -839,19 +837,19 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -933,7 +931,8 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -1037,8 +1036,9 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1264,8 +1264,9 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1500,8 +1501,9 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1538,19 +1540,19 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -1632,7 +1634,8 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${
+          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -1739,8 +1742,9 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -2176,8 +2180,10 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     doc.moveDown(3);
 
     doc.text(
-      `CONFORME Al STATUS DE ${statusText} SE ${empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
-      } UN TOTAL DE: ${empleadosFiltrados.length} ${empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
+      `CONFORME Al STATUS DE ${statusText} SE ${
+        empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
+      } UN TOTAL DE: ${empleadosFiltrados.length} ${
+        empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
       }`,
       doc.page.margins.left,
       y + 10,
