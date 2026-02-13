@@ -658,6 +658,8 @@ incidenciasController.newJustification = async (req, res) => {
       TIPO_COMPROBANTE,
       HORARIO_ENTRADA,
       HORARIO_SALIDA,
+      DESDE,
+      HASTA
     } = req.body;
 
     // Crear el nuevo justificante
@@ -669,6 +671,8 @@ incidenciasController.newJustification = async (req, res) => {
       ...(HORA_HASTA ? { HORA_HASTA } : {}),
       ...(HORARIO_ENTRADA ? { HORARIO_ENTRADA } : {}),
       ...(HORARIO_SALIDA ? { HORARIO_SALIDA } : {}),
+      ...(DESDE ? { DESDE } : {}),
+      ...(HASTA ? { HASTA } : {}),
       OBSERVACIONES,
       AÑO: moment(FECHA).year(),
       NUMTARJETA,

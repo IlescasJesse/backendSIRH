@@ -10,6 +10,11 @@ router.post(
   reportesIncidenciasController.printEconomicDays,
 );
 router.post(
+  "/printEconomicDaysDbf",
+  verifyToken,
+  reportesIncidenciasController.printEconomicDaysDbf,
+);
+router.post(
   "/printIndividualEconomicDays",
   verifyToken,
   reportesIncidenciasController.printIndividualEconomicDays,

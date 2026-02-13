@@ -4,7 +4,8 @@ const { ObjectId } = require("mongodb");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
-
+const { DBFFile } = require('dbffile');
+const archiver = require('archiver');
 const PizZip = require("pizzip");
 const fontPath = path.join(__dirname, "../../assets/fonts/Consolas.ttf");
 const fontPathArial = path.join(__dirname, "../../assets/fonts/arial.ttf");
@@ -238,6 +239,115 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
   } catch (error) {
     console.error("Error al crear el archivo:", error.message);
     res.status(500).json({ message: "Error al generar el reporte." });
+  }
+};
+
+reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
+  const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
+  const areaResp = req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
+
+  const filtro = { QUINCENA: parseInt(quin, 10) };
+  if (areaResp) filtro.AREA_RESP = Array.isArray(areaResp) ? { $in: areaResp } : areaResp;
+
+  const economicos_quincena = await query("PERMISOS_ECONOMICOS", filtro);
+  if (!economicos_quincena || economicos_quincena.length === 0) {
+    return res.status(404).json({ message: "No se encontraron datos para la quincena especificada." });
+  }
+
+  try {
+    const outputDir = path.join(__dirname, '../../docs/reportes/p_economicos/');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const dbfPath = path.join(outputDir, `QUINCENA${quin}.dbf`);
+    if (fs.existsSync(dbfPath)) fs.unlinkSync(dbfPath);
+
+    const fields = [
+      { name: 'PBPRFC', type: 'C', size: 13 },
+      { name: 'PBPNOM', type: 'C', size: 80 },
+      { name: 'CPROCVE', type: 'C', size: 20 },
+      { name: 'CCATCVE', type: 'C', size: 20 },
+      { name: 'CMOTCVE', type: 'C', size: 5 },
+      { name: 'CGOCCVE', type: 'C', size: 5 },
+      { name: 'PBPFPI', type: 'D', size: 8 },
+      { name: 'PBPFPF', type: 'D', size: 8 },
+      { name: 'PBPNDP', type: 'N', size: 5, decs: 0 },
+      { name: 'DESCTOS', type: 'N', size: 10, decs: 2 },
+      { name: 'IMPORTE', type: 'N', size: 12, decs: 2 },
+      { name: 'INNOMINA', type: 'C', size: 10 },
+      { name: 'PBPOBS', type: 'C', size: 255 },
+      { name: 'CAPTURA', type: 'D', size: 8 },
+      { name: 'CNOMCVE', type: 'N', size: 5, decs: 0 },
+      { name: 'CTINCVE', type: 'N', size: 5, decs: 0 },
+    ];
+
+    const parseAnyDate = (fechaStr) => {
+      if (!fechaStr) return null;
+      const parts = fechaStr.split(/[\/\-]/).map(p => p.trim());
+      if (parts.length !== 3) return null;
+      if (parts[0].length === 4) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        return new Date(y, m, d);
+      } else {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const y = parseInt(parts[2], 10);
+        return new Date(y, m, d);
+      }
+    };
+
+    // Extraer apellido para ordenar
+    const extractApellido = (nombre) => {
+      if (!nombre) return '';
+      // Si contiene coma, tomar la parte antes de la coma (apellidos)
+      if (nombre.includes(',')) {
+        return nombre.split(',')[0].trim();
+      }
+      // Si no, tomar la primera palabra
+      return nombre.split(/\s+/)[0];
+    };
+
+    let records = economicos_quincena.map((permiso) => ({
+      PBPRFC: permiso.RFC || '',
+      PBPNOM: permiso.NOMBRE || '',
+      CPROCVE: permiso.PROYECTO || '',
+      CCATCVE: permiso.CLAVECAT || '',
+      CMOTCVE: 'PEC',
+      CGOCCVE: 'CON',
+      PBPFPI: parseAnyDate(permiso.DESDE),
+      PBPFPF: parseAnyDate(permiso.HASTA),
+      PBPNDP: permiso.NUM_DIAS != null ? Number(permiso.NUM_DIAS) : 0,
+      DESCTOS: 0,
+      IMPORTE: 0,
+      INNOMINA: permiso.TIPONOM === 'F51' ? 'FORANEO' : permiso.TIPONOM === 'M51' ? 'CENTRAL' : '',
+      PBPOBS: '',
+      CAPTURA: parseAnyDate(permiso.FECHA_CAPTURA),
+      CNOMCVE: permiso.TIPONOM === 'F51' ? 160 : permiso.TIPONOM === 'M51' ? 100 : 0,
+      CTINCVE: 1,
+      apellido: extractApellido(permiso.NOMBRE), // campo temporal para ordenar
+    }));
+
+    records.sort((a, b) => a.apellido.localeCompare(b.apellido, 'es'));
+
+    // Remover campo temporal
+    records = records.map(({ apellido, ...rest }) => rest);
+
+
+    const dbf = await DBFFile.create(dbfPath, fields);
+    await dbf.appendRecords(records);
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename=QUINCENA${quin}.dbf`);
+    res.download(dbfPath, `QUINCENA${quin}.dbf`, (err) => {
+      if (err) {
+        console.error('Error al descargar el DBF:', err);
+        return res.status(500).json({ message: 'Error al descargar el archivo.' });
+      }
+    });
+  } catch (error) {
+    console.error('Error al generar DBF:', error);
+    res.status(500).json({ message: 'Error al generar el DBF.' });
   }
 };
 reportesIncidenciasController.printIndividualEconomicDays = async (
@@ -548,9 +658,8 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-        monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -587,19 +696,19 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-          (i + 1).toString().padStart(2, "0"),
-        )
+        (i + 1).toString().padStart(2, "0"),
+      )
       : Array.from(
-          {
-            length:
-              new Date(
-                new Date().getFullYear(),
-                parseInt(quin / 2),
-                0,
-              ).getDate() - 15,
-          },
-          (_, i) => (i + 16).toString().padStart(2, "0"),
-        );
+        {
+          length:
+            new Date(
+              new Date().getFullYear(),
+              parseInt(quin / 2),
+              0,
+            ).getDate() - 15,
+        },
+        (_, i) => (i + 16).toString().padStart(2, "0"),
+      );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -681,8 +790,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${
-          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -798,9 +906,8 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-        monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -837,19 +944,19 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-          (i + 1).toString().padStart(2, "0"),
-        )
+        (i + 1).toString().padStart(2, "0"),
+      )
       : Array.from(
-          {
-            length:
-              new Date(
-                new Date().getFullYear(),
-                parseInt(quin / 2),
-                0,
-              ).getDate() - 15,
-          },
-          (_, i) => (i + 16).toString().padStart(2, "0"),
-        );
+        {
+          length:
+            new Date(
+              new Date().getFullYear(),
+              parseInt(quin / 2),
+              0,
+            ).getDate() - 15,
+        },
+        (_, i) => (i + 16).toString().padStart(2, "0"),
+      );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -931,8 +1038,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${
-          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -1036,9 +1142,8 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-      monthNames[month - 1]
-    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1264,9 +1369,8 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-      monthNames[month - 1]
-    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1501,9 +1605,8 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-        monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1540,19 +1643,19 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-          (i + 1).toString().padStart(2, "0"),
-        )
+        (i + 1).toString().padStart(2, "0"),
+      )
       : Array.from(
-          {
-            length:
-              new Date(
-                new Date().getFullYear(),
-                parseInt(quin / 2),
-                0,
-              ).getDate() - 15,
-          },
-          (_, i) => (i + 16).toString().padStart(2, "0"),
-        );
+        {
+          length:
+            new Date(
+              new Date().getFullYear(),
+              parseInt(quin / 2),
+              0,
+            ).getDate() - 15,
+        },
+        (_, i) => (i + 16).toString().padStart(2, "0"),
+      );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -1634,8 +1737,7 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${
-          NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
+        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
         }\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
@@ -1742,9 +1844,8 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
-      monthNames[month - 1]
-    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -2180,10 +2281,8 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     doc.moveDown(3);
 
     doc.text(
-      `CONFORME Al STATUS DE ${statusText} SE ${
-        empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
-      } UN TOTAL DE: ${empleadosFiltrados.length} ${
-        empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
+      `CONFORME Al STATUS DE ${statusText} SE ${empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
+      } UN TOTAL DE: ${empleadosFiltrados.length} ${empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
       }`,
       doc.page.margins.left,
       y + 10,
