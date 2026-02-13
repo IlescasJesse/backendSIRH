@@ -333,7 +333,6 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
     // Remover campo temporal
     records = records.map(({ apellido, ...rest }) => rest);
 
-
     const dbf = await DBFFile.create(dbfPath, fields);
     await dbf.appendRecords(records);
 
@@ -965,7 +964,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
       "HORARIO",
       ...daysInPeriod,
     ];
-    const columnWidths = [50, 150, 60, ...Array(daysInPeriod.length).fill(20)];
+    const columnWidths = [40, 160, 60, ...Array(daysInPeriod.length).fill(20)];
     const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
     const headerHeight = 30;
     const rowHeight = headerHeight * 1;
@@ -982,6 +981,13 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
         align: "left",
       });
       x += columnWidths[index] * scaleFactor;
+    });
+
+    // Ordenar por número de tarjeta de menor a mayor
+    filteredIncidencias.sort((a, b) => {
+      const numA = parseInt(a.NUMTARJETA, 10);
+      const numB = parseInt(b.NUMTARJETA, 10);
+      return numA - numB;
     });
 
     // Dibujar filas con datos, limitando a 17 filas por página
@@ -1038,8 +1044,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 24 ? NOMBRE.substring(0, 24) + "." : NOMBRE
-        }\n${replaceTiponomValue(TIPONOM)}`,
+        `${NOMBRE.length > 26 ? NOMBRE.substring(0, 26) : NOMBRE}\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) =>
           INCIDENCIAS && INCIDENCIAS[day]
