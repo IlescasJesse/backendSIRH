@@ -659,7 +659,8 @@ incidenciasController.newJustification = async (req, res) => {
       HORARIO_ENTRADA,
       HORARIO_SALIDA,
       DESDE,
-      HASTA
+      HASTA,
+      NUM_DIAS
     } = req.body;
 
     // Crear el nuevo justificante
@@ -673,6 +674,7 @@ incidenciasController.newJustification = async (req, res) => {
       ...(HORARIO_SALIDA ? { HORARIO_SALIDA } : {}),
       ...(DESDE ? { DESDE } : {}),
       ...(HASTA ? { HASTA } : {}),
+      ...(NUM_DIAS ? { NUM_DIAS } : {}),
       OBSERVACIONES,
       AÑO: moment(FECHA).year(),
       NUMTARJETA,

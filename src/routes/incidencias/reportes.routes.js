@@ -49,6 +49,10 @@ router.get(
   "/printInasistenciasPlaneacion/:quincena",
   reportesIncidenciasController.printInasistenciasPlaneacion,
 );
+router.post(
+  "/printRetardosDbf",
+  reportesIncidenciasController.printRetardosDbf,
+);
 
 router.post(
   "/printAsistenceCards/:area_resp",
