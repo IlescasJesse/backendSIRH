@@ -54,10 +54,6 @@ router.post(
   reportesIncidenciasController.printRetardosDbf,
 );
 
-router.post(
-  "/printAsistenceCards/:area_resp",
-  asistenceCards.printAsistenceCards,
-);
 // router.get(
 //   "/printSingleAsistenceCard/:area_resp",
 //   asistenceCards.printSingleAsistenceCard

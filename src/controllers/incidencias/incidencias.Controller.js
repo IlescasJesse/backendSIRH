@@ -7,6 +7,17 @@ const {
 } = require("../../config/mongo");
 const { ObjectId } = require("mongodb");
 const moment = require("moment");
+const PDFDocument = require("pdfkit");
+const fs = require("fs");
+const path = require("path");
+const {
+  format,
+  addDays,
+  startOfMonth,
+  endOfMonth,
+  isBefore,
+} = require("date-fns");
+const { es } = require("date-fns/locale");
 const getCustomQuarter = (date) => {
   const month = moment(date, "YYYY-MM-DD").month() + 1;
   if (month >= 1 && month <= 4) return 1;
@@ -1543,6 +1554,7 @@ incidenciasController.getAllEmployeesByArea = async (req, res) => {
       AREA_RESP: area,
       status: 1,
       NUMTARJETA: { $exists: true, $nin: [null, ""] },
+      TIPONOM: { $nin: ["FMM", "MMS"] },
       "STATUS_EMPLEADO.STATUS": { $nin: ["EXIMA", "COM_LAB"] },
     };
 
@@ -1555,6 +1567,675 @@ incidenciasController.getAllEmployeesByArea = async (req, res) => {
     res.status(200).json(employees);
   } catch (err) {
     res.status(500).json({ message: "Error retrieving employees", error: err });
+  }
+};
+
+incidenciasController.printAsistenceCards = async (req, res) => {
+  const { AREA_RESP, TARJETAS, PRINTER, YEAR, FORTNIGHT } = req.body;
+
+  if (
+    !TARJETAS ||
+    !Array.isArray(TARJETAS) ||
+    TARJETAS.length === 0
+  ) {
+    return res.status(400).json({
+      message:
+        "Los números de tarjetas a imprimir son obligatorios y debe ser un array.",
+    });
+  }
+
+  const queryFilter = {
+    NUMTARJETA: { $in: TARJETAS.map((num) => parseInt(num, 10)) },
+    AREA_RESP: AREA_RESP ? { $eq: AREA_RESP } : undefined,
+  };
+
+  const [plantilla = [], foranea = []] = await Promise.all([
+    query("PLANTILLA", queryFilter),
+    query("PLANTILLA_FORANEA", queryFilter),
+  ]);
+
+  let employees = [...plantilla, ...foranea];
+
+  if (employees.length === 0) {
+    return res.status(404).json({ message: "No hay empleados para los parámetros especificados" });
+  }
+  try {
+    const {
+      employees: employeesBody,
+      printerPosition = PRINTER || "DERECHA",
+      selectedYear = YEAR,
+      outputDir = "./pdfs",
+    } = req.body || {};
+
+    if (Array.isArray(employeesBody) && employeesBody.length) {
+      employees = employeesBody;
+    }
+
+    // Crear directorio de salida si no existe
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Función para convertir número de quincena (1-24) a { month, half }
+    const quinaenaNumToMonthHalf = (quincenaNum) => {
+      const num = Number(quincenaNum);
+      if (num < 1 || num > 24) return null;
+
+      const month = Math.ceil(num / 2);
+      const half = num % 2 === 0 ? 2 : 1;
+
+      return { month, half };
+    };
+
+    let chosenQuincenas = [];
+
+    // Convertir FORTNIGHT (números) a array de { month, half }
+    if (Array.isArray(FORTNIGHT) && FORTNIGHT.length > 0) {
+      chosenQuincenas = FORTNIGHT
+        .map(quinaenaNumToMonthHalf)
+        .filter(q => q !== null);
+    }
+
+    // Si no hay quincenas válidas, generar la siguiente
+    if (chosenQuincenas.length === 0) {
+      const now = new Date();
+      const day = now.getDate();
+      const currentMonth = now.getMonth() + 1;
+      const isFirstHalf = day <= 15;
+      if (isFirstHalf) {
+        chosenQuincenas = [{ month: currentMonth, half: 2 }];
+      } else {
+        const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+        chosenQuincenas = [{ month: nextMonth, half: 1 }];
+      }
+    }
+
+    const printerOffsetGlobal =
+      printerPosition === "DERECHA" ? 0.7 * 28.35 : 0;
+    const pt = 28.35;
+    const docWidth = 8.1 * 28.35;
+    const docHeight = 18.3 * 28.35;
+
+    // Separar comisionados y no comisionados
+    // Normalizar para evitar null en STATUS_EMPLEADO
+    employees = employees.map(emp => ({
+      ...emp,
+      STATUS_EMPLEADO: emp.STATUS_EMPLEADO || {},
+    }));
+
+    const ordenarPorTarjeta = (a, b) => {
+      const numA = Number(a.NUMTARJETA) || 0;
+      const numB = Number(b.NUMTARJETA) || 0;
+      return numA - numB;
+    };
+
+    const comisionados = employees
+      .filter(
+        (emp) =>
+          emp.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
+          emp.STATUS_EMPLEADO?.STATUS === "COM_LAB"
+      )
+      .sort(ordenarPorTarjeta);
+    const noComisionados = employees
+      .filter(
+        (emp) =>
+          !(emp.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
+            emp.STATUS_EMPLEADO?.STATUS === "COM_LAB")
+      )
+      .sort(ordenarPorTarjeta);
+
+    // Calcular quincenas
+    const today = new Date();
+    const quincenas = [];
+
+    if (
+      chosenQuincenas &&
+      Array.isArray(chosenQuincenas) &&
+      chosenQuincenas.length > 0
+    ) {
+      chosenQuincenas.forEach((s) => {
+        const monthIdx = Number(s.month);
+        const half = Number(s.half);
+        const currentYear =
+          selectedYear && Number.isInteger(selectedYear)
+            ? Number(selectedYear)
+            : today.getFullYear();
+
+        let start = new Date(currentYear, monthIdx - 1, half === 1 ? 1 : 16);
+        let end = half === 1 ? addDays(start, 14) : endOfMonth(start);
+
+        if (!selectedYear && isBefore(end, today)) {
+          const nextYear = currentYear + 1;
+          start = new Date(nextYear, monthIdx - 1, half === 1 ? 1 : 16);
+          end = half === 1 ? addDays(start, 14) : endOfMonth(start);
+        }
+
+        quincenas.push({
+          start,
+          end,
+          texto: `DEL ${format(start, "dd", { locale: es })} AL ${format(
+            end,
+            "dd 'DE' MMMM 'DE' yyyy",
+            { locale: es }
+          )}`.toUpperCase(),
+          nombre: format(start, "yyyy-MM-dd", { locale: es }),
+        });
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "No valid quincenas provided",
+      });
+    }
+
+    // Generar PDFs en memoria (buffers)
+    const pdfFiles = []; // Array para almacenar {filename, buffer, base64}
+
+    for (const quincena of quincenas) {
+      // Generar PDF de comisionados
+      if (comisionados.length > 0) {
+        const pdfBuffer = await new Promise((resolve, reject) => {
+          const buffersArray = [];
+          const doc = new PDFDocument({ size: [docWidth, docHeight] });
+          doc.fontSize(9);
+
+          // Capturar datos en buffers en lugar de escribir a disco
+          doc.on('data', (chunk) => {
+            buffersArray.push(chunk);
+          });
+
+          doc.on('error', reject);
+
+          comisionados.forEach((record, index) => {
+            if (index > 0) doc.addPage();
+
+            // Mapeo de nombres completos (tiene prioridad)
+            const adscripcionesAbrevia = {
+              "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA": "SUBSRIA. DE EGRESOS, CONT. Y TES.",
+              "COORD. DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
+              "OTOR. DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS"
+
+            };
+
+            const palabrasAbrevia = {
+              "SUBSECRETARÍA": "SUBSRIA.",
+              "PROCURADURÍA": "PROC.",
+              "DIRECCIÓN": "DIREC.",
+              "COORDINACIÓN": "COORD.",
+              "DEPARTAMENTO": "DEPTO.",
+              "SERVICIOS": "SERV.",
+              "RECURSOS": "REC.",
+              "GUBERNAMENTAL": "GUB.",
+              "RECAUDACIÓN": "REC.",
+              "OTORGAMIENTO": "OTOR.",
+              "SANTA": "STA."
+            };
+
+            const palabrasEliminar = ["DE", "DEL", "LA", "LAS", "EL", "LOS", "Y"]; // Conectivas
+
+            const abreviarAdscripcion = (texto) => {
+              if (!texto) return "";
+
+              // 1. Mapeo exacto de nombres comunes
+              const mapeoExacto = Object.keys(adscripcionesAbrevia).find(key =>
+                texto.toUpperCase().startsWith(key.toUpperCase())
+              );
+              if (mapeoExacto) {
+                const abrev = adscripcionesAbrevia[mapeoExacto];
+                const resto = texto.substring(mapeoExacto.length).trim();
+                return resto ? `${abrev} ${resto}` : abrev;
+              }
+
+              // 2. Reemplazar palabras individuales
+              let resultado = texto;
+              for (const [palabra, abreviatura] of Object.entries(palabrasAbrevia)) {
+                const regex = new RegExp(`\\b${palabra}\\b`, 'gi');
+                resultado = resultado.replace(regex, abreviatura);
+              }
+
+              return resultado;
+            };
+
+
+            const cardNumber = record.NUMTARJETA || "";
+            const area = abreviarAdscripcion(record.ADSCRIPCION) || "";
+            const name = `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
+            const REL_L = record.TIPONOM === 'F51' || record.TIPONOM === 'M51' ? 'PB'
+              : record.TIPONOM === 'FCT' || record.TIPONOM === 'CCT' ? 'CC'
+                : record.TIPONOM === 'FCO' || record.TIPONOM === '511' ? 'CN'
+                  : record.TIPONOM || '';
+            const shift = record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
+
+            // Ajuste dinámico de posición para NUM
+            const baseNumSize = 22;
+            const numStr = String(cardNumber || "");
+            const digitCount = (numStr.match(/\d/g) || []).length;
+            let extraNumOffsetX = 0;
+
+            if (digitCount === 3) {
+              extraNumOffsetX = -0.3 * pt;
+            } else if (digitCount === 4) {
+              extraNumOffsetX = -0.5 * pt;
+            }
+
+            const numFontSizeAdjusted =
+              baseNumSize + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            doc.fontSize(numFontSizeAdjusted).font("Helvetica-Bold");
+
+            const extraLeftUp = printerPosition === "IZQUIERDA" ? -0.1 * pt : 0;
+            const ajusteY = -5.67 + extraLeftUp;
+            const extraRight2mm = printerPosition === "DERECHA" ? 0.2 * pt : 0;
+
+            // NUM
+            const numBaseX = 6.5 * pt;
+            const numX =
+              printerPosition === "DERECHA"
+                ? numBaseX - 0.5 * pt + extraNumOffsetX
+                : numBaseX + extraNumOffsetX;
+            const numY =
+              (1.8 - 1 - 0.2) * pt +
+              ajusteY +
+              (printerPosition === "IZQUIERDA" ? -0.2 * pt : 0) +
+              printerOffsetGlobal +
+              extraRight2mm;
+
+            doc.text(cardNumber, numX, numY, {
+              width: docWidth - numX,
+              lineBreak: false,
+            });
+
+            // AREA, NOMBRE, REL_L
+            const bodyFontSize =
+              8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            doc.fontSize(bodyFontSize).font("Helvetica");
+            doc.text(
+              area,
+              0,
+              (2.5 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
+              {
+                width: docWidth,
+                align: "center",
+              }
+            );
+
+            doc.text(
+              name,
+              0,
+              (3.2 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
+              {
+                width: docWidth,
+                align: "center",
+              }
+            );
+
+            doc.text(
+              REL_L,
+              0,
+              (4 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
+              {
+                width: docWidth,
+                align: "center",
+              }
+            );
+
+            // HORARIO
+            const shiftY =
+              3.8 * pt +
+              ajusteY +
+              (printerPosition === "DERECHA" ? -0.2 * pt : 0) +
+              printerOffsetGlobal +
+              extraRight2mm;
+            doc.text(shift, 0, shiftY, {
+              width: docWidth,
+              align: "center",
+            });
+
+            // QUINCENA
+            const offsetX = 0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
+            const baseY =
+              (5.6 - 1) * pt +
+              ajusteY +
+              (printerPosition === "DERECHA" ? -0.3 * pt : 0) +
+              printerOffsetGlobal +
+              extraRight2mm;
+            const quincenaFont = 9 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            doc.fontSize(quincenaFont).font("Helvetica-Bold");
+            doc.text(quincena.texto, offsetX, baseY, {
+              width: docWidth - offsetX,
+              align: "center",
+            });
+
+            // COMISIONADO
+            if (
+              record.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
+              record.STATUS_EMPLEADO?.STATUS === "COM_LAB"
+            ) {
+              doc
+                .save()
+                .fontSize(22)
+                .font("Helvetica-Bold")
+                .rotate(-30, {
+                  origin: [1.5 * 28.35, (10 + 2) * 28.35 + printerOffsetGlobal],
+                })
+                .text(
+                  "COMISIONADO",
+                  1.5 * 28.35,
+                  (10 + 2) * 28.35 + printerOffsetGlobal,
+                  {
+                    width: docWidth - 1.5 * 28.35,
+                    align: "left",
+                  }
+                )
+                .restore();
+            }
+          });
+
+          doc.on('end', () => {
+            const buffer = Buffer.concat(buffersArray);
+            resolve(buffer);
+          });
+
+          doc.end();
+        });
+
+        const printerTag = String(printerPosition || "IZQUIERDA")
+          .toUpperCase()
+          .replace(/\s+/g, "_");
+        const fileName = `TARJETAS_COMISIONADOS_${quincena.nombre}_${printerTag}.pdf`;
+
+        pdfFiles.push({
+          filename: fileName,
+          buffer: pdfBuffer,
+          base64: pdfBuffer.toString('base64'),
+        });
+      }
+
+      // Generar PDF de no comisionados
+      if (noComisionados.length > 0) {
+        const pdfBuffer = await new Promise((resolve, reject) => {
+          const buffersArray = [];
+          const doc = new PDFDocument({ size: [docWidth, docHeight] });
+          doc.fontSize(9);
+
+          // Capturar datos en buffers
+          doc.on('data', (chunk) => {
+            buffersArray.push(chunk);
+          });
+
+          doc.on('error', reject);
+
+          noComisionados.forEach((record, index) => {
+            if (index > 0) doc.addPage();
+
+            const abreviarAdscripcion = (texto) => {
+              if (!texto) return "";
+
+              // Mapeo de nombres completos - búsqueda exacta o al inicio
+              const adscripcionesAbrevia = {
+                "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
+                "COORDINACION DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
+                "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE DE SANTA CRUZ AMILPAS": "C.I.A.C. DE STA. CRUZ AMILPAS",
+                "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE DE STA. CRUZ AMILPAS": "C.I.A.C. DE STA. CRUZ AMILPAS",
+                "DEPARTAMENTO DE REVISIÓN Y ANÁLISIS DEL SECTOR PARAESTATAL": "DEPTO. REV. Y ANÁL. SECT. PARAEST.",
+                "DEPARTAMENTO DE REVISIÓN Y ANÁLISIS DEL SECTOR CENTRAL": "DEPTO. REV. Y ANÁL. SECT. CENTRAL",
+                "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA": "SUBSRÍA. DE EGRESOS, CONT. Y TES.",
+                "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS",
+                'DEPARTAMENTO DE PROCESAMIENTO DE CUENTAS POR LIQUIDAR CERTIFICADAS DE GASTO DE OPERACIÓN "A"': 'DEPTO. PROC. CTAS. LIQ. CERT. G.O. “A”',
+                'DEPARTAMENTO DE PROCESAMIENTO DE CUENTAS POR LIQUIDAR CERTIFICADAS DE GASTO DE OPERACIÓN "B"': 'DEPTO. PROC. CTAS. LIQ. CERT. G.O. “B”',
+                "DEPARTAMENTO DE SEGUIMIENTO PRESUPUESTARIO A GASTO DE OPERACIÓN": "DEPTO. SEGUIM. PRESUP. A G.O.",
+                "DEPARTAMENTO DE ATENCIÓN Y SEGUIMIENTO A LOS PROCESOS DE AUDITORÍAS": "DEPTO. AT. Y SEGUIM. PROC. DE AUD.",
+                "DEPTO. DE PROCESAMIENTO DE CUENTAS POR LIQUIDAR CERTIFICADAS DE INVERSIÓN PÚBLICA": "DEPTO. PROC. CTAS. LIQ. CERT. INV. PÚBL."
+              };
+
+              // 1. Buscar mapeo exacto primero
+              if (adscripcionesAbrevia[texto]) {
+                return adscripcionesAbrevia[texto];
+              }
+
+              // 2. Si no hay exacto, buscar al inicio del texto
+              for (const [key, value] of Object.entries(adscripcionesAbrevia)) {
+                if (texto.toUpperCase().startsWith(key.toUpperCase())) {
+                  // Extraer la parte adicional después del mapeo
+                  const resto = texto.substring(key.length).trim();
+                  return resto ? `${value} ${resto}` : value;
+                }
+              }
+
+              // 3. Reemplazar palabras individuales
+              const palabrasAbrevia = {
+                "COORDINACIÓN": "COORD.",
+                "COORDINACION": "COORD.",
+                "CENTRO": "CTO.",
+                "CENTROS": "CTOS.",
+                "INTEGRAL": "INTEG.",
+                "INTEGRALES": "INTEG.",
+                "ATENCIÓN": "AT.",
+                "ATENCION": "AT.",
+                "CONTRIBUYENTE": "CONTRIB.",
+                "CONTRIBUYENTES": "CONTRIBS.",
+                "DEPARTAMENTO": "DEPTO.",
+                "DIRECCIÓN": "DIR.",
+                "DIRECCION": "DIR.",
+                "REVISIÓN": "REV.",
+                "REVISION": "REV.",
+                "ANÁLISIS": "ANÁL.",
+                "ANALISIS": "ANÁL.",
+                "SECTOR": "SECT.",
+                "PARAESTATAL": "PARAEST.",
+                "SUBSECRETARÍA": "SUBSRÍA.",
+                "SUBSECRETARIA": "SUBSRÍA.",
+                "PROCURADURÍA": "PROC.",
+                "PROCURADURIA": "PROC.",
+                "SERVICIOS": "SERV.",
+                "SEGUIMIENTO": "SEGUIM.",
+                "PRESUPUESTARIO": "PRESUP.",
+                "OPERACIÓN": "OPER.",
+                "PROCEDIMIENTO": "PROCED.",
+                "PLANEACIÓN": "PLANEAC.",
+                "EVALUACIÓN": "EVAL.",
+                "MUNICIPALES": "MUN.",
+                "INTEGRACIÓN": "INTEG.",
+                "RECURSOS": "REC.",
+                "GUBERNAMENTAL": "GUB.",
+                "RECAUDACIÓN": "RECAUD.",
+                "OTORGAMIENTO": "OTOR.",
+                "SANTA": "STA.",
+                "ADMINISTRATIVA": "ADMIN.",
+                "ADMINISTRACIÓN": "ADMIN.",
+                "CONTROL": "CTRL.",
+                "OFICINA": "OFNA.",
+                "PRESUPUESTARIA": "PRESUP.",
+                "PROCESOS": "PROC.",
+                "AUDITORÍAS": "AUD.",
+                "REGISTRO": "REG.",
+              };
+
+              let resultado = texto;
+              for (const [palabra, abreviatura] of Object.entries(palabrasAbrevia)) {
+                const regex = new RegExp(`\\b${palabra}\\b`, 'gi');
+                resultado = resultado.replace(regex, abreviatura);
+              }
+
+              return resultado;
+            };
+
+            function abreviarNombre(nombre, max = 34) {
+              if (nombre.length <= max) return nombre;
+
+              const reemplazos = {
+                "DEPARTAMENTO": "DEPTO.",
+                "DIRECCIÓN": "DIR.",
+                "GENERAL": "GRAL.",
+                "SERVICIOS": "SERV.",
+                "ADMINISTRATIVOS": "ADM.",
+                "COORDINACIÓN": "COORD.",
+                "SUBSECRETARÍA": "SUBSEC.",
+                "SECRETARÍA": "SEC.",
+                "TECNOLOGÍAS": "TEC.",
+                "INFORMACIÓN": "INF.",
+                "PLANEACIÓN": "PLAN.",
+                "INVERSIÓN": "INV.",
+                "PÚBLICA": "PÚB."
+              };
+
+              let abreviado = nombre.toUpperCase();
+
+              for (const palabra in reemplazos) {
+                abreviado = abreviado.replaceAll(palabra, reemplazos[palabra]);
+              }
+
+              // Si aún supera el límite, recortar inteligentemente
+              if (abreviado.length > max) {
+                abreviado = abreviado.slice(0, max - 3).trim() + "...";
+              }
+
+              return abreviado;
+            }
+
+
+            const cardNumber = record.NUMTARJETA || "";
+            const area = abreviarNombre(record.ADSCRIPCION) || "";
+            const name = `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
+            const REL_L = record.TIPONOM === 'F51' || record.TIPONOM === 'M51' ? 'PB'
+              : record.TIPONOM === 'FCT' || record.TIPONOM === 'CCT' ? 'CC'
+                : record.TIPONOM === 'FCO' || record.TIPONOM === '511' ? 'CN'
+                  : record.TIPONOM || '';
+            const shift = record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
+
+            const baseNumSize = 22;
+            const numStr = String(cardNumber || "");
+            const digitCount = (numStr.match(/\d/g) || []).length;
+            let extraNumOffsetX = 0;
+
+            if (digitCount === 3) {
+              extraNumOffsetX = -0.3 * pt;
+            } else if (digitCount === 4) {
+              extraNumOffsetX = -0.5 * pt;
+            }
+
+            const numFontSizeAdjusted =
+              baseNumSize + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            doc.fontSize(numFontSizeAdjusted).font("Helvetica-Bold");
+
+            const extraLeftUp = printerPosition === "IZQUIERDA" ? -0.1 * pt : 0;
+            const ajusteY = -5.67 + extraLeftUp;
+            const extraRight2mm = printerPosition === "DERECHA" ? 0.2 * pt : 0;
+
+            const numBaseX = 6.5 * pt;
+            const numX =
+              printerPosition === "DERECHA"
+                ? numBaseX - 0.5 * pt + extraNumOffsetX
+                : numBaseX + extraNumOffsetX;
+            const numY =
+              (1.8 - 1 - 0.2) * pt +
+              ajusteY +
+              (printerPosition === "IZQUIERDA" ? -0.2 * pt : 0) +
+              printerOffsetGlobal +
+              extraRight2mm;
+
+            doc.text(cardNumber, numX, numY, {
+              width: docWidth - numX,
+              lineBreak: false,
+            });
+
+            const bodyFontSize =
+              8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            doc.fontSize(bodyFontSize).font("Helvetica");
+            doc.text(
+              area,
+              0,
+              (2.5 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
+              {
+                width: docWidth,
+                align: "center",
+              }
+            );
+
+            doc.text(
+              name,
+              0,
+              (3.2 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
+              {
+                width: docWidth,
+                align: "center",
+              }
+            );
+
+            doc.text(
+              REL_L,
+              0,
+              (4 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
+              {
+                width: docWidth,
+                align: "center",
+              }
+            );
+
+            const shiftY =
+              3.8 * pt +
+              ajusteY +
+              (printerPosition === "DERECHA" ? -0.2 * pt : 0) +
+              printerOffsetGlobal +
+              extraRight2mm;
+            doc.text(shift, 0, shiftY, {
+              width: docWidth,
+              align: "center",
+            });
+
+            const offsetX = 0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
+            const baseY =
+              (5.6 - 1) * pt +
+              ajusteY +
+              (printerPosition === "DERECHA" ? -0.3 * pt : 0) +
+              printerOffsetGlobal +
+              extraRight2mm;
+            const quincenaFont = 9 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            doc.fontSize(quincenaFont).font("Helvetica-Bold");
+            doc.text(quincena.texto, offsetX, baseY, {
+              width: docWidth - offsetX,
+              align: "center",
+            });
+          });
+
+          doc.on('end', () => {
+            const buffer = Buffer.concat(buffersArray);
+            resolve(buffer);
+          });
+
+          doc.end();
+        });
+
+        const printerTag = String(printerPosition || "IZQUIERDA")
+          .toUpperCase()
+          .replace(/\s+/g, "_");
+        const fileName = `TARJETAS_NO_COMISIONADOS_${quincena.nombre}_${printerTag}.pdf`;
+
+        pdfFiles.push({
+          filename: fileName,
+          buffer: pdfBuffer,
+          base64: pdfBuffer.toString('base64'),
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Tarjetas generadas exitosamente (${quincenas.length} quincena(s))`,
+      pdfs: pdfFiles.map(pdf => ({
+        filename: pdf.filename,
+        data: pdf.base64, // Base64 encoded PDF
+      })),
+      comisionados: comisionados.length,
+      noComisionados: noComisionados.length,
+      quincenas: quincenas.length,
+    });
+  } catch (err) {
+    console.error("Error generando tarjetas:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Error generating cards",
+      error: err.message,
+    });
   }
 };
 

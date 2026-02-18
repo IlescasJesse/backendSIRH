@@ -242,13 +242,35 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
   }
 };
 reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
-  const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
-  const areaResp = req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
+  const fechaDesde = req.body.FECHA_DESDE;
+  const fechaHasta = req.body.FECHA_HASTA;
+  const areaResp = req.body.AREA_RESP;
 
-  const filtro = { QUINCENA: parseInt(quin, 10) };
-  if (areaResp) filtro.AREA_RESP = Array.isArray(areaResp) ? { $in: areaResp } : areaResp;
+  // Construir filtro base
+  const filtro = {};
+
+  // Filtro por área responsable
+  if (areaResp) {
+    filtro.AREA_RESP = Array.isArray(areaResp) ? { $in: areaResp } : areaResp;
+  }
+
+
+  // Filtro por rango de fechas usando FECHA_CAPTURA
+  const normalizeFechaCaptura = (fecha) => {
+    if (!fecha) return fecha;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      return fecha.replace(/-/g, "/");
+    }
+    return fecha;
+  };
+  if (fechaDesde && fechaHasta) {
+    const desde = normalizeFechaCaptura(fechaDesde);
+    const hasta = normalizeFechaCaptura(fechaHasta);
+    filtro.FECHA_CAPTURA = { $gte: desde, $lte: hasta };
+  }
 
   const economicos_quincena = await query("PERMISOS_ECONOMICOS", filtro);
+
   if (!economicos_quincena || economicos_quincena.length === 0) {
     return res.status(404).json({ message: "No se encontraron datos para la quincena especificada." });
   }
@@ -257,7 +279,7 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
     const outputDir = path.join(__dirname, '../../docs/reportes/p_economicos/');
     fs.mkdirSync(outputDir, { recursive: true });
 
-    const dbfPath = path.join(outputDir, `QUINCENA${quin}.dbf`);
+    const dbfPath = path.join(outputDir, `ECONOMICOS_${fechaDesde}_${fechaHasta}.dbf`);
     if (fs.existsSync(dbfPath)) fs.unlinkSync(dbfPath);
 
     const fields = [
@@ -336,8 +358,8 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
     await dbf.appendRecords(records);
 
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename=QUINCENA${quin}.dbf`);
-    res.download(dbfPath, `QUINCENA${quin}.dbf`, (err) => {
+    res.setHeader('Content-Disposition', `attachment; filename=ECONOMICOS_${fechaDesde}_${fechaHasta}.dbf`);
+    res.download(dbfPath, `ECONOMICOS_${fechaDesde}_${fechaHasta}.dbf`, (err) => {
       if (err) {
         console.error('Error al descargar el DBF:', err);
         return res.status(500).json({ message: 'Error al descargar el archivo.' });
@@ -2073,10 +2095,8 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
     const toDecimal1Text = (val) => {
       const n = Number(val);
       if (!isFinite(n)) return '0.0';
-      return n.toFixed(1); // ← devuelve TEXTO "0.0", "1.5", "2.0"
+      return n.toFixed(1);
     };
-
-
 
     let records = incidencias.map((incidencia) => ({
       PBPRFC: incidencia.RFC || '',
@@ -2100,10 +2120,6 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
       INHORARIO: '',
       apellido: extractApellido(incidencia.NOMBRE),
     }));
-
-    console.log(records.map(r => r.INARMAT));
-    console.log(records.map(r => r.INAIMAT));
-
 
     records.sort((a, b) => a.apellido.localeCompare(b.apellido, 'es'));
 
