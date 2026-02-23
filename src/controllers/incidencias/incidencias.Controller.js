@@ -1656,8 +1656,152 @@ incidenciasController.printAsistenceCards = async (req, res) => {
     const docWidth = 8.1 * 28.35;
     const docHeight = 18.3 * 28.35;
 
-    // Separar comisionados y no comisionados
-    // Normalizar para evitar null en STATUS_EMPLEADO
+    // ...existing code...
+    const abreviarAdscripcion = (texto) => {
+      if (!texto) return "";
+      let original = String(texto).trim();
+
+      // Detect and extract trailing single-letter, possibly quoted (preserve quotes)
+      let trailing = "";
+      const quotedTrailing = original.match(/(['"])\s*([A-Za-z])\s*\1$/);
+      if (quotedTrailing) {
+        // keep quotes around the letter exactly as in source
+        const quote = quotedTrailing[1];
+        const letter = quotedTrailing[2].toUpperCase();
+        trailing = `${quote}${letter}${quote}`;
+        original = original.slice(0, quotedTrailing.index).trim();
+      } else {
+        const simpleTrailing = original.match(/\s+([A-Za-z])\s*$/);
+        if (simpleTrailing) {
+          trailing = simpleTrailing[1].toUpperCase();
+          original = original.replace(/\s+[A-Za-z]\s*$/, "").trim();
+        }
+      }
+
+      // Force DPTO. prefix when starts with DEPARTAMENTO / DEPARTAMENTAL (keep any following DE/DEL)
+      const deptMatch = original.match(/^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i);
+      if (deptMatch) {
+        const rest = original.replace(/^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i, "").trim();
+        original = rest ? `DPTO. DE ${rest}` : "DPTO.";
+      }
+
+      const upper = original.toUpperCase();
+
+      const exact = {
+        "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA": "SUBSEC. DE EGRESOS, CONT. Y TES.",
+        "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
+        "COORDINACION DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
+        "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE": "C.I.A.C.",
+        "MODULO DE ATENCIÓN AL CONTRIBUYENTE": "M.A.C.",
+        "MÓDULO DE ATENCIÓN AL CONTRIBUYENTE": "M.A.C.",
+        "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS"
+      };
+
+      for (const k of Object.keys(exact)) {
+        if (upper.startsWith(k)) {
+          const resto = original.substring(k.length).trim();
+          const out = (exact[k] + (resto ? " " + resto : "")).toUpperCase();
+          return trailing ? `${out} ${trailing}` : out;
+        }
+      }
+
+      const palabrasAbrevia = {
+        "SUBSECRETARÍA": "SUBSEC.",
+        "SUBSECRETARIA": "SUBSEC.",
+        "PROCURADURÍA": "PROCUR.",
+        "PROCURADURIA": "PROCUR.",
+        "DIRECCIÓN": "DIREC.",
+        "DIRECCION": "DIREC.",
+        "COORDINACIÓN": "COORD.",
+        "COORDINACION": "COORD.",
+        "DEPARTAMENTO": "DPTO.",
+        "DEPARTAMENTAL": "DPTO.",
+        "REVISIÓN": "REV.",
+        "REVISION": "REV.",
+        "ANÁLISIS": "ANÁ.",
+        "ANALISIS": "ANÁ.",
+        "SECTOR": "SECT.",
+        "PARAESTATAL": "PA.",
+        "SERVICIOS": "SERV.",
+        "RECURSOS": "REC.",
+        "GUBERNAMENTAL": "GUB.",
+        "RECAUDACIÓN": "REC.",
+        "RECAUDACION": "REC.",
+        "OTORGAMIENTO": "OTOR.",
+        "SANTA": "STA."
+      };
+
+      let resultado = original;
+      for (const [palabra, abrev] of Object.entries(palabrasAbrevia)) {
+        const regex = new RegExp(`\\b${palabra}\\b`, "gi");
+        resultado = resultado.replace(regex, abrev);
+      }
+
+      // Normalize spaces and uppercase
+      resultado = resultado.replace(/\s+/g, " ").trim().toUpperCase();
+
+      // If fits, return (preserve trailing letter/quotes)
+      if (resultado.length <= 35) return trailing ? `${resultado} ${trailing}` : resultado;
+
+      // Compression rules
+      const omit = new Set([
+        "DE", "DEL", "LA", "LAS", "EL", "LOS", "Y", "AL", "DELA", "PARA"
+      ]);
+
+      // Split into parts (clean punctuation)
+      const parts = resultado.replace(/[.,()]/g, "").split(/\s+/).map(p => p.trim()).filter(Boolean);
+
+      const hasDptoPrefix = parts[0] && parts[0].toUpperCase().startsWith("DPTO");
+
+      // Preferred compressed form: keep "DPTO. DE" and then take first two letters of each meaningful word joined by dots
+      if (hasDptoPrefix) {
+        // Determine start index after prefix and optional DE
+        let startIdx = 1;
+        if (parts[1] && parts[1].toUpperCase() === "DE") startIdx = 2;
+
+        const meaningful = parts.slice(startIdx).filter(p => !omit.has(p.toUpperCase()));
+        if (meaningful.length > 0) {
+          const twoLetterTokens = meaningful.map(p => {
+            const clean = p.normalize('NFD').replace(/[\u0300-\u036f]/g, ""); // remove accents
+            return (clean.slice(0, 2).toUpperCase());
+          });
+          const candidateCore = `${twoLetterTokens.join(".")}`;
+          const candidate = `DPTO. DE ${candidateCore}.`;
+          if (candidate.length <= 35) return trailing ? `${candidate} ${trailing}` : candidate;
+          // If still too long, try initials (no extra dots after trailing)
+          const initials = meaningful.map(p => p[0].toUpperCase()).join(".");
+          const cand2 = `DPTO. DE ${initials}.`;
+          if (cand2.length <= 60) return trailing ? `${cand2} ${trailing}` : cand2;
+        }
+      }
+
+      // Generic tight compression: keep 'omit' tokens (DE, etc.) and abbreviate others to two letters + "."
+      const tight = parts.map((p, idx) => {
+        const up = p.toUpperCase();
+        if (omit.has(up)) return up;
+        if (up.endsWith('.')) return up;
+        const clean = p.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+        return (clean.slice(0, 2).toUpperCase() + ".");
+      });
+
+      let compressed = tight.join(" ");
+
+      // If still over limit, ultra-compact: keep DPTO. prefix if present, then initials of meaningful words
+      if (compressed.length > 35) {
+        const meaningful = parts.filter((p, i) => {
+          const up = p.toUpperCase();
+          if (i === 0 && hasDptoPrefix) return false;
+          return !omit.has(up);
+        });
+        const initials = meaningful.map(p => p[0].toUpperCase()).join(".") + ".";
+        const prefix = hasDptoPrefix ? "DPTO. DE" : "";
+        compressed = prefix ? `${prefix} ${initials}` : initials;
+      }
+
+      return trailing ? `${compressed} ${trailing}` : compressed;
+    };
+    // ...existing code...
+
     employees = employees.map(emp => ({
       ...emp,
       STATUS_EMPLEADO: emp.STATUS_EMPLEADO || {},
@@ -1748,55 +1892,6 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           comisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
-
-            // Mapeo de nombres completos (tiene prioridad)
-            const adscripcionesAbrevia = {
-              "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA": "SUBSRIA. DE EGRESOS, CONT. Y TES.",
-              "COORD. DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
-              "OTOR. DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS"
-
-            };
-
-            const palabrasAbrevia = {
-              "SUBSECRETARÍA": "SUBSRIA.",
-              "PROCURADURÍA": "PROC.",
-              "DIRECCIÓN": "DIREC.",
-              "COORDINACIÓN": "COORD.",
-              "DEPARTAMENTO": "DEPTO.",
-              "SERVICIOS": "SERV.",
-              "RECURSOS": "REC.",
-              "GUBERNAMENTAL": "GUB.",
-              "RECAUDACIÓN": "REC.",
-              "OTORGAMIENTO": "OTOR.",
-              "SANTA": "STA."
-            };
-
-            const palabrasEliminar = ["DE", "DEL", "LA", "LAS", "EL", "LOS", "Y"]; // Conectivas
-
-            const abreviarAdscripcion = (texto) => {
-              if (!texto) return "";
-
-              // 1. Mapeo exacto de nombres comunes
-              const mapeoExacto = Object.keys(adscripcionesAbrevia).find(key =>
-                texto.toUpperCase().startsWith(key.toUpperCase())
-              );
-              if (mapeoExacto) {
-                const abrev = adscripcionesAbrevia[mapeoExacto];
-                const resto = texto.substring(mapeoExacto.length).trim();
-                return resto ? `${abrev} ${resto}` : abrev;
-              }
-
-              // 2. Reemplazar palabras individuales
-              let resultado = texto;
-              for (const [palabra, abreviatura] of Object.entries(palabrasAbrevia)) {
-                const regex = new RegExp(`\\b${palabra}\\b`, 'gi');
-                resultado = resultado.replace(regex, abreviatura);
-              }
-
-              return resultado;
-            };
-
-
             const cardNumber = record.NUMTARJETA || "";
             const area = abreviarAdscripcion(record.ADSCRIPCION) || "";
             const name = `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
@@ -1967,134 +2062,8 @@ incidenciasController.printAsistenceCards = async (req, res) => {
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
 
-            const abreviarAdscripcion = (texto) => {
-              if (!texto) return "";
-
-              // Mapeo de nombres completos - búsqueda exacta o al inicio
-              const adscripcionesAbrevia = {
-                "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
-                "COORDINACION DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
-                "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE DE SANTA CRUZ AMILPAS": "C.I.A.C. DE STA. CRUZ AMILPAS",
-                "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE DE STA. CRUZ AMILPAS": "C.I.A.C. DE STA. CRUZ AMILPAS",
-                "DEPARTAMENTO DE REVISIÓN Y ANÁLISIS DEL SECTOR PARAESTATAL": "DEPTO. REV. Y ANÁL. SECT. PARAEST.",
-                "DEPARTAMENTO DE REVISIÓN Y ANÁLISIS DEL SECTOR CENTRAL": "DEPTO. REV. Y ANÁL. SECT. CENTRAL",
-                "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA": "SUBSRÍA. DE EGRESOS, CONT. Y TES.",
-                "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS",
-                'DEPARTAMENTO DE PROCESAMIENTO DE CUENTAS POR LIQUIDAR CERTIFICADAS DE GASTO DE OPERACIÓN "A"': 'DEPTO. PROC. CTAS. LIQ. CERT. G.O. “A”',
-                'DEPARTAMENTO DE PROCESAMIENTO DE CUENTAS POR LIQUIDAR CERTIFICADAS DE GASTO DE OPERACIÓN "B"': 'DEPTO. PROC. CTAS. LIQ. CERT. G.O. “B”',
-                "DEPARTAMENTO DE SEGUIMIENTO PRESUPUESTARIO A GASTO DE OPERACIÓN": "DEPTO. SEGUIM. PRESUP. A G.O.",
-                "DEPARTAMENTO DE ATENCIÓN Y SEGUIMIENTO A LOS PROCESOS DE AUDITORÍAS": "DEPTO. AT. Y SEGUIM. PROC. DE AUD.",
-                "DEPTO. DE PROCESAMIENTO DE CUENTAS POR LIQUIDAR CERTIFICADAS DE INVERSIÓN PÚBLICA": "DEPTO. PROC. CTAS. LIQ. CERT. INV. PÚBL."
-              };
-
-              // 1. Buscar mapeo exacto primero
-              if (adscripcionesAbrevia[texto]) {
-                return adscripcionesAbrevia[texto];
-              }
-
-              // 2. Si no hay exacto, buscar al inicio del texto
-              for (const [key, value] of Object.entries(adscripcionesAbrevia)) {
-                if (texto.toUpperCase().startsWith(key.toUpperCase())) {
-                  // Extraer la parte adicional después del mapeo
-                  const resto = texto.substring(key.length).trim();
-                  return resto ? `${value} ${resto}` : value;
-                }
-              }
-
-              // 3. Reemplazar palabras individuales
-              const palabrasAbrevia = {
-                "COORDINACIÓN": "COORD.",
-                "COORDINACION": "COORD.",
-                "CENTRO": "CTO.",
-                "CENTROS": "CTOS.",
-                "INTEGRAL": "INTEG.",
-                "INTEGRALES": "INTEG.",
-                "ATENCIÓN": "AT.",
-                "ATENCION": "AT.",
-                "CONTRIBUYENTE": "CONTRIB.",
-                "CONTRIBUYENTES": "CONTRIBS.",
-                "DEPARTAMENTO": "DEPTO.",
-                "DIRECCIÓN": "DIR.",
-                "DIRECCION": "DIR.",
-                "REVISIÓN": "REV.",
-                "REVISION": "REV.",
-                "ANÁLISIS": "ANÁL.",
-                "ANALISIS": "ANÁL.",
-                "SECTOR": "SECT.",
-                "PARAESTATAL": "PARAEST.",
-                "SUBSECRETARÍA": "SUBSRÍA.",
-                "SUBSECRETARIA": "SUBSRÍA.",
-                "PROCURADURÍA": "PROC.",
-                "PROCURADURIA": "PROC.",
-                "SERVICIOS": "SERV.",
-                "SEGUIMIENTO": "SEGUIM.",
-                "PRESUPUESTARIO": "PRESUP.",
-                "OPERACIÓN": "OPER.",
-                "PROCEDIMIENTO": "PROCED.",
-                "PLANEACIÓN": "PLANEAC.",
-                "EVALUACIÓN": "EVAL.",
-                "MUNICIPALES": "MUN.",
-                "INTEGRACIÓN": "INTEG.",
-                "RECURSOS": "REC.",
-                "GUBERNAMENTAL": "GUB.",
-                "RECAUDACIÓN": "RECAUD.",
-                "OTORGAMIENTO": "OTOR.",
-                "SANTA": "STA.",
-                "ADMINISTRATIVA": "ADMIN.",
-                "ADMINISTRACIÓN": "ADMIN.",
-                "CONTROL": "CTRL.",
-                "OFICINA": "OFNA.",
-                "PRESUPUESTARIA": "PRESUP.",
-                "PROCESOS": "PROC.",
-                "AUDITORÍAS": "AUD.",
-                "REGISTRO": "REG.",
-              };
-
-              let resultado = texto;
-              for (const [palabra, abreviatura] of Object.entries(palabrasAbrevia)) {
-                const regex = new RegExp(`\\b${palabra}\\b`, 'gi');
-                resultado = resultado.replace(regex, abreviatura);
-              }
-
-              return resultado;
-            };
-
-            function abreviarNombre(nombre, max = 34) {
-              if (nombre.length <= max) return nombre;
-
-              const reemplazos = {
-                "DEPARTAMENTO": "DEPTO.",
-                "DIRECCIÓN": "DIR.",
-                "GENERAL": "GRAL.",
-                "SERVICIOS": "SERV.",
-                "ADMINISTRATIVOS": "ADM.",
-                "COORDINACIÓN": "COORD.",
-                "SUBSECRETARÍA": "SUBSEC.",
-                "SECRETARÍA": "SEC.",
-                "TECNOLOGÍAS": "TEC.",
-                "INFORMACIÓN": "INF.",
-                "PLANEACIÓN": "PLAN.",
-                "INVERSIÓN": "INV.",
-                "PÚBLICA": "PÚB."
-              };
-
-              let abreviado = nombre.toUpperCase();
-
-              for (const palabra in reemplazos) {
-                abreviado = abreviado.replaceAll(palabra, reemplazos[palabra]);
-              }
-
-              // Si aún supera el límite, recortar inteligentemente
-              if (abreviado.length > max) {
-                abreviado = abreviado.slice(0, max - 3).trim() + "...";
-              }
-
-              return abreviado;
-            }
-
-
             const cardNumber = record.NUMTARJETA || "";
-            const area = abreviarNombre(record.ADSCRIPCION) || "";
+            const area = abreviarAdscripcion(record.ADSCRIPCION) || "";
             const name = `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
             const REL_L = record.TIPONOM === 'F51' || record.TIPONOM === 'M51' ? 'PB'
               : record.TIPONOM === 'FCT' || record.TIPONOM === 'CCT' ? 'CC'

@@ -5,6 +5,8 @@ const { getAdscripciones } = require("../../libs/adscriptions");
 const fs = require("fs");
 const path = require("path");
 const { PDFDocument, StandardFonts } = require("pdf-lib");
+const { createNotification } = require("../../services/notification.service");
+const { permission } = require("process");
 
 employeeController = {};
 
@@ -665,6 +667,7 @@ employeeController.saveEmployee = async (req, res) => {
 };
 //funcion para actualizar un empleado en la plantilla
 employeeController.updateEmployee = async (req, res) => {
+  const io = req.app.get("io");
   const { data } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("en-US", {
@@ -706,14 +709,13 @@ employeeController.updateEmployee = async (req, res) => {
     };
     await insertOne("USER_ACTIONS", userAction);
 
-    const io = req.app.get("io");
-
-    io.emit("empleado-actualizado", {
-      numpla: data.NUMPLA,
-      nombre: `${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}`,
-      usuario: user.username,
-      fecha: currentDateTime,
-      mensaje: `El empleado ${data.NOMBRES} ${data.APE_PAT} fue actualizado`,
+    await createNotification(io, {
+      title: "Empleado actualizado",
+      username: user.username,
+      message: `MÓDIFICO LA INFORMACIÓN DEL EMPLEADO "${data.APE_PAT} ${data.APE_MAT} ${data.NOMBRES}"`,
+      module: "PSL",
+      rol: ["ADMINISTRADOR", "USUARIO"],
+      permissions: ["PSL-EI", "*"],
     });
 
     res.status(200).json({

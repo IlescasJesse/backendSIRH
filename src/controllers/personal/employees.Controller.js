@@ -103,7 +103,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(percepciones.sueldo_base) -
             parseFloat(isrObjectB.limite_inf)) *
             parseFloat(isrObjectB.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectB.cuota_fija)
         ).toFixed(2);
         if (employee[0].FECHA_NOMBRAMIENTO) {
@@ -159,7 +159,7 @@ employeeController.getProfileData = async (req, res) => {
         deducciones.ISR = (
           ((parseFloat(sueldoGravable) - parseFloat(isrObjectCC.limite_inf)) *
             parseFloat(isrObjectCC.porcentajeliminf)) /
-            100 +
+          100 +
           parseFloat(isrObjectCC.cuota_fija)
         ).toFixed(2);
         const limiteSubsidio = await querysql(
@@ -216,7 +216,7 @@ employeeController.getProfileData = async (req, res) => {
           ((parseFloat(sueldoGravableMM) -
             parseFloat(isrObjectMM[0].limite_inf)) *
             isrObjectMM[0].porcentajeliminf) /
-            100 +
+          100 +
           parseFloat(isrObjectMM[0].cuota_fija)
         ).toFixed(2);
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
@@ -463,28 +463,29 @@ employeeController.recategorizeEmployee = async (req, res) => {
   }
 };
 employeeController.getUserActions = async (req, res) => {
-  try {
-    const actions = await query("USER_ACTIONS", {});
-    const users = await query("USUARIOS", {});
+  res.status(200).json("");
+  // try {
+  //   const actions = await query("USER_ACTIONS", {});
+  //   const users = await query("USUARIOS", {});
 
-    // Excluir acciones cuyo texto comience con "CONSULTÓ" (case-insensitive)
-    const filteredActions = actions.filter((a) => {
-      const text = (a.action || "").toString().trim();
-      return !/^CONSULTÓ/i.test(text);
-    });
+  //   // Excluir acciones cuyo texto comience con "CONSULTÓ" (case-insensitive)
+  //   const filteredActions = actions.filter((a) => {
+  //     const text = (a.action || "").toString().trim();
+  //     return !/^CONSULTÓ/i.test(text);
+  //   });
 
-    filteredActions.forEach((action) => {
-      const matchedUser = users.find((u) => u.username === action.username);
-      if (matchedUser) {
-        action.name = matchedUser.name;
-      }
-    });
+  //   filteredActions.forEach((action) => {
+  //     const matchedUser = users.find((u) => u.username === action.username);
+  //     if (matchedUser) {
+  //       action.name = matchedUser.name;
+  //     }
+  //   });
 
-    res.send(filteredActions);
-  } catch (error) {
-    console.error("Error fetching user actions:", error);
-    res.status(500).json({ error: "An error occurred while fetching data" });
-  }
+  //   res.send(filteredActions);
+  // } catch (error) {
+  //   console.error("Error fetching user actions:", error);
+  //   res.status(500).json({ error: "An error occurred while fetching data" });
+  // }
 };
 employeeController.getUserActionsPersonal = async (req, res) => {
   try {

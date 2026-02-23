@@ -159,6 +159,10 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
         doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
           align: "left",
         });
+        // Ordenar empleados del proyecto por RFC A-Z
+        proyectosAgrupados[proyecto].sort((a, b) =>
+          (a.RFC || "").toString().localeCompare((b.RFC || "").toString(), "es", { sensitivity: "base" }),
+        );
         (doc.text(
           "---------------------------------------------------------------------------------------",
         ),
@@ -208,8 +212,8 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
             align: "center",
           },
         );
+        doc.moveDown();
       });
-    doc.moveDown();
     // Calcular el total general de personas y días
     const totalGeneralDias = economicos_quincena.reduce(
       (sum, permiso) => sum + permiso.NUM_DIAS,
@@ -223,7 +227,7 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
       { align: "center" },
     );
     doc.text(
-      `TOTAL GENERAL DE PERSONAS: ${totalGeneralPersonas}                                 TOTAL GENERAL DE DÍAS: ${totalGeneralDias}`,
+      `TOTAL GENERAL DE PERSONAS: ${totalGeneralPersonas}                             TOTAL GENERAL DE DÍAS: ${totalGeneralDias}`,
       { align: "center" },
     );
 
@@ -279,7 +283,7 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
     const outputDir = path.join(__dirname, '../../docs/reportes/p_economicos/');
     fs.mkdirSync(outputDir, { recursive: true });
 
-    const dbfPath = path.join(outputDir, `ECONOMICOS_${fechaDesde}_${fechaHasta}.dbf`);
+    const dbfPath = path.join(outputDir, `ECONOMICOS_${areaResp === 'PLAN' ? 'SPIP' : 'SEFIN'}_${fechaDesde}_${fechaHasta}.dbf`);
     if (fs.existsSync(dbfPath)) fs.unlinkSync(dbfPath);
 
     const fields = [
@@ -358,8 +362,8 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
     await dbf.appendRecords(records);
 
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename=ECONOMICOS_${fechaDesde}_${fechaHasta}.dbf`);
-    res.download(dbfPath, `ECONOMICOS_${fechaDesde}_${fechaHasta}.dbf`, (err) => {
+    res.setHeader('Content-Disposition', `attachment; filename=ECONOMICOS_${areaResp === 'PLAN' ? 'SPIP' : 'SEFIN'}_${fechaDesde}_${fechaHasta}.dbf`);
+    res.download(dbfPath, `ECONOMICOS_${areaResp === 'PLAN' ? 'SPIP' : 'SEFIN'}_${fechaDesde}_${fechaHasta}.dbf`, (err) => {
       if (err) {
         console.error('Error al descargar el DBF:', err);
         return res.status(500).json({ message: 'Error al descargar el archivo.' });
@@ -513,6 +517,12 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
         doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
           align: "left",
         });
+
+        // Ordenar empleados del proyecto por RFC A-Z
+        proyectosAgrupados[proyecto].sort((a, b) =>
+          (a.RFC || "").toString().localeCompare((b.RFC || "").toString(), "es", { sensitivity: "base" }),
+        );
+
         (doc.text(
           "---------------------------------------------------------------------------------------",
         ),
@@ -562,8 +572,8 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
             align: "center",
           },
         );
+        doc.moveDown();
       });
-    doc.moveDown();
     // Calcular el total general de personas y días
     const totalGeneralDias = economicos_quincena.reduce(
       (sum, permiso) => sum + permiso.NUM_DIAS,
@@ -577,7 +587,7 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
       { align: "center" },
     );
     doc.text(
-      `TOTAL GENERAL DE PERSONAS: ${totalGeneralPersonas}                                 TOTAL GENERAL DE DÍAS: ${totalGeneralDias}`,
+      `TOTAL GENERAL DE PERSONAS: ${totalGeneralPersonas}                             TOTAL GENERAL DE DÍAS: ${totalGeneralDias}`,
       { align: "center" },
     );
 
@@ -2047,10 +2057,18 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
   if (!incidencias || incidencias.length === 0) {
     return res.status(404).json({ message: "No se encontraron datos para la quincena especificada." });
   }
+  const plantilla = await query("PLANTILLA", {});
 
-  console.log(incidencias);
+  const plantillaMap = new Map(
+    plantilla.map(u => [u.ID_CTRL_ASIST.toString(), u])
+  );
 
-
+  incidencias.forEach(action => {
+    const user = plantillaMap.get(action.ID_CTRL_ASIST.toString());
+    action.NUEMP = user?.NUMEMP || "";
+    action.CLAVECAT = user?.CLAVECAT || "";
+    action.AFILIACI = user?.AFILIACI || "";
+  });
 
   try {
     const outputDir = path.join(__dirname, '../../docs/reportes/inasistencias_auditoria/');
@@ -2061,16 +2079,16 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
 
     const fields = [
       { name: 'PBPRFC', type: 'C', size: 13 },
-      { name: 'PBPNUE', type: 'C', size: 10 },
+      { name: 'PBPNUE', type: 'N', size: 10, decs: 0 },
       { name: 'CPROCVE', type: 'C', size: 20 },
       { name: 'PBPNOM', type: 'C', size: 80 },
       { name: 'CCATCVE', type: 'C', size: 20 },
       { name: 'CNOMCVE', type: 'N', size: 5, decs: 0 },
       { name: 'CTINCVE', type: 'N', size: 5, decs: 0 },
       { name: 'PBPIMS', type: 'C', size: 12 },
-      { name: 'INAIMAT', type: 'C', size: 6 },
+      { name: 'INAIMAT', type: 'N', size: 20, decs: 2 },
       { name: 'INAIVES', type: 'N', size: 5, decs: 0 },
-      { name: 'INARMAT', type: 'C', size: 6 },
+      { name: 'INARMAT', type: 'N', size: 20, decs: 2 },
       { name: 'INARVES', type: 'N', size: 5, decs: 0 },
       { name: 'INASTAT', type: 'C', size: 15 },
       { name: 'INAINDIC', type: 'N', size: 5, decs: 0 },
@@ -2092,34 +2110,42 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
       return nombre.split(/\s+/)[0];
     };
 
-    const toDecimal1Text = (val) => {
+    const toDecimal1 = (val) => {
+      if (val === null || val === undefined || val === '') return 0;
       const n = Number(val);
-      if (!isFinite(n)) return '0.0';
-      return n.toFixed(1);
+      if (!isFinite(n)) return 0;
+      return Math.round(n * 10) / 10;  // retorna número puro
     };
 
-    let records = incidencias.map((incidencia) => ({
-      PBPRFC: incidencia.RFC || '',
-      PBPNUE: incidencia.NUEMP || '',
-      CPROCVE: incidencia.PROYECTO || '',
-      PBPNOM: incidencia.NOMBRE || '',
-      CCATCVE: incidencia.CLAVECAT || '',
-      CNOMCVE: incidencia.TIPONOM === 'F51' ? 160 : incidencia.TIPONOM === 'M51' ? 100 : 0,
-      CTINCVE: 1,
-      PBPIMS: incidencia.AFILIACI || '',
-      INAIMAT: toDecimal1Text(incidencia.CONTADORES_REPORTE?.INASISTENCIAS),
-      INAIVES: 0,
-      INARMAT: toDecimal1Text(incidencia.CONTADORES_REPORTE?.RETARDOS),
-      INARVES: 0,
-      INASTAT: 'VERDADERO',
-      INAINDIC: 0,
-      INACONFC: '',
-      IMSS_ANT: '',
-      CURP: '',
-      EXTERNO: 'C',
-      INHORARIO: '',
-      apellido: extractApellido(incidencia.NOMBRE),
-    }));
+    let records = incidencias.map((incidencia) => {
+
+      const incidenciasDias = incidencia.INCIDENCIAS || {};
+      const valoresDias = Object.values(incidenciasDias).map(v => (v == null ? '' : String(v).toUpperCase()));
+      const tieneBA = valoresDias.some(v => v === 'B' || v === 'A');
+
+      return {
+        PBPRFC: incidencia.RFC || '',
+        PBPNUE: incidencia.NUEMP || '',
+        CPROCVE: incidencia.PROYECTO || '',
+        PBPNOM: incidencia.NOMBRE || '',
+        CCATCVE: incidencia.CLAVECAT || '',
+        CNOMCVE: incidencia.TIPONOM === 'F51' || incidencia.TIPONOM === 'FCT' || incidencia.TIPONOM === 'FCO' || incidencia.TIPONOM === 'F53' ? 160 : incidencia.TIPONOM === 'M51' || incidencia.TIPONOM === 'CCT' || incidencia.TIPONOM === '511' || incidencia.TIPONOM === 'M53' ? 100 : 0,
+        CTINCVE: incidencia.TIPONOM === 'F51' || incidencia.TIPONOM === 'M51' ? 1 : 3,
+        PBPIMS: incidencia.AFILIACI || '',
+        INAIMAT: 0.0,
+        INAIVES: 0,
+        INARMAT: toDecimal1(incidencia.CONTADORES_REPORTE?.RETARDOS) || 0,
+        INARVES: 0,
+        INASTAT: tieneBA ? 'VERDADERO' : 'FALSO',
+        INAINDIC: 0,
+        INACONFC: '',
+        IMSS_ANT: '',
+        CURP: '',
+        EXTERNO: 'C',
+        INHORARIO: '',
+        apellido: extractApellido(incidencia.NOMBRE),
+      }
+    });
 
     records.sort((a, b) => a.apellido.localeCompare(b.apellido, 'es'));
 

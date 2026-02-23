@@ -49,10 +49,29 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log("🟢 Cliente conectado:", socket.id);
 
+  socket.on("join", ({ username, rol, permissions }) => {
+    console.log("📥 Join recibido:", { username, rol, permissions });
+
+    if (username) socket.join(`USER_${username}`);
+    if (rol) socket.join(`ROL_${rol}`);
+
+    if (permissions?.length) {
+      permissions.forEach(permission => {
+        socket.join(`PERMISSION_${permission}`);
+      });
+    }
+
+    // 🔥 Mostrar salas del usuario
+    console.log("📌 Salas del socket:", [...socket.rooms]);
+  });
+
   socket.on("disconnect", () => {
     console.log("🔴 Cliente desconectado:", socket.id);
   });
 });
+
+
+
 
 // rutas para personal
 app.use("/api/personal", require("./routes/personal/login.routes"));
@@ -89,6 +108,9 @@ app.use("/api", require("./routes/libs/libs.routes"));
 app.use("/api/monitor", require("./routes/monitor/monitor.routes"));
 // rutas para app móvil (con IP whitelist)
 app.use("/api/mobile/monitor", require("./routes/monitor/mobile.routes"));
+
+// rutas para notificaciones
+app.use("/api/notificaciones", require("./routes/notificaciones/notificaciones.routes"));
 
 // Middleware de manejo de errores (debe ir al final)
 app.use(errorLogger);
