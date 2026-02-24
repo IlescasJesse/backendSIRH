@@ -724,6 +724,7 @@ incidenciasController.newInability = async (req, res) => {
     ID_CTRL_ASIST,
     NUMTARJETA,
     OBSERVACIONES,
+    TIPO
   } = req.body;
 
   // Crear el nuevo registro de incapacidad
@@ -736,6 +737,7 @@ incidenciasController.newInability = async (req, res) => {
     AÑO: moment(DESDE).year(),
     NUMTARJETA,
     OBSERVACIONES,
+    TIPO
   };
   const userAction = {
     username: user.username,
