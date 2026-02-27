@@ -1,6 +1,10 @@
 const Agenda = require("agenda");
 const { ObjectId } = require("mongodb");
 const { query, insertOne, updateOne } = require("./mongo");
+const {
+  crearTalonesParaFecha,
+  getQuincenaInfo,
+} = require("../libs/talonesQuincena");
 require("dotenv").config();
 
 // Crear instancia de Agenda conectada a MongoDB SIRH2026
@@ -44,7 +48,7 @@ agenda.define("bajasExtemporaneas", async (job) => {
 
   console.log(
     "Ejecutando tarea de bajas extemporáneas:",
-    new Date().toISOString()
+    new Date().toISOString(),
   );
 
   await registrarActividadAgenda({
@@ -61,12 +65,12 @@ agenda.define("bajasExtemporaneas", async (job) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const bajasPendientes = await query("BAJAS", {
-      discharge_date: { $gte: today },
+      discharge_date: { $lte: today },
       PROCESADO: false,
     });
 
     console.log(
-      `Se encontraron ${bajasPendientes.length} bajas extemporáneas pendientes`
+      `Se encontraron ${bajasPendientes.length} bajas extemporáneas pendientes`,
     );
 
     registrosProcesados = bajasPendientes.length;
@@ -140,12 +144,12 @@ agenda.define("bajasExtemporaneas", async (job) => {
                 PARENTESCO: null,
                 TEL_CASA: null,
               },
-            }
+            },
           );
 
           if (!plantillaResult || plantillaResult.matchedCount === 0) {
             console.warn(
-              `No se encontró registro en PLANTILLA para id_empleado: ${baja.id_employee}`
+              `No se encontró registro en PLANTILLA para id_empleado: ${baja.id_employee}`,
             );
             registrosErrores++;
           }
@@ -153,12 +157,12 @@ agenda.define("bajasExtemporaneas", async (job) => {
           const plazaResult = await updateOne(
             "PLAZAS",
             { NUMPLA: baja.NUMPLA },
-            { $set: { status: 2 } }
+            { $set: { status: 2 } },
           );
 
           if (!plazaResult || plazaResult.matchedCount === 0) {
             console.warn(
-              `No se encontró registro en PLAZAS para NUMPLA: ${baja.NUMPLA}`
+              `No se encontró registro en PLAZAS para NUMPLA: ${baja.NUMPLA}`,
             );
           }
         }
@@ -166,7 +170,7 @@ agenda.define("bajasExtemporaneas", async (job) => {
         await updateOne(
           "BAJAS",
           { _id: baja._id },
-          { $set: { PROCESADO: true, fechaProceso: new Date() } }
+          { $set: { PROCESADO: true, fechaProceso: new Date() } },
         );
 
         registrosExitosos++;
@@ -220,7 +224,7 @@ agenda.define("altasExtemporaneas", async (job) => {
 
   console.log(
     "Ejecutando tarea de altas extemporáneas:",
-    new Date().toISOString()
+    new Date().toISOString(),
   );
 
   await registrarActividadAgenda({
@@ -240,7 +244,7 @@ agenda.define("altasExtemporaneas", async (job) => {
     });
 
     console.log(
-      `Se encontraron ${altasPendientes.length} altas extemporáneas pendientes`
+      `Se encontraron ${altasPendientes.length} altas extemporáneas pendientes`,
     );
 
     registrosProcesados = altasPendientes.length;
@@ -252,7 +256,7 @@ agenda.define("altasExtemporaneas", async (job) => {
         await updateOne(
           "altasExtemporaneas",
           { _id: alta._id },
-          { $set: { procesado: true, fechaProceso: new Date() } }
+          { $set: { procesado: true, fechaProceso: new Date() } },
         );
 
         registrosExitosos++;
@@ -302,7 +306,7 @@ agenda.define("licenciasExtemporaneas", async (job) => {
 
   console.log(
     "Ejecutando tarea de licencias extemporáneas:",
-    new Date().toISOString()
+    new Date().toISOString(),
   );
 
   await registrarActividadAgenda({
@@ -322,7 +326,7 @@ agenda.define("licenciasExtemporaneas", async (job) => {
     });
 
     console.log(
-      `Se encontraron ${licenciasPendientes.length} licencias extemporáneas pendientes`
+      `Se encontraron ${licenciasPendientes.length} licencias extemporáneas pendientes`,
     );
 
     registrosProcesados = licenciasPendientes.length;
@@ -334,7 +338,7 @@ agenda.define("licenciasExtemporaneas", async (job) => {
         await updateOne(
           "licenciasExtemporaneas",
           { _id: licencia._id },
-          { $set: { procesado: true, fechaProceso: new Date() } }
+          { $set: { procesado: true, fechaProceso: new Date() } },
         );
 
         registrosExitosos++;
@@ -342,7 +346,7 @@ agenda.define("licenciasExtemporaneas", async (job) => {
         registrosErrores++;
         console.error(
           `Error procesando licencia ${licencia._id}:`,
-          errorLicencia
+          errorLicencia,
         );
       }
     }
@@ -390,21 +394,23 @@ agenda.define("crearTalones", async (job) => {
   let registrosErrores = 0;
 
   try {
-    const hoy = new Date();
-    const dia = hoy.getDate();
-    const mes = hoy.getMonth() + 1;
-    const año = hoy.getFullYear();
-    const ultimoDiaMes = new Date(año, mes, 0).getDate();
+    const fechaJob = job?.attrs?.data?.fecha
+      ? new Date(job.attrs.data.fecha)
+      : new Date();
+    const forzar = Boolean(job?.attrs?.data?.forzar);
+    const infoQuincena = getQuincenaInfo(fechaJob);
 
-    let esQuincena1 = dia === 15;
-    let esQuincena2 = dia === ultimoDiaMes;
-
-    if (!esQuincena1 && !esQuincena2) {
+    if (!infoQuincena.esDiaPago && !forzar) {
       await registrarActividadAgenda({
         tarea: nombreTarea,
         estado: "omitido",
-        mensaje: `No es día de pago. Día actual: ${dia}/${mes}/${año}`,
-        detalles: { dia, mes, año },
+        mensaje: `No es día de pago. Día actual: ${infoQuincena.dia}/${infoQuincena.mes}/${infoQuincena.anio}`,
+        detalles: {
+          dia: infoQuincena.dia,
+          mes: infoQuincena.mes,
+          anio: infoQuincena.anio,
+          fechaEvaluada: infoQuincena.fechaMx.format("YYYY-MM-DD"),
+        },
         registrosProcesados: 0,
         registrosExitosos: 0,
         registrosErrores: 0,
@@ -414,84 +420,38 @@ agenda.define("crearTalones", async (job) => {
       return;
     }
 
-    const quincenaDelMes = esQuincena1 ? 1 : 2;
-    const quincenaDelAño = (mes - 1) * 2 + quincenaDelMes;
-    const fechaPago = new Date(año, mes - 1, dia);
-
     await registrarActividadAgenda({
       tarea: nombreTarea,
       estado: "iniciado",
-      mensaje: `Iniciando creación de talones - Quincena ${quincenaDelAño}`,
+      mensaje: `Iniciando creación de talones - Quincena ${infoQuincena.quincenaDelAnio}`,
       detalles: {
         fechaEjecucion: new Date().toISOString(),
-        quincena: quincenaDelAño,
-        fechaPago: fechaPago.toISOString().slice(0, 10),
+        quincena: infoQuincena.quincenaDelAnio,
+        fechaPago: infoQuincena.fechaMx.format("YYYY-MM-DD"),
+        forzada: forzar,
       },
     });
 
-    const empleadosActivos = await query("PLANTILLA", { status: 1 });
-    registrosProcesados = empleadosActivos.length;
+    const resultado = await crearTalonesParaFecha({
+      fechaBase: fechaJob,
+      forzar,
+    });
 
-    for (const empleado of empleadosActivos) {
-      try {
-        const talonExistente = await query("TALONES", {
-          _idEmployee: empleado._id,
-        });
-
-        const nuevoTalon = {
-          _id: new ObjectId(),
-          QUIN: quincenaDelAño,
-          FECHA_PAG: fechaPago,
-          STATUS: 2,
-          FOLIO: null,
-        };
-
-        if (talonExistente.length === 0) {
-          await insertOne("TALONES", {
-            _idEmployee: empleado._id,
-            TALONES: [nuevoTalon],
-          });
-          registrosExitosos++;
-        } else {
-          const empleadoActual = await query("PLANTILLA", {
-            _id: empleado._id,
-            status: 1,
-          });
-
-          if (empleadoActual.length > 0) {
-            const yaExiste = talonExistente[0].TALONES?.some(
-              (t) => t.QUIN === quincenaDelAño
-            );
-
-            if (!yaExiste) {
-              await updateOne(
-                "TALONES",
-                { _idEmployee: empleado._id },
-                { $push: { TALONES: nuevoTalon } }
-              );
-              registrosExitosos++;
-            }
-          }
-        }
-      } catch (errorTalon) {
-        registrosErrores++;
-        console.error(
-          `Error procesando talón para empleado ${empleado._id}:`,
-          errorTalon.message
-        );
-      }
-    }
+    registrosProcesados = resultado.registrosProcesados;
+    registrosExitosos = resultado.registrosExitosos;
+    registrosErrores = resultado.registrosErrores;
 
     const duracion = Date.now() - inicioTarea;
 
     await registrarActividadAgenda({
       tarea: nombreTarea,
       estado: "completado",
-      mensaje: `Creados ${registrosExitosos} talones para quincena ${quincenaDelAño}`,
+      mensaje: `Creados ${registrosExitosos} talones para quincena ${resultado.quincenaDelAnio}`,
       detalles: {
         fechaEjecucion: new Date().toISOString(),
-        quincena: quincenaDelAño,
-        fechaPago: fechaPago.toISOString().slice(0, 10),
+        quincena: resultado.quincenaDelAnio,
+        fechaPago: resultado.fechaMx.format("YYYY-MM-DD"),
+        forzada: forzar,
       },
       registrosProcesados,
       registrosExitosos,
@@ -500,7 +460,7 @@ agenda.define("crearTalones", async (job) => {
     });
 
     console.log(
-      `✓ Talones generados: ${registrosExitosos} de ${registrosProcesados} empleados (Quincena ${quincenaDelAño})`
+      `✓ Talones generados: ${registrosExitosos} de ${registrosProcesados} empleados (Quincena ${resultado.quincenaDelAnio})`,
     );
   } catch (error) {
     const duracion = Date.now() - inicioTarea;
@@ -528,7 +488,7 @@ agenda.define("gestionarPeriodoVacacional", async (job) => {
 
   console.log(
     "Ejecutando tarea de gestión de período vacacional:",
-    new Date().toISOString()
+    new Date().toISOString(),
   );
 
   await registrarActividadAgenda({
@@ -548,7 +508,7 @@ agenda.define("gestionarPeriodoVacacional", async (job) => {
     });
 
     console.log(
-      `Actualizando período vacacional para ${empleados.length} empleados`
+      `Actualizando período vacacional para ${empleados.length} empleados`,
     );
 
     registrosProcesados = empleados.length;
@@ -578,7 +538,7 @@ agenda.define("gestionarPeriodoVacacional", async (job) => {
             $set: {
               diasVacacionesDisponibles: registroVacaciones.diasDisponibles,
             },
-          }
+          },
         );
 
         registrosExitosos++;
@@ -586,7 +546,7 @@ agenda.define("gestionarPeriodoVacacional", async (job) => {
         registrosErrores++;
         console.error(
           `Error procesando vacaciones para empleado ${empleado._id}:`,
-          errorVacacion
+          errorVacacion,
         );
       }
     }
@@ -641,7 +601,7 @@ async function startAgenda() {
       {},
       {
         timezone: "America/Mexico_City",
-      }
+      },
     );
 
     // Altas extemporáneas - Diariamente a las 01:00
@@ -651,7 +611,7 @@ async function startAgenda() {
       {},
       {
         timezone: "America/Mexico_City",
-      }
+      },
     );
 
     // Licencias extemporáneas - Diariamente a las 02:00
@@ -661,7 +621,7 @@ async function startAgenda() {
       {},
       {
         timezone: "America/Mexico_City",
-      }
+      },
     );
 
     // Crear talones - Día 15 de cada mes a las 08:00
@@ -671,7 +631,7 @@ async function startAgenda() {
       {},
       {
         timezone: "America/Mexico_City",
-      }
+      },
     );
 
     // Crear talones - Último día del mes a las 08:00 (28-31)
@@ -681,7 +641,7 @@ async function startAgenda() {
       {},
       {
         timezone: "America/Mexico_City",
-      }
+      },
     );
 
     // Gestionar período vacacional - Cada 6 meses
@@ -691,7 +651,7 @@ async function startAgenda() {
       {},
       {
         skipImmediate: true,
-      }
+      },
     );
 
     console.log("✓ Tareas programadas correctamente");

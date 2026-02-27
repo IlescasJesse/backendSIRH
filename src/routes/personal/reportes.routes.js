@@ -6,25 +6,31 @@ const verifyToken = require("../../middleware/authMiddleware");
 router.post(
   "/getReportVacants/:queryParam",
   verifyToken,
-  reportesPersonalController.getReportVacants
+  reportesPersonalController.getReportVacants,
 );
 
 router.post(
   "/getReportLicenses",
   verifyToken,
-  reportesPersonalController.getReportLicenses
+  reportesPersonalController.getReportLicenses,
 );
 
 router.post(
   "/getDataPersonalizada",
   verifyToken,
-  reportesPersonalController.getDataPersonalizada
+  reportesPersonalController.getDataPersonalizada,
 );
 
 router.get(
   "/getPlantillaXLSX/:status",
   verifyToken,
-  reportesPersonalController.getPlantillaXLSX
+  reportesPersonalController.getPlantillaXLSX,
+);
+
+router.post(
+  "/getAltasBetweenDates",
+  verifyToken,
+  reportesPersonalController.getAltasBetweenDates,
 );
 
 module.exports = router;

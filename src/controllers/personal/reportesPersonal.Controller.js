@@ -71,7 +71,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
 
     vacants.forEach((vacant) => {
       const matchingPreviousOcupant = previousOcupant.find(
-        (po) => po.NUMPLA === vacant.NUMPLA
+        (po) => po.NUMPLA === vacant.NUMPLA,
       );
       if (matchingPreviousOcupant) {
         vacant.status_plaza = matchingPreviousOcupant;
@@ -124,7 +124,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
 
     const filePath = path.join(
       __dirname,
-      `../../docs/reportes/personal/VACANTES.pdf`
+      `../../docs/reportes/personal/VACANTES.pdf`,
     );
 
     try {
@@ -140,7 +140,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename=VACANTES.pdf`
+          `attachment; filename=VACANTES.pdf`,
         );
         res.download(filePath, `VACANTES.pdf`, (err) => {
           if (err) {
@@ -229,7 +229,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
             doc.heightOfString(String(cell), {
               width: columns[j] - 4,
               align: "left",
-            }) + 4
+            }) + 4,
         );
         const maxRowHeight = Math.max(...cellHeights, 18);
 
@@ -280,7 +280,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
           width:
             doc.page.width - doc.page.margins.left - doc.page.margins.right,
           align: "justify",
-        }
+        },
       );
       doc.moveDown();
       doc.text(
@@ -291,7 +291,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
           width:
             doc.page.width - doc.page.margins.left - doc.page.margins.right,
           align: "left",
-        }
+        },
       );
 
       doc.end();
@@ -344,7 +344,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
 
     const filePath = path.join(
       __dirname,
-      `../../docs/reportes/personal/LICENCIAS.pdf`
+      `../../docs/reportes/personal/LICENCIAS.pdf`,
     );
 
     try {
@@ -360,7 +360,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename=LICENCIAS.pdf`
+          `attachment; filename=LICENCIAS.pdf`,
         );
         res.download(filePath, `LICENCIAS.pdf`, (err) => {
           if (err) {
@@ -450,7 +450,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
             doc.heightOfString(String(cell), {
               width: columns[j] - 4,
               align: "left",
-            }) + 4
+            }) + 4,
         );
         const maxRowHeight = Math.max(...cellHeights, 18);
 
@@ -501,7 +501,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
           width:
             doc.page.width - doc.page.margins.left - doc.page.margins.right,
           align: "justify",
-        }
+        },
       );
       doc.moveDown();
       doc.text(
@@ -512,7 +512,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
           width:
             doc.page.width - doc.page.margins.left - doc.page.margins.right,
           align: "left",
-        }
+        },
       );
 
       doc.end();
@@ -729,7 +729,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
 
     const filePath = path.join(
       __dirname,
-      `../../docs/reportes/personal/LISTA_PERSONAL.pdf`
+      `../../docs/reportes/personal/LISTA_PERSONAL.pdf`,
     );
 
     try {
@@ -746,7 +746,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename=LISTA_PERSONAL.pdf`
+          `attachment; filename=LISTA_PERSONAL.pdf`,
         );
         res.download(filePath, `LISTA_PERSONAL.pdf`, (err) => {
           if (err) {
@@ -837,7 +837,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
             doc.heightOfString(String(cell), {
               width: columns[j] - 4,
               align: "left",
-            }) + 4
+            }) + 4,
         );
         const maxRowHeight = Math.max(...cellHeights, 18);
         const FOOTER_HEIGHT = 20;
@@ -915,14 +915,14 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
                 : "EMPLEADO QUE CUMPLE"
             } CON EL CRITERIO.`
           : filtros.length > 1
-          ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
-              empleadosFiltrados.length
-            } ${
-              empleadosFiltrados.length > 1
-                ? "EMPLEADOS QUE CUMPLEN"
-                : "EMPLEADO QUE CUMPLE"
-            } CON LOS CRITERIOS.`
-          : "";
+            ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
+                empleadosFiltrados.length
+              } ${
+                empleadosFiltrados.length > 1
+                  ? "EMPLEADOS QUE CUMPLEN"
+                  : "EMPLEADO QUE CUMPLE"
+              } CON LOS CRITERIOS.`
+            : "";
 
       doc.text(filtroTexto, doc.page.margins.left, y + 10, {
         width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
@@ -937,7 +937,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
           width:
             doc.page.width - doc.page.margins.left - doc.page.margins.right,
           align: "left",
-        }
+        },
       );
 
       doc.end();
@@ -1002,12 +1002,12 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       statusParam === 1
         ? "ACTIVOS"
         : statusParam === 2
-        ? "VACANTES"
-        : "PLANTILLA";
+          ? "VACANTES"
+          : "PLANTILLA";
     const fileName = `PLANTILLA_${tipoRegistro}_${fechaStr}.xlsx`;
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
 
@@ -1016,6 +1016,326 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
   } catch (error) {
     console.error("Error al generar el archivo Excel:", error.message);
     res.status(500).json({ message: "Error al generar el archivo Excel." });
+  }
+};
+reportesPersonalController.getAltasBetweenDates = async (req, res) => {
+  try {
+    const { FECHA_INI, FECHA_FIN } = req.body;
+
+    if (!FECHA_INI || !FECHA_FIN) {
+      return res.status(400).json({
+        message: "Debes enviar FECHA_INI y FECHA_FIN en el body.",
+      });
+    }
+
+    const ExcelJS = require("exceljs");
+    const moment = require("moment");
+
+    const parseDateInput = (value) => {
+      if (!value) return null;
+      if (value instanceof Date && !isNaN(value)) return value;
+
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+
+        const ymdMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (ymdMatch) {
+          const [, y, m, d] = ymdMatch;
+          return new Date(Number(y), Number(m) - 1, Number(d));
+        }
+
+        const dmyMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (dmyMatch) {
+          const [, d, m, y] = dmyMatch;
+          return new Date(Number(y), Number(m) - 1, Number(d));
+        }
+
+        const parsed = new Date(trimmed);
+        if (!isNaN(parsed)) return parsed;
+      }
+
+      return null;
+    };
+
+    const startDateRaw = parseDateInput(FECHA_INI);
+    const endDateRaw = parseDateInput(FECHA_FIN);
+
+    if (!startDateRaw || !endDateRaw) {
+      return res.status(400).json({
+        message: "Formato de fecha inválido. Usa YYYY-MM-DD o DD/MM/YYYY.",
+      });
+    }
+
+    const startDate = new Date(startDateRaw);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(endDateRaw);
+    endDate.setHours(23, 59, 59, 999);
+
+    if (startDate > endDate) {
+      return res.status(400).json({
+        message: "FECHA_INI no puede ser mayor que FECHA_FIN.",
+      });
+    }
+
+    const [altas, plantilla] = await Promise.all([
+      query("ALTAS", {}),
+      query("PLANTILLA", {}),
+    ]);
+
+    if (!altas || altas.length === 0) {
+      return res.status(404).json({
+        message: "No hay registros en la colección ALTAS.",
+      });
+    }
+
+    const formatDateKey = (dateValue) => {
+      const dateObj = parseDateInput(dateValue);
+      if (!dateObj) return null;
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const d = String(dateObj.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    };
+
+    const formatDateDisplay = (dateValue) => {
+      const dateObj = parseDateInput(dateValue);
+      if (!dateObj) return "";
+      return new Intl.DateTimeFormat("es-MX", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(dateObj);
+    };
+
+    const formatMonthKey = (dateValue) => {
+      const dateObj = parseDateInput(dateValue);
+      if (!dateObj) return null;
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      return `${y}-${m}`;
+    };
+
+    const formatMonthDisplay = (dateValue) => {
+      const dateObj = parseDateInput(dateValue);
+      if (!dateObj) return "";
+      return new Intl.DateTimeFormat("es-MX", {
+        month: "long",
+        year: "numeric",
+      })
+        .format(dateObj)
+        .toUpperCase();
+    };
+
+    const altasFiltradas = altas
+      .map((alta) => {
+        const fechaAlta =
+          parseDateInput(alta.FECHA_INGRESO) ||
+          parseDateInput(alta.FECHA) ||
+          parseDateInput(alta.INGRESO) ||
+          parseDateInput(alta.fecha);
+
+        return {
+          ...alta,
+          _fechaAlta: fechaAlta,
+        };
+      })
+      .filter(
+        (alta) =>
+          alta._fechaAlta &&
+          alta._fechaAlta >= startDate &&
+          alta._fechaAlta <= endDate,
+      );
+
+    if (altasFiltradas.length === 0) {
+      return res.status(404).json({
+        message: "No se encontraron altas entre las fechas indicadas.",
+      });
+    }
+
+    const plantillaById = new Map();
+    const plantillaByCurp = new Map();
+    const plantillaByRfc = new Map();
+    const plantillaByNumEmp = new Map();
+
+    (plantilla || []).forEach((emp) => {
+      if (emp._id) plantillaById.set(String(emp._id), emp);
+      if (emp.CURP) plantillaByCurp.set(String(emp.CURP).toUpperCase(), emp);
+      if (emp.RFC) plantillaByRfc.set(String(emp.RFC).toUpperCase(), emp);
+      if (emp.NUMEMP) plantillaByNumEmp.set(String(emp.NUMEMP), emp);
+    });
+
+    const buscarEnPlantilla = (alta) => {
+      const posiblesIds = [
+        alta._idEmployee,
+        alta.ID_EMPLOYEE,
+        alta.id_employee,
+        alta.ID_PLANTILLA,
+        alta.id_plantilla,
+      ]
+        .filter(Boolean)
+        .map((v) => String(v));
+
+      for (const id of posiblesIds) {
+        if (plantillaById.has(id)) return plantillaById.get(id);
+      }
+
+      if (alta.CURP) {
+        const emp = plantillaByCurp.get(String(alta.CURP).toUpperCase());
+        if (emp) return emp;
+      }
+
+      if (alta.RFC) {
+        const emp = plantillaByRfc.get(String(alta.RFC).toUpperCase());
+        if (emp) return emp;
+      }
+
+      if (alta.NUMEMP) {
+        const emp = plantillaByNumEmp.get(String(alta.NUMEMP));
+        if (emp) return emp;
+      }
+
+      return null;
+    };
+
+    const rows = altasFiltradas
+      .map((alta) => {
+        const empleadoPlantilla = buscarEnPlantilla(alta) || {};
+
+        const nombreAlta =
+          alta.NOMBRE ||
+          `${alta.APE_PAT || ""} ${alta.APE_MAT || ""} ${alta.NOMBRES || ""}`.trim();
+
+        const nombrePlantilla =
+          `${empleadoPlantilla.APE_PAT || ""} ${empleadoPlantilla.APE_MAT || ""} ${empleadoPlantilla.NOMBRES || ""}`.trim();
+
+        return {
+          FECHA_ALTA: alta._fechaAlta,
+          FECHA_KEY: formatDateKey(alta._fechaAlta),
+          FECHA_LABEL: formatDateDisplay(alta._fechaAlta),
+          FECHA_MES_KEY: formatMonthKey(alta._fechaAlta),
+          FECHA_MES_LABEL: formatMonthDisplay(alta._fechaAlta),
+          AREA:
+            empleadoPlantilla.ADSCRIPCION ||
+            alta.AREA ||
+            alta.ADSCRIPCION ||
+            alta.AREA_RESP ||
+            "",
+          NOMBRE: nombrePlantilla || nombreAlta || "",
+          TIPONOM: empleadoPlantilla.TIPONOM || alta.TIPONOM || "",
+          CLAVECAT: empleadoPlantilla.CLAVECAT || alta.CLAVECAT || "",
+          NOMCATE: empleadoPlantilla.NOMCATE || alta.NOMCATE || "",
+          INGRESO: formatDateDisplay(
+            empleadoPlantilla.FECHA_INGRESO ||
+              alta.INGRESO ||
+              alta.FECHA_INGRESO ||
+              alta._fechaAlta,
+          ),
+          CELULAR:
+            empleadoPlantilla.TEL_PERSONAL ||
+            empleadoPlantilla.CELULAR ||
+            alta.CELULAR ||
+            "",
+        };
+      })
+      .sort((a, b) => {
+        const dateA = a.FECHA_ALTA ? a.FECHA_ALTA.getTime() : 0;
+        const dateB = b.FECHA_ALTA ? b.FECHA_ALTA.getTime() : 0;
+        if (dateA !== dateB) return dateA - dateB;
+
+        const areaCompare = String(a.AREA || "").localeCompare(
+          String(b.AREA || ""),
+          "es",
+        );
+        if (areaCompare !== 0) return areaCompare;
+
+        return String(a.NOMBRE || "").localeCompare(
+          String(b.NOMBRE || ""),
+          "es",
+        );
+      });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("ALTAS");
+    worksheet.views = [{ state: "frozen", ySplit: 2 }];
+
+    worksheet.columns = [
+      { header: "AREA", key: "AREA", width: 48 },
+      { header: "NOMBRE", key: "NOMBRE", width: 34 },
+      { header: "TIPONOM", key: "TIPONOM", width: 12 },
+      { header: "CLAVECAT", key: "CLAVECAT", width: 14 },
+      { header: "NOMCATE", key: "NOMCATE", width: 26 },
+      { header: "INGRESO", key: "INGRESO", width: 14 },
+      { header: "CELULAR", key: "CELULAR", width: 16 },
+    ];
+
+    let currentMes = null;
+
+    rows.forEach((item) => {
+      if (item.FECHA_MES_KEY !== currentMes) {
+        if (currentMes !== null) worksheet.addRow([]);
+        currentMes = item.FECHA_MES_KEY;
+
+        const fechaRow = worksheet.addRow([item.FECHA_MES_LABEL]);
+        worksheet.mergeCells(`A${fechaRow.number}:G${fechaRow.number}`);
+        fechaRow.getCell(1).font = { bold: true };
+        fechaRow.getCell(1).alignment = { horizontal: "left" };
+
+        const headerRow = worksheet.addRow([
+          "AREA",
+          "NOMBRE",
+          "TIPONOM",
+          "CLAVECAT",
+          "NOMCATE",
+          "INGRESO",
+          "CELULAR",
+        ]);
+        headerRow.eachCell((cell) => {
+          cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FF6C6E6D" },
+          };
+          cell.alignment = { vertical: "middle", horizontal: "left" };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FF000000" } },
+            left: { style: "thin", color: { argb: "FF000000" } },
+            bottom: { style: "thin", color: { argb: "FF000000" } },
+            right: { style: "thin", color: { argb: "FF000000" } },
+          };
+        });
+      }
+
+      worksheet.addRow({
+        AREA: item.AREA,
+        NOMBRE: item.NOMBRE,
+        TIPONOM: item.TIPONOM,
+        CLAVECAT: item.CLAVECAT,
+        NOMCATE: item.NOMCATE,
+        INGRESO: item.INGRESO,
+        CELULAR: item.CELULAR,
+      });
+    });
+
+    const filename = `ALTAS_${moment(startDate).format("YYYY-MM-DD")}_${moment(
+      endDate,
+    ).format("YYYY-MM-DD")}_${moment().format("YYYYMMDD_HHmmss")}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error en getAltasBetweenDates:", error);
+    res.status(500).json({
+      message: "Error al generar el reporte de altas.",
+      error: error.message,
+    });
   }
 };
 module.exports = reportesPersonalController;
