@@ -79,7 +79,7 @@ agenda.define("bajasExtemporaneas", async (job) => {
       try {
         console.log(`Procesando baja extemporánea: ${baja._id}`);
 
-        if (baja.discharge_date === today && baja.reason !== "L-PRRO") {
+        if (baja.discharge_date <= today && baja.reason !== "L-PRRO") {
           const plantillaResult = await updateOne(
             "PLANTILLA",
             { _id: new ObjectId(baja.id_employee) },
