@@ -6,7 +6,6 @@ const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const { ObjectId } = require("mongodb");
-const { agenda } = require("../../config/agenda");
 
 const { querysql } = require("../../config/mysql");
 const { insertOne } = require("../../config/mongo");
@@ -400,17 +399,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
       },
     );
     res.status(200).sendFile(outputPath);
-
-    // Ejecutar la tarea de bajas extemporáneas para limpiar PLANTILLA
-    try {
-      await agenda.now("bajasExtemporaneas");
-      console.log("Tarea bajasExtemporaneas ejecutada desde saveDataOff");
-    } catch (err) {
-      console.error(
-        "Error al ejecutar bajasExtemporaneas desde saveDataOff:",
-        err,
-      );
-    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al generar el documento" });
