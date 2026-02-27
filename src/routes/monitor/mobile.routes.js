@@ -534,7 +534,7 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
     let procesoExitoso = false;
     let mensaje = "";
 
-    if (baja.discharge_date === today && baja.reason !== "L-PRRO") {
+    if (baja.discharge_date <= today && baja.reason !== "L-PRRO") {
       // Actualizar PLANTILLA
       const plantillaResult = await updateOne(
         "PLANTILLA",

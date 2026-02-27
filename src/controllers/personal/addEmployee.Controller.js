@@ -85,6 +85,9 @@ employeeController.internalInformation = async (req, res) => {
     const level5 = await querysql(
       "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level5"
     );
+
+    const descentralizados = await querysql("SELECT NOMBRE, PROYECTO, CLAVE FROM descentralizado");
+
     const base = categorias.filter(
       (categoria) =>
         categoria.T_NOMINA === "M51" || categoria.T_NOMINA === "F51"
@@ -128,6 +131,7 @@ employeeController.internalInformation = async (req, res) => {
       direcciones,
       unidades,
       departamentos,
+      descentralizados
     ];
 
     let unidad_ejecutora = [];
