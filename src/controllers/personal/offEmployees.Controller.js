@@ -6,6 +6,7 @@ const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const { ObjectId } = require("mongodb");
+const { agenda } = require("../../config/agenda");
 
 const { querysql } = require("../../config/mysql");
 const { insertOne } = require("../../config/mongo");
@@ -96,8 +97,9 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       DOMICILIO: emp.DOMICILIO
         ? emp.DOMICILIO
         : emp.DIRECCION?.DOMICILIO ||
-        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
-        }, ${emp.DIRECCION?.ESTADO || ""}`,
+          `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${
+            emp.DIRECCION?.MUNICIPIO || ""
+          }, ${emp.DIRECCION?.ESTADO || ""}`,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
@@ -151,12 +153,12 @@ offEmployeeController.saveDataOff = async (req, res) => {
     delete data._id;
 
     // CAMBIAR TIPONOM SEGUN LA LOGICA
-    if (data.TIPONOM === 'FCO') {
+    if (data.TIPONOM === "FCO") {
       // NOMBRAMIENTO CONFIANZA FORANEO cambia a CONTRATO CONFIANZA FORANEO
-      data.TIPONOM = 'FCT';
-    } else if (data.TIPONOM === '511') {
+      data.TIPONOM = "FCT";
+    } else if (data.TIPONOM === "511") {
       // NOMBRAMIENTO CONFIANZA CENTRAL cambia a CONTRATO CONFIANZA CENTRAL
-      data.TIPONOM = 'CCT';
+      data.TIPONOM = "CCT";
     } else {
       data.TIPONOM = data.TIPONOM;
     }
@@ -179,7 +181,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
               OWNER: data.OWNER ?? null,
             },
           },
-        }
+        },
       );
     } else {
       res.status(404).json({ message: "Plaza no encontrada" });
@@ -229,7 +231,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
       } catch (error) {
         console.error(
           "Error al procesar el motivo de baja por licencia",
-          error
+          error,
         );
         res
           .status(500)
@@ -240,12 +242,12 @@ offEmployeeController.saveDataOff = async (req, res) => {
       await updateOne(
         "LICENCIAS",
         { _id: new ObjectId(data.id_licencia) },
-        { $set: { time: data.time } }
+        { $set: { time: data.time } },
       );
       await updateOne(
         "HSY_LICENCIAS",
         { id_licencia: new ObjectId(data.id_licencia) },
-        { $set: { time: data.time } }
+        { $set: { time: data.time } },
       );
     }
     if (employee.length > 0 && data.reason !== "L-PRRO") {
@@ -282,8 +284,9 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
   const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
-    } DE ${date.getFullYear()}`;
+  const formattedDate = `${date.getDate() + 1} DE ${
+    months[date.getMonth()]
+  } DE ${date.getFullYear()}`;
 
   if (lastTipoNom === "F51" || lastTipoNom === "M51") {
     relacionB = true;
@@ -358,7 +361,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
 
   const content = fs.readFileSync(
     path.resolve(__dirname, "../../templates/bajaTemplate.docx"),
-    "binary"
+    "binary",
   );
   const zip = new PizZip(content);
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
@@ -375,11 +378,11 @@ offEmployeeController.saveDataOff = async (req, res) => {
 
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=${data.CURP}.docx`
+      `attachment; filename=${data.CURP}.docx`,
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     );
     await insertOne("USER_ACTIONS", userAction);
     await updateOne(
@@ -394,9 +397,20 @@ offEmployeeController.saveDataOff = async (req, res) => {
           tramites: [],
           capacitaciones: [],
         },
-      }
+      },
     );
     res.status(200).sendFile(outputPath);
+
+    // Ejecutar la tarea de bajas extemporáneas para limpiar PLANTILLA
+    try {
+      await agenda.now("bajasExtemporaneas");
+      console.log("Tarea bajasExtemporaneas ejecutada desde saveDataOff");
+    } catch (err) {
+      console.error(
+        "Error al ejecutar bajasExtemporaneas desde saveDataOff:",
+        err,
+      );
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al generar el documento" });
@@ -419,15 +433,15 @@ offEmployeeController.downloadBaja = async (req, res) => {
   const { curp } = req.params;
   const filePath = path.resolve(
     __dirname,
-    `../../docs/bajas/BAJA_${curp}.docx`
+    `../../docs/bajas/BAJA_${curp}.docx`,
   );
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename=BAJA_${curp}.docx`
+    `attachment; filename=BAJA_${curp}.docx`,
   );
   res.setHeader(
     "Content-Type",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   );
   res.status(200).sendFile(filePath);
 };
@@ -444,8 +458,9 @@ offEmployeeController.getDataLicenses = async (req, res) => {
     if (licenses.length > 0) {
       if (ocupante.length > 0 && ocupante[0].CURP) {
         let OCUPANTE = {
-          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${ocupante[0]?.APE_MAT || ""
-            } ${ocupante[0]?.NOMBRES || ""}`.trim(),
+          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${
+            ocupante[0]?.APE_MAT || ""
+          } ${ocupante[0]?.NOMBRES || ""}`.trim(),
         };
         res
           .status(404)
@@ -479,11 +494,12 @@ offEmployeeController.getLicenses = async (req, res) => {
             plantilla = await query("PLANTILLA", { NUMPLA: numpla });
           }
           const OCUPANTE_ACTIVO = Boolean(
-            plantilla && plantilla[0] && plantilla[0].CURP
+            plantilla && plantilla[0] && plantilla[0].CURP,
           );
           let OCUPANTE = {
-            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${plantilla[0]?.APE_MAT || ""
-              } ${plantilla[0]?.NOMBRES || ""}`.trim(),
+            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${
+              plantilla[0]?.APE_MAT || ""
+            } ${plantilla[0]?.NOMBRES || ""}`.trim(),
           };
           if (OCUPANTE_ACTIVO) {
             return { ...lic, OCUPANTE };
@@ -494,11 +510,11 @@ offEmployeeController.getLicenses = async (req, res) => {
           console.error(
             "Error consultando PLANTILLA para NUMPLA:",
             lic.NUMPLA,
-            err
+            err,
           );
           return { ...lic, OCUPANTE_ACTIVO: false };
         }
-      })
+      }),
     );
 
     return res.status(200).json(enhanced);

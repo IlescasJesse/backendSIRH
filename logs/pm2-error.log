@@ -676,3 +676,412 @@
 2026-02-09 12:55:42 -06:00:     at next (C:\SIRH-NODE\backendSIRH\node_modules\express\lib\router\route.js:149:13)
 2026-02-09 12:55:42 -06:00:     at verifyToken (C:\SIRH-NODE\backendSIRH\src\middleware\authMiddleware.js:46:5)
 2026-02-09 12:55:42 -06:00:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-02-18 13:04:49 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:04:49 -06:00: Require stack:
+2026-02-18 13:04:49 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:04:49 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:04:49 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:04:49 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:04:49 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:04:49 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:04:49 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:04:49 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:04:49 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:04:49 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:04:49 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:04:49 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:04:49 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:04:49 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:04:49 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:04:49 -06:00:   requireStack: [
+2026-02-18 13:04:49 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:04:49 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:04:49 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:04:49 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:04:49 -06:00:   ]
+2026-02-18 13:04:49 -06:00: }
+2026-02-18 13:04:54 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:04:54 -06:00: Require stack:
+2026-02-18 13:04:54 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:04:54 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:04:54 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:04:54 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:04:54 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:04:54 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:04:54 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:04:54 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:04:54 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:04:54 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:04:54 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:04:54 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:04:54 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:04:54 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:04:54 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:04:54 -06:00:   requireStack: [
+2026-02-18 13:04:54 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:04:54 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:04:54 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:04:54 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:04:54 -06:00:   ]
+2026-02-18 13:04:54 -06:00: }
+2026-02-18 13:04:59 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:04:59 -06:00: Require stack:
+2026-02-18 13:04:59 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:04:59 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:04:59 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:04:59 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:04:59 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:04:59 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:04:59 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:04:59 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:04:59 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:04:59 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:04:59 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:04:59 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:04:59 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:04:59 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:04:59 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:04:59 -06:00:   requireStack: [
+2026-02-18 13:04:59 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:04:59 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:04:59 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:04:59 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:04:59 -06:00:   ]
+2026-02-18 13:04:59 -06:00: }
+2026-02-18 13:05:04 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:05:04 -06:00: Require stack:
+2026-02-18 13:05:04 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:05:04 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:05:04 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:05:04 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:05:04 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:05:04 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:05:04 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:05:04 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:05:04 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:05:04 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:05:04 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:05:04 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:05:04 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:05:04 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:05:04 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:05:04 -06:00:   requireStack: [
+2026-02-18 13:05:04 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:05:04 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:05:04 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:05:04 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:05:04 -06:00:   ]
+2026-02-18 13:05:04 -06:00: }
+2026-02-18 13:05:11 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:05:11 -06:00: Require stack:
+2026-02-18 13:05:11 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:05:11 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:05:11 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:05:11 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:05:11 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:05:11 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:05:11 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:05:11 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:05:11 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:05:11 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:05:11 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:05:11 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:05:11 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:05:11 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:05:11 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:05:11 -06:00:   requireStack: [
+2026-02-18 13:05:11 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:05:11 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:05:11 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:05:11 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:05:11 -06:00:   ]
+2026-02-18 13:05:11 -06:00: }
+2026-02-18 13:05:16 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:05:16 -06:00: Require stack:
+2026-02-18 13:05:16 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:05:16 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:05:16 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:05:16 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:05:16 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:05:16 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:05:16 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:05:16 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:05:16 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:05:16 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:05:16 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:05:16 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:05:16 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:05:16 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:05:16 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:05:16 -06:00:   requireStack: [
+2026-02-18 13:05:16 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:05:16 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:05:16 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:05:16 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:05:16 -06:00:   ]
+2026-02-18 13:05:16 -06:00: }
+2026-02-18 13:05:21 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:05:21 -06:00: Require stack:
+2026-02-18 13:05:21 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:05:21 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:05:21 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:05:21 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:05:21 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:05:21 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:05:21 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:05:21 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:05:21 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:05:21 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:05:21 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:05:21 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:05:21 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:05:21 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:05:21 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:05:21 -06:00:   requireStack: [
+2026-02-18 13:05:21 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:05:21 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:05:21 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:05:21 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:05:21 -06:00:   ]
+2026-02-18 13:05:21 -06:00: }
+2026-02-18 13:05:26 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:05:26 -06:00: Require stack:
+2026-02-18 13:05:26 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:05:26 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:05:26 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:05:26 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:05:26 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:05:26 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:05:26 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:05:26 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:05:26 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:05:26 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:05:26 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:05:26 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:05:26 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:05:26 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:05:26 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:05:26 -06:00:   requireStack: [
+2026-02-18 13:05:26 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:05:26 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:05:26 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:05:26 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:05:26 -06:00:   ]
+2026-02-18 13:05:26 -06:00: }
+2026-02-18 13:05:31 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:05:31 -06:00: Require stack:
+2026-02-18 13:05:31 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:05:31 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:05:31 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:05:31 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:05:31 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:05:31 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:05:31 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:05:31 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:05:31 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:05:31 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:05:31 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:05:31 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:05:31 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:05:31 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:05:31 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:05:31 -06:00:   requireStack: [
+2026-02-18 13:05:31 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:05:31 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:05:31 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:05:31 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:05:31 -06:00:   ]
+2026-02-18 13:05:31 -06:00: }
+2026-02-18 13:05:37 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:05:37 -06:00: Require stack:
+2026-02-18 13:05:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:05:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:05:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:05:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:05:37 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:05:37 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:05:37 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:05:37 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:05:37 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:05:37 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:05:37 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:05:37 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:05:37 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:05:37 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:05:37 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:05:37 -06:00:   requireStack: [
+2026-02-18 13:05:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:05:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:05:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:05:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:05:37 -06:00:   ]
+2026-02-18 13:05:37 -06:00: }
+2026-02-18 13:08:12 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:08:12 -06:00: Require stack:
+2026-02-18 13:08:12 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:08:12 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:08:12 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:08:12 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:08:12 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:08:12 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:08:12 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:08:12 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:08:12 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:08:12 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:08:12 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:08:12 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:08:12 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:08:12 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:08:12 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:08:12 -06:00:   requireStack: [
+2026-02-18 13:08:12 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:08:12 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:08:12 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:08:12 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:08:12 -06:00:   ]
+2026-02-18 13:08:12 -06:00: }
+2026-02-18 13:08:17 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:08:17 -06:00: Require stack:
+2026-02-18 13:08:17 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:08:17 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:08:17 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:08:17 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:08:17 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:08:17 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:08:17 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:08:17 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:08:17 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:08:17 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:08:17 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:08:17 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:08:17 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:08:17 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:08:17 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:08:17 -06:00:   requireStack: [
+2026-02-18 13:08:17 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:08:17 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:08:17 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:08:17 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:08:17 -06:00:   ]
+2026-02-18 13:08:17 -06:00: }
+2026-02-18 13:08:22 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:08:22 -06:00: Require stack:
+2026-02-18 13:08:22 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:08:22 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:08:22 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:08:22 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:08:22 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:08:22 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:08:22 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:08:22 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:08:22 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:08:22 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:08:22 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:08:22 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:08:22 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:08:22 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:08:22 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:08:22 -06:00:   requireStack: [
+2026-02-18 13:08:22 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:08:22 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:08:22 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:08:22 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:08:22 -06:00:   ]
+2026-02-18 13:08:22 -06:00: }
+2026-02-18 13:08:27 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:08:27 -06:00: Require stack:
+2026-02-18 13:08:27 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:08:27 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:08:27 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:08:27 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:08:27 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:08:27 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:08:27 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:08:27 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:08:27 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:08:27 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:08:27 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:08:27 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:08:27 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:08:27 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:08:27 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:08:27 -06:00:   requireStack: [
+2026-02-18 13:08:27 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:08:27 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:08:27 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:08:27 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:08:27 -06:00:   ]
+2026-02-18 13:08:27 -06:00: }
+2026-02-18 13:08:32 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:08:32 -06:00: Require stack:
+2026-02-18 13:08:32 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:08:32 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:08:32 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:08:32 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:08:32 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:08:32 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:08:32 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:08:32 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:08:32 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:08:32 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:08:32 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:08:32 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:08:32 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:08:32 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:08:32 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:08:32 -06:00:   requireStack: [
+2026-02-18 13:08:32 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:08:32 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:08:32 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:08:32 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:08:32 -06:00:   ]
+2026-02-18 13:08:32 -06:00: }
+2026-02-18 13:08:37 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:08:37 -06:00: Require stack:
+2026-02-18 13:08:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:08:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:08:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:08:37 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:08:37 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:08:37 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:08:37 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:08:37 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:08:37 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:08:37 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:08:37 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:08:37 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:08:37 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:08:37 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:08:37 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:08:37 -06:00:   requireStack: [
+2026-02-18 13:08:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:08:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:08:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:08:37 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:08:37 -06:00:   ]
+2026-02-18 13:08:37 -06:00: }
+2026-02-18 13:08:42 -06:00: Error: Cannot find module 'date-fns'
+2026-02-18 13:08:42 -06:00: Require stack:
+2026-02-18 13:08:42 -06:00: - C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js
+2026-02-18 13:08:42 -06:00: - C:\SIRH-NODE\backendSIRH\src\routes\personal\employees.routes.js
+2026-02-18 13:08:42 -06:00: - C:\SIRH-NODE\backendSIRH\src\app.js
+2026-02-18 13:08:42 -06:00: - C:\SIRH-NODE\backendSIRH\src\index.js
+2026-02-18 13:08:42 -06:00:     at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+2026-02-18 13:08:42 -06:00:     at Hook._require.Module.require (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\node_modules\require-in-the-middle\index.js:81:25)
+2026-02-18 13:08:42 -06:00:     at require (node:internal/modules/helpers:152:16)
+2026-02-18 13:08:42 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\controllers\incidencias\incidencias.Controller.js:19:5)
+2026-02-18 13:08:42 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-02-18 13:08:42 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-02-18 13:08:42 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-02-18 13:08:42 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-02-18 13:08:42 -06:00:     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+2026-02-18 13:08:42 -06:00:     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24) {
+2026-02-18 13:08:42 -06:00:   code: 'MODULE_NOT_FOUND',
+2026-02-18 13:08:42 -06:00:   requireStack: [
+2026-02-18 13:08:42 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\controllers\\incidencias\\incidencias.Controller.js',
+2026-02-18 13:08:42 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\routes\\personal\\employees.routes.js',
+2026-02-18 13:08:42 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\app.js',
+2026-02-18 13:08:42 -06:00:     'C:\\SIRH-NODE\\backendSIRH\\src\\index.js'
+2026-02-18 13:08:42 -06:00:   ]
+2026-02-18 13:08:42 -06:00: }
+2026-02-24 16:31:56 -06:00: ❌ Error en authMiddleware: jwt expired
