@@ -542,7 +542,6 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
         {
           $set: {
             CONSEC: null,
-            CLAVE: null,
             CURP: null,
             RFC: null,
             AFILIACI: null,

@@ -86,7 +86,6 @@ agenda.define("bajasExtemporaneas", async (job) => {
             {
               $set: {
                 CONSEC: null,
-                CLAVE: null,
                 CURP: null,
                 RFC: null,
                 AFILIACI: null,
@@ -597,6 +596,7 @@ async function startAgenda() {
     // Bajas extemporáneas - Diariamente a las 00:00
     await agenda.every(
       "0 0 * * *",
+      //"*/5 * * * * *",
       "bajasExtemporaneas",
       {},
       {

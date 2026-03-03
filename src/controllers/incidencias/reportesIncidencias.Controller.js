@@ -613,6 +613,15 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     AREA_RESP: "CTRAL",
   });
 
+  const plantillaCentral = await query("PLANTILLA", {});
+  const plantillaForanea = await query("PLANTILLA_FORANEA", {});
+  const plantillaMap = new Map(
+    [...plantillaCentral, ...plantillaForanea].map(p => [
+      String(p.ID_CTRL_ASIST),
+      p,
+    ]),
+  );
+
   // Filtrar resultados para excluir los proyectos especificados
   const filteredIncidencias = incidencias_central;
 
@@ -776,6 +785,13 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     // Dibujar filas con datos, limitando a 17 filas por página
     let rowCount = 0;
     filteredIncidencias.forEach((incidencia) => {
+      const ctrl = String(incidencia.ID_CTRL_ASIST || "");
+      const { TURNOMAT = "", TURNOVES = "" } = plantillaMap.get(ctrl) || {};
+
+      const tieneTurnoVesp = Boolean(
+        TURNOVES && String(TURNOVES).trim() !== ""
+      );
+
       if (rowCount === 17) {
         doc.addPage();
 
@@ -802,7 +818,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
         const replacements = {
           A: "F",
           B: "FR",
-          E: "RM",
+          E: tieneTurnoVesp ? "RV" : "RM",
           V: "MD",
           // Agregar más reemplazos según sea necesario
         };
@@ -850,9 +866,10 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     doc.moveDown(2);
     doc.text("ACOTACIONES:", 30, y + rowHeight + 10);
     doc.text("F = FALTA", 30, y + rowHeight + 25);
-    doc.text("FR = FALTA POR RETARDO ", 100, y + rowHeight + 25);
-    doc.text("RM = RETARDO MATUTINO", 250, y + rowHeight + 25);
-    doc.text("MD = MEDIA DÍA", 450, y + rowHeight + 25);
+    doc.text("FR = FALTA POR RETARDO", 125, y + rowHeight + 25);
+    doc.text("RM = RETARDO MATUTINO", 270, y + rowHeight + 25);
+    doc.text("RV = RETARDO VESPERTINO", 413, y + rowHeight + 25);
+    doc.text("MD = MEDIA DÍA", 30, y + rowHeight + 37);
 
     doc.end();
   } catch (error) {

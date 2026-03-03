@@ -263,8 +263,8 @@ employeeController.getProfileData = async (req, res) => {
     // Enviar la respuesta con los datos del empleado
     res.json(employee[0]);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error al buscar el empleado", error });
+    console.error(error?.message , error?.stack);
+    res.status(500).json({ message: "Error al buscar el empleado", error: error.message ?? String(error) });
   }
 };
 

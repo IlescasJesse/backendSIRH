@@ -184,9 +184,16 @@ employeeController.dataPlaza = async (req, res) => {
   }
   try {
     const dataPlaza = await query("PLAZAS", { NUMPLA, status: 2 });
-    if (!dataPlaza || dataPlaza.length === 0) {
+    const plantillaData = await query("PLANTILLA", { NUMPLA, status: 2 });
+    if (!dataPlaza || dataPlaza.length === 0 || !plantillaData || plantillaData.length === 0) {
       return res.status(404).json({ message: "plaza vacante no encontrada" });
     }
+
+    delete dataPlaza[0].TIPONOM;
+    dataPlaza[0].ADSCRIPCION = plantillaData[0].ADSCRIPCION || "";
+    dataPlaza[0].PROYECTO = plantillaData[0].PROYECTO || "";
+    dataPlaza[0].CLAVE = plantillaData[0].CLAVE || "";
+    dataPlaza[0].TIPONOM = plantillaData[0].TIPONOM || "";
     res.status(200).json(dataPlaza);
   } catch (err) {
     res.status(500).json({ message: "Error retrieving employees", error: err });

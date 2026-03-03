@@ -113,7 +113,7 @@ calendarController.changeStatus = async (req, res) => {
         HABIL: HABIL,
       },
     };
-    await insertOne("USERS_ACTIONS", userAction);
+    await insertOne("USER_ACTIONS", userAction);
     res.status(200).send("Estado actualizado correctamente");
   } catch (error) {
     console.error("Error al actualizar el estado:", error);
