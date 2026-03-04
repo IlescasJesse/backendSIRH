@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const verifyToken = require("../../middleware/authMiddleware");
 const { query, insertOne, updateOne } = require("../../config/mongo");
-const { agenda } = require("../../config/agenda");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { ObjectId } = require("mongodb");
@@ -67,7 +66,7 @@ router.post("/login", async (req, res) => {
         role: user.role || "user",
       },
       SECRET_KEY,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     console.log("✓ Token generado");
@@ -128,6 +127,9 @@ router.post("/login", async (req, res) => {
 // Rutas protegidas con token JWT
 router.use(verifyToken);
 
+// Rutas centralizadas de Agenda (desktop + mobile)
+router.use("/agenda", require("./agenda.routes"));
+
 // Dashboard principal
 router.get("/dashboard", async (req, res) => {
   try {
@@ -135,7 +137,7 @@ router.get("/dashboard", async (req, res) => {
 
     const totalLogs = logs.length;
     const completedTasks = logs.filter(
-      (log) => log.estado === "completado"
+      (log) => log.estado === "completado",
     ).length;
     const failedTasks = logs.filter((log) => log.estado === "error").length;
     const successRate = totalLogs > 0 ? (completedTasks / totalLogs) * 100 : 0;
@@ -166,116 +168,6 @@ router.get("/dashboard", async (req, res) => {
   }
 });
 
-// Logs de Agenda
-router.get("/agenda/logs", async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 50;
-    const logs = await query(
-      "AGENDA_LOGS",
-      {},
-      { sort: { timestamp: -1 }, limit }
-    );
-
-    res.json({
-      success: true,
-      logs,
-    });
-  } catch (error) {
-    console.error("Error al obtener logs:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener logs",
-    });
-  }
-});
-
-// Estadísticas de Agenda
-router.get("/agenda/stats", async (req, res) => {
-  try {
-    const logs = await query("AGENDA_LOGS", {});
-
-    const totalTasks = logs.length;
-    const successfulTasks = logs.filter(
-      (log) => log.estado === "completado"
-    ).length;
-    const failedTasks = logs.filter((log) => log.estado === "error").length;
-
-    const taskStats = {};
-    logs.forEach((log) => {
-      if (!taskStats[log.tarea]) {
-        taskStats[log.tarea] = {
-          total: 0,
-          completados: 0,
-          errores: 0,
-        };
-      }
-      taskStats[log.tarea].total++;
-      if (log.estado === "completado") taskStats[log.tarea].completados++;
-      if (log.estado === "error") taskStats[log.tarea].errores++;
-    });
-
-    res.json({
-      success: true,
-      totalTasks,
-      successfulTasks,
-      failedTasks,
-      taskStats,
-    });
-  } catch (error) {
-    console.error("Error al obtener estadísticas:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error al obtener estadísticas",
-    });
-  }
-});
-
-// Ejecutar tarea de Agenda
-router.post("/agenda/run/:taskName", async (req, res) => {
-  const { taskName } = req.params;
-
-  try {
-    // Validar que la tarea existe
-    const validTasks = [
-      "bajasExtemporaneas",
-      "altasExtemporaneas",
-      "licenciasExtemporaneas",
-      "crearTalones",
-      "gestionarPeriodoVacacional",
-    ];
-
-    if (!validTasks.includes(taskName)) {
-      return res.status(400).json({
-        success: false,
-        message: "Tarea no válida",
-      });
-    }
-
-    // Ejecutar tarea ahora
-    await agenda.now(taskName);
-
-    // Registrar ejecución manual
-    await insertOne("MANUAL_EXECUTIONS", {
-      tarea: taskName,
-      ejecutadoPor: req.user.username,
-      userId: req.user.id,
-      timestamp: new Date(),
-      tipo: "mobile",
-    });
-
-    res.json({
-      success: true,
-      message: `Tarea "${taskName}" ejecutada correctamente`,
-    });
-  } catch (error) {
-    console.error("Error al ejecutar tarea:", error);
-    res.status(500).json({
-      success: false,
-      message: `Error al ejecutar tarea: ${error.message}`,
-    });
-  }
-});
-
 // Estado del servidor
 router.get("/server/health", (req, res) => {
   const memoryUsage = process.memoryUsage();
@@ -300,7 +192,7 @@ router.get("/logs/recent", async (req, res) => {
     const logs = await query(
       "AGENDA_LOGS",
       {},
-      { sort: { timestamp: -1 }, limit }
+      { sort: { timestamp: -1 }, limit },
     );
 
     res.json({
@@ -396,7 +288,7 @@ router.get("/bajas/pendientes", async (req, res) => {
           } catch (error) {
             console.error(
               `Error obteniendo empleado ${baja.id_employee}:`,
-              error
+              error,
             );
           }
         }
@@ -464,12 +356,12 @@ router.get("/bajas/pendientes", async (req, res) => {
           esPasada: baja.discharge_date < today,
           esFutura: baja.discharge_date > today,
         };
-      })
+      }),
     );
 
     // Ordenar por fecha de baja
     bajasConEmpleado.sort(
-      (a, b) => new Date(a.discharge_date) - new Date(b.discharge_date)
+      (a, b) => new Date(a.discharge_date) - new Date(b.discharge_date),
     );
 
     console.log("===================\n");
@@ -599,7 +491,7 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
             PARENTESCO: null,
             TEL_CASA: null,
           },
-        }
+        },
       );
 
       if (plantillaResult && plantillaResult.matchedCount > 0) {
@@ -612,7 +504,7 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
       const plazaResult = await updateOne(
         "PLAZAS",
         { NUMPLA: baja.NUMPLA },
-        { $set: { status: 2 } }
+        { $set: { status: 2 } },
       );
 
       if (plazaResult && plazaResult.matchedCount > 0) {
@@ -643,7 +535,7 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
           procesadoPor: user.username,
           procesoManual: true,
         },
-      }
+      },
     );
 
     console.log("✓ Baja marcada como PROCESADO: true");

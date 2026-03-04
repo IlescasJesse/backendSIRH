@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -13,7 +13,11 @@
       }
 
       body {
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
           sans-serif;
         background: #0a0a0a;
         min-height: 100vh;
@@ -323,6 +327,69 @@
         transform: translateY(-2px);
         box-shadow: 0 15px 40px rgba(157, 36, 73, 0.7);
         background: linear-gradient(135deg, #b82d54 0%, #d63468 100%);
+      }
+
+      .agenda-actions {
+        margin-bottom: 20px;
+        padding: 16px;
+        border: 1px solid #3a3a3a;
+        border-radius: 8px;
+        background: #232323;
+      }
+
+      .agenda-actions h3 {
+        margin: 0 0 12px 0;
+        color: #f3f4f6;
+        font-size: 1em;
+      }
+
+      .agenda-actions input,
+      .agenda-actions textarea {
+        width: 100%;
+        background: #1a1a1a;
+        border: 1px solid #444;
+        color: #e5e7eb;
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 10px;
+        font-size: 0.9em;
+      }
+
+      .agenda-actions textarea {
+        min-height: 70px;
+        resize: vertical;
+      }
+
+      .agenda-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .agenda-run-btn {
+        background: #9d2449;
+        border: 1px solid #c92d5f;
+        color: #fff;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.85em;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .agenda-run-btn:hover {
+        background: #b82d54;
+      }
+
+      .agenda-run-all-btn {
+        background: #065f46;
+        border: 1px solid #10b981;
+      }
+
+      .agenda-result {
+        margin-top: 10px;
+        font-size: 0.9em;
+        color: #d1d5db;
       }
 
       .method-badge {
@@ -657,6 +724,61 @@
         <!-- Tabla de tareas automáticas (Agenda) -->
         <div class="table-card">
           <h2>Tareas Automáticas (Scheduler)</h2>
+
+          <div class="agenda-actions">
+            <h3>Ejecutar tareas de Agenda</h3>
+            <input
+              id="agendaToken"
+              type="text"
+              placeholder="Token JWT (Authorization Bearer)"
+            />
+            <textarea
+              id="agendaPayload"
+              placeholder='Payload JSON opcional. Ejemplo: {"DATA":{"DATA":{"procesadoPor":"JESSE.RH"}}}'
+            ></textarea>
+
+            <div class="agenda-buttons">
+              <button
+                class="agenda-run-btn"
+                onclick="runAgendaTask('bajasExtemporaneas')"
+              >
+                Ejecutar Bajas
+              </button>
+              <button
+                class="agenda-run-btn"
+                onclick="runAgendaTask('altasExtemporaneas')"
+              >
+                Ejecutar Altas
+              </button>
+              <button
+                class="agenda-run-btn"
+                onclick="runAgendaTask('licenciasExtemporaneas')"
+              >
+                Ejecutar Licencias
+              </button>
+              <button
+                class="agenda-run-btn"
+                onclick="runAgendaTask('crearTalones')"
+              >
+                Ejecutar Talones
+              </button>
+              <button
+                class="agenda-run-btn"
+                onclick="runAgendaTask('gestionarPeriodoVacacional')"
+              >
+                Ejecutar Vacaciones
+              </button>
+              <button
+                class="agenda-run-btn agenda-run-all-btn"
+                onclick="runAllAgendaTasks()"
+              >
+                Ejecutar Todas
+              </button>
+            </div>
+
+            <div id="agendaResult" class="agenda-result"></div>
+          </div>
+
           <table id="agendaLogsTable">
             <thead>
               <tr>
@@ -737,7 +859,7 @@
 
           // Cargar logs de Agenda
           const agendaLogsRes = await fetch(
-            "/api/monitor/agenda/logs?limit=50"
+            "/api/monitor/agenda/logs?limit=50",
           );
           const agendaLogs = await agendaLogsRes.json();
 
@@ -751,6 +873,7 @@
           console.error("Error cargando datos:", error);
           document.getElementById("loading").innerHTML =
             '<span style="color: #ef4444;">Error al cargar los datos del servidor</span>';
+          document.getElementById("content").style.display = "block";
         }
       }
 
@@ -795,7 +918,7 @@
               {
                 data: Object.values(stats.byStatus),
                 backgroundColor: Object.keys(stats.byStatus).map(
-                  (status) => statusColors[status]
+                  (status) => statusColors[status],
                 ),
                 borderWidth: 3,
                 borderColor: "#1f1f1f",
@@ -873,7 +996,7 @@
                 },
               },
             },
-          }
+          },
         );
       }
 
@@ -893,12 +1016,12 @@
           row.innerHTML = `
             <td>${formattedDate}</td>
             <td><span class="method-badge ${methodClass}">${
-            log.method
-          }</span></td>
+              log.method
+            }</span></td>
             <td>${log.url}</td>
             <td><span class="status-badge ${statusClass}">${
-            log.statusCode
-          }</span></td>
+              log.statusCode
+            }</span></td>
             <td>${log.duration}ms</td>
             <td>${log.ip || "N/A"}</td>
           `;
@@ -932,8 +1055,8 @@
             <td>${formattedDate}</td>
             <td><strong>${formatTareaName(log.tarea)}</strong></td>
             <td><span class="agenda-badge ${estadoClass}">${
-            log.estado
-          }</span></td>
+              log.estado
+            }</span></td>
             <td>${log.mensaje || "N/A"}</td>
             <td>${log.registrosProcesados || 0}</td>
             <td style="color: #10b981;">${log.registrosExitosos || 0}</td>
@@ -972,6 +1095,109 @@
           return (duracion / 1000).toFixed(2) + "s";
         }
         return duracion + "ms";
+      }
+
+      function getAgendaPayload() {
+        const payloadRaw = document
+          .getElementById("agendaPayload")
+          .value.trim();
+        if (!payloadRaw) return {};
+
+        try {
+          return JSON.parse(payloadRaw);
+        } catch (error) {
+          throw new Error("El payload JSON no es válido");
+        }
+      }
+
+      function setAgendaResult(message, isError = false) {
+        const resultEl = document.getElementById("agendaResult");
+        resultEl.style.color = isError ? "#fca5a5" : "#86efac";
+        resultEl.textContent = message;
+      }
+
+      async function runAgendaTask(taskName) {
+        const token = document.getElementById("agendaToken").value.trim();
+        if (!token) {
+          setAgendaResult("Debes proporcionar un token JWT", true);
+          return;
+        }
+
+        let payload = {};
+        try {
+          payload = getAgendaPayload();
+        } catch (error) {
+          setAgendaResult(error.message, true);
+          return;
+        }
+
+        setAgendaResult(`Ejecutando ${taskName}...`);
+
+        try {
+          const response = await fetch(`/api/monitor/agenda/run/${taskName}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            setAgendaResult(result.message || "Error ejecutando tarea", true);
+            return;
+          }
+
+          setAgendaResult(
+            result.message || `Tarea ${taskName} encolada correctamente`,
+          );
+          loadData();
+        } catch (error) {
+          setAgendaResult(`Error de red: ${error.message}`, true);
+        }
+      }
+
+      async function runAllAgendaTasks() {
+        const token = document.getElementById("agendaToken").value.trim();
+        if (!token) {
+          setAgendaResult("Debes proporcionar un token JWT", true);
+          return;
+        }
+
+        let payload = {};
+        try {
+          payload = getAgendaPayload();
+        } catch (error) {
+          setAgendaResult(error.message, true);
+          return;
+        }
+
+        setAgendaResult("Ejecutando todas las tareas...");
+
+        try {
+          const response = await fetch("/api/monitor/agenda/run-all", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            setAgendaResult(result.message || "Error ejecutando tareas", true);
+            return;
+          }
+
+          setAgendaResult(result.message || "Tareas encoladas correctamente");
+          loadData();
+        } catch (error) {
+          setAgendaResult(`Error de red: ${error.message}`, true);
+        }
       }
 
       // Funciones para el modal de errores
@@ -1050,10 +1276,10 @@
       // Agregar event listeners a las tarjetas de errores
       document.addEventListener("DOMContentLoaded", function () {
         const clientErrorCard = document.querySelector(
-          ".stat-card.client-error"
+          ".stat-card.client-error",
         );
         const serverErrorCard = document.querySelector(
-          ".stat-card.server-error"
+          ".stat-card.server-error",
         );
 
         if (clientErrorCard) {
@@ -1097,12 +1323,12 @@
       // Función para limpiar logs (requiere confirmación)
       async function cleanLogs() {
         const confirmClean = confirm(
-          "⚠️ ¿Estás seguro de que deseas limpiar TODOS los logs?\n\nEsta acción NO se puede deshacer."
+          "⚠️ ¿Estás seguro de que deseas limpiar TODOS los logs?\n\nEsta acción NO se puede deshacer.",
         );
 
         if (confirmClean) {
           const doubleConfirm = confirm(
-            "🔴 ÚLTIMA CONFIRMACIÓN\n\n¿Realmente deseas eliminar todos los registros de logs?"
+            "🔴 ÚLTIMA CONFIRMACIÓN\n\n¿Realmente deseas eliminar todos los registros de logs?",
           );
 
           if (doubleConfirm) {

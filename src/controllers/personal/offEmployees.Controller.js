@@ -129,6 +129,16 @@ offEmployeeController.getDatatoOff = async (req, res) => {
 offEmployeeController.saveDataOff = async (req, res) => {
   const { data } = req.body;
   const user = req.user;
+  console.log("[offEmployees.saveDataOff] Inicio", {
+    usuario: user?.username || "N/A",
+    curp: data?.CURP || null,
+    id_employee: data?.id_employee || null,
+    numpla: data?.NUMPLA || null,
+    discharge_date: data?.discharge_date || null,
+    reason: data?.reason || null,
+    PROCESADO_recibido: data?.PROCESADO,
+    tipo_PROCESADO: typeof data?.PROCESADO,
+  });
   const currentYear = new Date().getFullYear();
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
@@ -151,6 +161,23 @@ offEmployeeController.saveDataOff = async (req, res) => {
   try {
     delete data._id;
 
+    if (
+      data.PROCESADO === undefined ||
+      data.PROCESADO === null ||
+      data.PROCESADO === ""
+    ) {
+      data.PROCESADO = false;
+    } else if (typeof data.PROCESADO === "string") {
+      const valor = data.PROCESADO.trim().toLowerCase();
+      data.PROCESADO = valor === "true";
+    } else {
+      data.PROCESADO = Boolean(data.PROCESADO);
+    }
+
+    if (!data.PROCESADO) {
+      data.fechaProceso = null;
+    }
+
     // CAMBIAR TIPONOM SEGUN LA LOGICA
     if (data.TIPONOM === "FCO") {
       // NOMBRAMIENTO CONFIANZA FORANEO cambia a CONTRATO CONFIANZA FORANEO
@@ -163,6 +190,13 @@ offEmployeeController.saveDataOff = async (req, res) => {
     }
 
     await insertOne(`BAJAS`, data);
+    console.log("[offEmployees.saveDataOff] Baja insertada en BAJAS", {
+      curp: data.CURP,
+      id_employee: data.id_employee,
+      numpla: data.NUMPLA,
+      PROCESADO_guardado: data.PROCESADO,
+      tipo_PROCESADO: typeof data.PROCESADO,
+    });
     const plaza = await query(`PLAZAS`, { NUMPLA: data.NUMPLA });
     if (plaza.length > 0) {
       await updateOne(
