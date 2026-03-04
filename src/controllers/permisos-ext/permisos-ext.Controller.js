@@ -205,7 +205,12 @@ permisosExtController.printReport = async (req, res) => {
         timeZone: "America/Mexico_City",
     });
 
-    const permisosExt = await query("PERMISOS_EXT", { id_empoyee: _id });
+
+
+    const permisosExt = await query("PERMISOS_EXT", { id_empoyee: new ObjectId(_id) });
+
+    console.log(permisosExt);
+    
 
     const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
         query("PLANTILLA", { _id: new ObjectId(_id) }),
@@ -222,6 +227,27 @@ permisosExtController.printReport = async (req, res) => {
         res.status(404).send({ error: "Empleado no encontrado" });
         return;
     }
+
+    const totalDaysLENP = permisosExt
+        .filter(p => p.TIPO === "LENP")
+        .reduce((sum, p) => sum + (Number(p.NUM_DIAS) || 0), 0);
+
+    const totalDaysCUFA = permisosExt
+        .filter(p => p.TIPO === "CUFA")
+        .reduce((sum, p) => sum + (Number(p.NUM_DIAS) || 0), 0);
+
+    const totalDaysCUMA = permisosExt
+        .filter(p => p.TIPO === "CUMA")
+        .reduce((sum, p) => sum + (Number(p.NUM_DIAS) || 0), 0);
+
+    const totalDaysPATE = permisosExt
+        .filter(p => p.TIPO === "PATE")
+        .reduce((sum, p) => sum + (Number(p.NUM_DIAS) || 0), 0);
+
+    const totalDaysFAFA = permisosExt
+        .filter(p => p.TIPO === "FAFA")
+        .reduce((sum, p) => sum + (Number(p.NUM_DIAS) || 0), 0);
+
 
     const emp = employee[0];
 
@@ -268,6 +294,12 @@ permisosExtController.printReport = async (req, res) => {
         TJT: emp.NUMTARJETA || "",
         TIPONOM: tipoNomMapping[emp.TIPONOM] || emp.TIPONOM || "",
         ADSCRIPCION: emp.ADSCRIPCION || "",
+        D_LE: totalDaysLENP,
+        D_CF: totalDaysCUFA,
+        D_M: totalDaysCUMA,
+        D_P: totalDaysPATE,
+        D_FF: totalDaysFAFA,
+        D_TOTAL: totalDaysLENP + totalDaysCUFA + totalDaysCUMA + totalDaysPATE + totalDaysFAFA,
         H: permisosData  // Array de permisos para la tabla
     };
 
