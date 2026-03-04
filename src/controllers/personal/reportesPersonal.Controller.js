@@ -1018,7 +1018,11 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     res.status(500).json({ message: "Error al generar el archivo Excel." });
   }
 };
-reportesPersonalController.getAltasBetweenDates = async (req, res) => {
+reportesPersonalController.getBajasBetweenDates = async (req, res) => {
+  console.log("Recibiendo solicitud para obtener bajas entre fechas...", {
+    body: req.body,
+  });
+
   try {
     const { FECHA_INI, FECHA_FIN } = req.body;
 
@@ -1078,14 +1082,14 @@ reportesPersonalController.getAltasBetweenDates = async (req, res) => {
       });
     }
 
-    const [altas, plantilla] = await Promise.all([
-      query("ALTAS", {}),
+    const [bajas, plantilla] = await Promise.all([
+      query("BAJAS", {}),
       query("PLANTILLA", {}),
     ]);
 
-    if (!altas || altas.length === 0) {
+    if (!bajas || bajas.length === 0) {
       return res.status(404).json({
-        message: "No hay registros en la colección ALTAS.",
+        message: "No hay registros en la colección BAJAS.",
       });
     }
 
@@ -1127,29 +1131,30 @@ reportesPersonalController.getAltasBetweenDates = async (req, res) => {
         .toUpperCase();
     };
 
-    const altasFiltradas = altas
-      .map((alta) => {
-        const fechaAlta =
-          parseDateInput(alta.FECHA_INGRESO) ||
-          parseDateInput(alta.FECHA) ||
-          parseDateInput(alta.INGRESO) ||
-          parseDateInput(alta.fecha);
+    const bajasFiltradas = bajas
+      .map((baja) => {
+        const fechaBaja =
+          parseDateInput(baja.discharge_date) ||
+          parseDateInput(baja.FECHA_BAJA) ||
+          parseDateInput(baja.FECHA) ||
+          parseDateInput(baja.BAJA) ||
+          parseDateInput(baja.fecha);
 
         return {
-          ...alta,
-          _fechaAlta: fechaAlta,
+          ...baja,
+          _fechaBaja: fechaBaja,
         };
       })
       .filter(
-        (alta) =>
-          alta._fechaAlta &&
-          alta._fechaAlta >= startDate &&
-          alta._fechaAlta <= endDate,
+        (baja) =>
+          baja._fechaBaja &&
+          baja._fechaBaja >= startDate &&
+          baja._fechaBaja <= endDate,
       );
 
-    if (altasFiltradas.length === 0) {
+    if (bajasFiltradas.length === 0) {
       return res.status(404).json({
-        message: "No se encontraron altas entre las fechas indicadas.",
+        message: "No se encontraron bajas entre las fechas indicadas.",
       });
     }
 
@@ -1165,13 +1170,13 @@ reportesPersonalController.getAltasBetweenDates = async (req, res) => {
       if (emp.NUMEMP) plantillaByNumEmp.set(String(emp.NUMEMP), emp);
     });
 
-    const buscarEnPlantilla = (alta) => {
+    const buscarEnPlantilla = (baja) => {
       const posiblesIds = [
-        alta._idEmployee,
-        alta.ID_EMPLOYEE,
-        alta.id_employee,
-        alta.ID_PLANTILLA,
-        alta.id_plantilla,
+        baja._idEmployee,
+        baja.ID_EMPLOYEE,
+        baja.id_employee,
+        baja.ID_PLANTILLA,
+        baja.id_plantilla,
       ]
         .filter(Boolean)
         .map((v) => String(v));
@@ -1180,67 +1185,67 @@ reportesPersonalController.getAltasBetweenDates = async (req, res) => {
         if (plantillaById.has(id)) return plantillaById.get(id);
       }
 
-      if (alta.CURP) {
-        const emp = plantillaByCurp.get(String(alta.CURP).toUpperCase());
+      if (baja.CURP) {
+        const emp = plantillaByCurp.get(String(baja.CURP).toUpperCase());
         if (emp) return emp;
       }
 
-      if (alta.RFC) {
-        const emp = plantillaByRfc.get(String(alta.RFC).toUpperCase());
+      if (baja.RFC) {
+        const emp = plantillaByRfc.get(String(baja.RFC).toUpperCase());
         if (emp) return emp;
       }
 
-      if (alta.NUMEMP) {
-        const emp = plantillaByNumEmp.get(String(alta.NUMEMP));
+      if (baja.NUMEMP) {
+        const emp = plantillaByNumEmp.get(String(baja.NUMEMP));
         if (emp) return emp;
       }
 
       return null;
     };
 
-    const rows = altasFiltradas
-      .map((alta) => {
-        const empleadoPlantilla = buscarEnPlantilla(alta) || {};
+    const rows = bajasFiltradas
+      .map((baja) => {
+        const empleadoPlantilla = buscarEnPlantilla(baja) || {};
 
-        const nombreAlta =
-          alta.NOMBRE ||
-          `${alta.APE_PAT || ""} ${alta.APE_MAT || ""} ${alta.NOMBRES || ""}`.trim();
+        const nombreBaja =
+          baja.NOMBRE ||
+          `${baja.APE_PAT || ""} ${baja.APE_MAT || ""} ${baja.NOMBRES || ""}`.trim();
 
         const nombrePlantilla =
           `${empleadoPlantilla.APE_PAT || ""} ${empleadoPlantilla.APE_MAT || ""} ${empleadoPlantilla.NOMBRES || ""}`.trim();
 
         return {
-          FECHA_ALTA: alta._fechaAlta,
-          FECHA_KEY: formatDateKey(alta._fechaAlta),
-          FECHA_LABEL: formatDateDisplay(alta._fechaAlta),
-          FECHA_MES_KEY: formatMonthKey(alta._fechaAlta),
-          FECHA_MES_LABEL: formatMonthDisplay(alta._fechaAlta),
+          FECHA_BAJA: baja._fechaBaja,
+          FECHA_KEY: formatDateKey(baja._fechaBaja),
+          FECHA_LABEL: formatDateDisplay(baja._fechaBaja),
+          FECHA_MES_KEY: formatMonthKey(baja._fechaBaja),
+          FECHA_MES_LABEL: formatMonthDisplay(baja._fechaBaja),
           AREA:
             empleadoPlantilla.ADSCRIPCION ||
-            alta.AREA ||
-            alta.ADSCRIPCION ||
-            alta.AREA_RESP ||
+            baja.AREA ||
+            baja.ADSCRIPCION ||
+            baja.AREA_RESP ||
             "",
-          NOMBRE: nombrePlantilla || nombreAlta || "",
-          TIPONOM: empleadoPlantilla.TIPONOM || alta.TIPONOM || "",
-          CLAVECAT: empleadoPlantilla.CLAVECAT || alta.CLAVECAT || "",
-          NOMCATE: empleadoPlantilla.NOMCATE || alta.NOMCATE || "",
+          NOMBRE: nombrePlantilla || nombreBaja || "",
+          TIPONOM: empleadoPlantilla.TIPONOM || baja.TIPONOM || "",
+          CLAVECAT: empleadoPlantilla.CLAVECAT || baja.CLAVECAT || "",
+          NOMCATE: empleadoPlantilla.NOMCATE || baja.NOMCATE || "",
           INGRESO: formatDateDisplay(
             empleadoPlantilla.FECHA_INGRESO ||
-              alta.INGRESO ||
-              alta.FECHA_INGRESO ||
-              alta._fechaAlta,
+              baja.INGRESO ||
+              baja.FECHA_INGRESO ||
+              baja._fechaBaja,
           ),
           CELULAR:
             empleadoPlantilla.TEL_PERSONAL ||
             empleadoPlantilla.CELULAR ||
-            alta.CELULAR ||
+            baja.CELULAR ||
             "",
         };
       })
       .sort((a, b) => {
-        const dateA = a.FECHA_ALTA ? a.FECHA_ALTA.getTime() : 0;
-        const dateB = b.FECHA_ALTA ? b.FECHA_ALTA.getTime() : 0;
+        const dateA = a.FECHA_BAJA ? a.FECHA_BAJA.getTime() : 0;
+        const dateB = b.FECHA_BAJA ? b.FECHA_BAJA.getTime() : 0;
         if (dateA !== dateB) return dateA - dateB;
 
         const areaCompare = String(a.AREA || "").localeCompare(
@@ -1256,7 +1261,7 @@ reportesPersonalController.getAltasBetweenDates = async (req, res) => {
       });
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("ALTAS");
+    const worksheet = workbook.addWorksheet("BAJAS");
     worksheet.views = [{ state: "frozen", ySplit: 2 }];
 
     worksheet.columns = [
@@ -1318,7 +1323,7 @@ reportesPersonalController.getAltasBetweenDates = async (req, res) => {
       });
     });
 
-    const filename = `ALTAS_${moment(startDate).format("YYYY-MM-DD")}_${moment(
+    const filename = `BAJAS_${moment(startDate).format("YYYY-MM-DD")}_${moment(
       endDate,
     ).format("YYYY-MM-DD")}_${moment().format("YYYYMMDD_HHmmss")}.xlsx`;
 
@@ -1331,9 +1336,9 @@ reportesPersonalController.getAltasBetweenDates = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error("Error en getAltasBetweenDates:", error);
+    console.error("Error en getBajasBetweenDates:", error);
     res.status(500).json({
-      message: "Error al generar el reporte de altas.",
+      message: "Error al generar el reporte de bajas.",
       error: error.message,
     });
   }

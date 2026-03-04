@@ -119,11 +119,11 @@ incidenciasController.getEmployee = async (req, res) => {
 
     const resultPlantilla = await query(
       "PLANTILLA",
-      isSpecialCriteria ? searchCriteria : { ...searchCriteria, status: 1 }
+      isSpecialCriteria ? searchCriteria : { ...searchCriteria, status: 1 },
     );
     const resultForanea = await query(
       "PLANTILLA_FORANEA",
-      isSpecialCriteria ? searchCriteria : { ...searchCriteria, status: 1 }
+      isSpecialCriteria ? searchCriteria : { ...searchCriteria, status: 1 },
     );
     const resultGafetes = await query("GAFETES_TEMPO", {
       ...searchCriteria,
@@ -317,17 +317,16 @@ incidenciasController.getProfile = async (req, res) => {
 
     let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
-    const hasPreviousQuarterPermits = currentQuarter === 1
-      ? false
-      : permits.some(
-        (permit) => permit.CUATRIMESTRE === previousQuarter
-      );
+    const hasPreviousQuarterPermits =
+      currentQuarter === 1
+        ? false
+        : permits.some((permit) => permit.CUATRIMESTRE === previousQuarter);
 
     if (!hasPreviousQuarterPermits && currentQuarter !== 1) {
       leftDays = maxAccumulatedDays; // 6 días
     }
 
-    // Restar los días ya usados en el cuatrimestre actual 
+    // Restar los días ya usados en el cuatrimestre actual
     permits.forEach((permit) => {
       if (
         permit.CUATRIMESTRE === currentQuarter &&
@@ -434,7 +433,7 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     await updateOne(
       targetCollection,
       { _id: new ObjectId(data._id) },
-      { $set: updateFields }
+      { $set: updateFields },
     );
     await insertOne("USER_ACTIONS", userAction);
     const employee = result[0];
@@ -518,7 +517,7 @@ incidenciasController.newEconomicPermit = async (req, res) => {
 
     const permits = await query("PERMISOS_ECONOMICOS", {
       ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
-      AÑO: currentYear,  // Solo año actual
+      AÑO: currentYear, // Solo año actual
     });
 
     // Calcular los días restantes según las reglas de los cuatrimestres
@@ -526,11 +525,10 @@ incidenciasController.newEconomicPermit = async (req, res) => {
     let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
     // Verificar si el cuatrimestre anterior tuvo permisos
-    const hasPreviousQuarterPermits = currentQuarter === 1
-      ? false
-      : permits.some(
-        (permit) => permit.CUATRIMESTRE === previousQuarter
-      );
+    const hasPreviousQuarterPermits =
+      currentQuarter === 1
+        ? false
+        : permits.some((permit) => permit.CUATRIMESTRE === previousQuarter);
 
     // Si no hay permisos en el cuatrimestre anterior, agregar 2 días acumulados
     if (!hasPreviousQuarterPermits && currentQuarter !== 1) {
@@ -551,7 +549,7 @@ incidenciasController.newEconomicPermit = async (req, res) => {
 
     console.log(`Cuatrimestre actual: ${currentQuarter}`);
     console.log(
-      `Permisos previos en cuatrimestre anterior: ${hasPreviousQuarterPermits}`
+      `Permisos previos en cuatrimestre anterior: ${hasPreviousQuarterPermits}`,
     );
     console.log(`Días disponibles: ${leftDays}`);
 
@@ -580,7 +578,7 @@ incidenciasController.newEconomicPermit = async (req, res) => {
 
     // Validar si algún día del rango es inhábil
     const inhabilDays = calendarData.filter(
-      (day) => !day.HABIL && day.DIA !== "SÁBADO" && day.DIA !== "DOMINGO"
+      (day) => !day.HABIL && day.DIA !== "SÁBADO" && day.DIA !== "DOMINGO",
     );
     if (inhabilDays.length > 0) {
       return res.status(405).send({
@@ -673,7 +671,7 @@ incidenciasController.newJustification = async (req, res) => {
       HORARIO_SALIDA,
       DESDE,
       HASTA,
-      NUM_DIAS
+      NUM_DIAS,
     } = req.body;
 
     // Crear el nuevo justificante
@@ -728,7 +726,7 @@ incidenciasController.newInability = async (req, res) => {
     ID_CTRL_ASIST,
     NUMTARJETA,
     OBSERVACIONES,
-    TIPO
+    TIPO,
   } = req.body;
 
   // Crear el nuevo registro de incapacidad
@@ -741,7 +739,7 @@ incidenciasController.newInability = async (req, res) => {
     AÑO: moment(DESDE).year(),
     NUMTARJETA,
     OBSERVACIONES,
-    TIPO
+    TIPO,
   };
   const userAction = {
     username: user.username,
@@ -769,20 +767,15 @@ incidenciasController.newInability = async (req, res) => {
 incidenciasController.newCommission = async (req, res) => {
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
-  const {
-    _id,
-    ID_CTRL_ASIST,
-    COMISIONES,
-    NUMTARJETA,
-    OBSERVACIONES
-  } = req.body;
+  const { _id, ID_CTRL_ASIST, COMISIONES, NUMTARJETA, OBSERVACIONES } =
+    req.body;
 
   // Crear el nuevo registro de comisión
   const comisionData = {
     id_empoyee: _id,
     ID_CTRL_ASIST: new ObjectId(ID_CTRL_ASIST),
     COMISIONES,
-    OBSERVACIONES
+    OBSERVACIONES,
   };
 
   const userAction = {
@@ -815,7 +808,9 @@ incidenciasController.newCommission = async (req, res) => {
     res.status(200).send({ message: "Commission created", data: comisionData });
   } catch (error) {
     console.error("Error creating commission:", error);
-    res.status(500).send({ error: "An error occurred while creating the commission" });
+    res
+      .status(500)
+      .send({ error: "An error occurred while creating the commission" });
   }
 };
 
@@ -847,7 +842,7 @@ incidenciasController.saveIncidencia = async (req, res) => {
       await updateOne(
         "INCIDENCIAS",
         { _id: existingIncidence[0]._id },
-        { $set: updateData }
+        { $set: updateData },
       );
     } else {
       // Create a new incidence document
@@ -1004,7 +999,7 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
 
     const permits = await query("PERMISOS_ECONOMICOS", {
       ID_CTRL_ASIST: new ObjectId(permitData.ID_CTRL_ASIST),
-      AÑO: currentYear,  // Solo año actual
+      AÑO: currentYear, // Solo año actual
     });
 
     // Calcular los días restantes según las reglas de los cuatrimestres
@@ -1013,13 +1008,13 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
     // Calcular los días restantes según las reglas de los cuatrimestres
     let leftDays = maxDaysPerQuarter; // Comenzar con 4 días
 
-    const hasPreviousQuarterPermits = currentQuarter === 1
-      ? false
-      : permits.some(
-        (p) =>
-          p.CUATRIMESTRE === previousQuarter &&
-          p._id.toString() !== _id
-      );
+    const hasPreviousQuarterPermits =
+      currentQuarter === 1
+        ? false
+        : permits.some(
+            (p) =>
+              p.CUATRIMESTRE === previousQuarter && p._id.toString() !== _id,
+          );
 
     // Si no hay permisos en el cuatrimestre anterior, permitir acumulación a 6 días
     if (!hasPreviousQuarterPermits && currentQuarter !== 1) {
@@ -1068,7 +1063,7 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
 
     // Validar si algún día del rango es inhábil
     const inhabilDays = calendarData.filter(
-      (day) => !day.HABIL && day.DIA !== "SÁBADO" && day.DIA !== "DOMINGO"
+      (day) => !day.HABIL && day.DIA !== "SÁBADO" && day.DIA !== "DOMINGO",
     );
     if (inhabilDays.length > 0) {
       return res.status(405).send({
@@ -1118,7 +1113,7 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
     await updateOne(
       "PERMISOS_ECONOMICOS",
       { _id: new ObjectId(_id) },
-      { $set: permitData }
+      { $set: permitData },
     );
     await insertOne("USER_ACTIONS", userAction);
     res.status(200).send({
@@ -1155,7 +1150,7 @@ incidenciasController.updateJustification = async (req, res) => {
     await updateOne(
       "JUSTIFICACIONES",
       { _id: new ObjectId(_id) },
-      { $set: updateData }
+      { $set: updateData },
     );
     const employee = result[0];
     res.status(200).send({
@@ -1193,7 +1188,7 @@ incidenciasController.updateInability = async (req, res) => {
     await updateOne(
       "INCAPACIDADES",
       { _id: new ObjectId(_id) },
-      { $set: updateData }
+      { $set: updateData },
     );
     res.status(200).send({
       message: "Inability updated successfully",
@@ -1230,7 +1225,7 @@ incidenciasController.updateCommission = async (req, res) => {
     await updateOne(
       "COMISIONES",
       { _id: new ObjectId(_id) },
-      { $set: updateData }
+      { $set: updateData },
     );
     await insertOne("USER_ACTIONS", userAction);
     res.status(200).send({
@@ -1437,7 +1432,7 @@ incidenciasController.asignarTarjeta = async (req, res) => {
     await updateOne(
       targetCollection,
       { _id: new ObjectId(_id) },
-      { $set: { NUMTARJETA: normalizedNUMTARJETA, TURNOMAT, TURNOVES } }
+      { $set: { NUMTARJETA: normalizedNUMTARJETA, TURNOMAT, TURNOVES } },
     );
 
     const userAction = {
@@ -1495,7 +1490,6 @@ incidenciasController.deleteCommission = async (req, res) => {
   };
 
   try {
-
     const dataResult = await query("COMISIONES", { _id: new ObjectId(id) });
     if (dataResult.length === 0) {
       return res.status(404).send({ error: "Commission not found" });
@@ -1510,7 +1504,9 @@ incidenciasController.deleteCommission = async (req, res) => {
       return res.status(404).send({ error: "Commission not found" });
     }
     await insertOne("USER_ACTIONS", userAction);
-    res.status(200).send({ message: "Commission deleted successfully", data: comisionData });
+    res
+      .status(200)
+      .send({ message: "Commission deleted successfully", data: comisionData });
   } catch (error) {
     console.error("Error deleting commission:", error);
     res
@@ -1579,11 +1575,7 @@ incidenciasController.getAllEmployeesByArea = async (req, res) => {
 incidenciasController.printAsistenceCards = async (req, res) => {
   const { AREA_RESP, TARJETAS, PRINTER, YEAR, FORTNIGHT } = req.body;
 
-  if (
-    !TARJETAS ||
-    !Array.isArray(TARJETAS) ||
-    TARJETAS.length === 0
-  ) {
+  if (!TARJETAS || !Array.isArray(TARJETAS) || TARJETAS.length === 0) {
     return res.status(400).json({
       message:
         "Los números de tarjetas a imprimir son obligatorios y debe ser un array.",
@@ -1603,7 +1595,9 @@ incidenciasController.printAsistenceCards = async (req, res) => {
   let employees = [...plantilla, ...foranea];
 
   if (employees.length === 0) {
-    return res.status(404).json({ message: "No hay empleados para los parámetros especificados" });
+    return res
+      .status(404)
+      .json({ message: "No hay empleados para los parámetros especificados" });
   }
   try {
     const {
@@ -1637,9 +1631,9 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
     // Convertir FORTNIGHT (números) a array de { month, half }
     if (Array.isArray(FORTNIGHT) && FORTNIGHT.length > 0) {
-      chosenQuincenas = FORTNIGHT
-        .map(quinaenaNumToMonthHalf)
-        .filter(q => q !== null);
+      chosenQuincenas = FORTNIGHT.map(quinaenaNumToMonthHalf).filter(
+        (q) => q !== null,
+      );
     }
 
     // Si no hay quincenas válidas, generar la siguiente
@@ -1656,8 +1650,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       }
     }
 
-    const printerOffsetGlobal =
-      printerPosition === "DERECHA" ? 0.7 * 28.35 : 0;
+    const printerOffsetGlobal = printerPosition === "DERECHA" ? 0.7 * 28.35 : 0;
     const pt = 28.35;
     const docWidth = 8.1 * 28.35;
     const docHeight = 18.3 * 28.35;
@@ -1685,22 +1678,30 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       }
 
       // Force DPTO. prefix when starts with DEPARTAMENTO / DEPARTAMENTAL (keep any following DE/DEL)
-      const deptMatch = original.match(/^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i);
+      const deptMatch = original.match(
+        /^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i,
+      );
       if (deptMatch) {
-        const rest = original.replace(/^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i, "").trim();
+        const rest = original
+          .replace(/^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i, "")
+          .trim();
         original = rest ? `DPTO. DE ${rest}` : "DPTO.";
       }
 
       const upper = original.toUpperCase();
 
       const exact = {
-        "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA": "SUBSEC. DE EGRESOS, CONT. Y TES.",
-        "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
-        "COORDINACION DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
+        "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA":
+          "SUBSEC. DE EGRESOS, CONT. Y TES.",
+        "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE":
+          "COORD. DE C.I.A.C.",
+        "COORDINACION DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE":
+          "COORD. DE C.I.A.C.",
         "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE": "C.I.A.C.",
         "MODULO DE ATENCIÓN AL CONTRIBUYENTE": "M.A.C.",
         "MÓDULO DE ATENCIÓN AL CONTRIBUYENTE": "M.A.C.",
-        "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS"
+        "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)":
+          "OTORG. DE SERV. ADMINISTRATIVOS",
       };
 
       for (const k of Object.keys(exact)) {
@@ -1712,29 +1713,29 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       }
 
       const palabrasAbrevia = {
-        "SUBSECRETARÍA": "SUBSEC.",
-        "SUBSECRETARIA": "SUBSEC.",
-        "PROCURADURÍA": "PROCUR.",
-        "PROCURADURIA": "PROCUR.",
-        "DIRECCIÓN": "DIREC.",
-        "DIRECCION": "DIREC.",
-        "COORDINACIÓN": "COORD.",
-        "COORDINACION": "COORD.",
-        "DEPARTAMENTO": "DPTO.",
-        "DEPARTAMENTAL": "DPTO.",
-        "REVISIÓN": "REV.",
-        "REVISION": "REV.",
-        "ANÁLISIS": "ANÁ.",
-        "ANALISIS": "ANÁ.",
-        "SECTOR": "SECT.",
-        "PARAESTATAL": "PA.",
-        "SERVICIOS": "SERV.",
-        "RECURSOS": "REC.",
-        "GUBERNAMENTAL": "GUB.",
-        "RECAUDACIÓN": "REC.",
-        "RECAUDACION": "REC.",
-        "OTORGAMIENTO": "OTOR.",
-        "SANTA": "STA."
+        SUBSECRETARÍA: "SUBSEC.",
+        SUBSECRETARIA: "SUBSEC.",
+        PROCURADURÍA: "PROCUR.",
+        PROCURADURIA: "PROCUR.",
+        DIRECCIÓN: "DIREC.",
+        DIRECCION: "DIREC.",
+        COORDINACIÓN: "COORD.",
+        COORDINACION: "COORD.",
+        DEPARTAMENTO: "DPTO.",
+        DEPARTAMENTAL: "DPTO.",
+        REVISIÓN: "REV.",
+        REVISION: "REV.",
+        ANÁLISIS: "ANÁ.",
+        ANALISIS: "ANÁ.",
+        SECTOR: "SECT.",
+        PARAESTATAL: "PA.",
+        SERVICIOS: "SERV.",
+        RECURSOS: "REC.",
+        GUBERNAMENTAL: "GUB.",
+        RECAUDACIÓN: "REC.",
+        RECAUDACION: "REC.",
+        OTORGAMIENTO: "OTOR.",
+        SANTA: "STA.",
       };
 
       let resultado = original;
@@ -1747,17 +1748,32 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       resultado = resultado.replace(/\s+/g, " ").trim().toUpperCase();
 
       // If fits, return (preserve trailing letter/quotes)
-      if (resultado.length <= 35) return trailing ? `${resultado} ${trailing}` : resultado;
+      if (resultado.length <= 35)
+        return trailing ? `${resultado} ${trailing}` : resultado;
 
       // Compression rules
       const omit = new Set([
-        "DE", "DEL", "LA", "LAS", "EL", "LOS", "Y", "AL", "DELA", "PARA"
+        "DE",
+        "DEL",
+        "LA",
+        "LAS",
+        "EL",
+        "LOS",
+        "Y",
+        "AL",
+        "DELA",
+        "PARA",
       ]);
 
       // Split into parts (clean punctuation)
-      const parts = resultado.replace(/[.,()]/g, "").split(/\s+/).map(p => p.trim()).filter(Boolean);
+      const parts = resultado
+        .replace(/[.,()]/g, "")
+        .split(/\s+/)
+        .map((p) => p.trim())
+        .filter(Boolean);
 
-      const hasDptoPrefix = parts[0] && parts[0].toUpperCase().startsWith("DPTO");
+      const hasDptoPrefix =
+        parts[0] && parts[0].toUpperCase().startsWith("DPTO");
 
       // Preferred compressed form: keep "DPTO. DE" and then take first two letters of each meaningful word joined by dots
       if (hasDptoPrefix) {
@@ -1765,19 +1781,23 @@ incidenciasController.printAsistenceCards = async (req, res) => {
         let startIdx = 1;
         if (parts[1] && parts[1].toUpperCase() === "DE") startIdx = 2;
 
-        const meaningful = parts.slice(startIdx).filter(p => !omit.has(p.toUpperCase()));
+        const meaningful = parts
+          .slice(startIdx)
+          .filter((p) => !omit.has(p.toUpperCase()));
         if (meaningful.length > 0) {
-          const twoLetterTokens = meaningful.map(p => {
-            const clean = p.normalize('NFD').replace(/[\u0300-\u036f]/g, ""); // remove accents
-            return (clean.slice(0, 2).toUpperCase());
+          const twoLetterTokens = meaningful.map((p) => {
+            const clean = p.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // remove accents
+            return clean.slice(0, 2).toUpperCase();
           });
           const candidateCore = `${twoLetterTokens.join(".")}`;
           const candidate = `DPTO. DE ${candidateCore}.`;
-          if (candidate.length <= 35) return trailing ? `${candidate} ${trailing}` : candidate;
+          if (candidate.length <= 35)
+            return trailing ? `${candidate} ${trailing}` : candidate;
           // If still too long, try initials (no extra dots after trailing)
-          const initials = meaningful.map(p => p[0].toUpperCase()).join(".");
+          const initials = meaningful.map((p) => p[0].toUpperCase()).join(".");
           const cand2 = `DPTO. DE ${initials}.`;
-          if (cand2.length <= 60) return trailing ? `${cand2} ${trailing}` : cand2;
+          if (cand2.length <= 60)
+            return trailing ? `${cand2} ${trailing}` : cand2;
         }
       }
 
@@ -1785,9 +1805,9 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       const tight = parts.map((p, idx) => {
         const up = p.toUpperCase();
         if (omit.has(up)) return up;
-        if (up.endsWith('.')) return up;
-        const clean = p.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-        return (clean.slice(0, 2).toUpperCase() + ".");
+        if (up.endsWith(".")) return up;
+        const clean = p.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return clean.slice(0, 2).toUpperCase() + ".";
       });
 
       let compressed = tight.join(" ");
@@ -1799,7 +1819,8 @@ incidenciasController.printAsistenceCards = async (req, res) => {
           if (i === 0 && hasDptoPrefix) return false;
           return !omit.has(up);
         });
-        const initials = meaningful.map(p => p[0].toUpperCase()).join(".") + ".";
+        const initials =
+          meaningful.map((p) => p[0].toUpperCase()).join(".") + ".";
         const prefix = hasDptoPrefix ? "DPTO. DE" : "";
         compressed = prefix ? `${prefix} ${initials}` : initials;
       }
@@ -1808,7 +1829,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
     };
     // ...existing code...
 
-    employees = employees.map(emp => ({
+    employees = employees.map((emp) => ({
       ...emp,
       STATUS_EMPLEADO: emp.STATUS_EMPLEADO || {},
     }));
@@ -1823,14 +1844,16 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       .filter(
         (emp) =>
           emp.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
-          emp.STATUS_EMPLEADO?.STATUS === "COM_LAB"
+          emp.STATUS_EMPLEADO?.STATUS === "COM_LAB",
       )
       .sort(ordenarPorTarjeta);
     const noComisionados = employees
       .filter(
         (emp) =>
-          !(emp.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
-            emp.STATUS_EMPLEADO?.STATUS === "COM_LAB")
+          !(
+            emp.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
+            emp.STATUS_EMPLEADO?.STATUS === "COM_LAB"
+          ),
       )
       .sort(ordenarPorTarjeta);
 
@@ -1866,7 +1889,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
           texto: `DEL ${format(start, "dd", { locale: es })} AL ${format(
             end,
             "dd 'DE' MMMM 'DE' yyyy",
-            { locale: es }
+            { locale: es },
           )}`.toUpperCase(),
           nombre: format(start, "yyyy-MM-dd", { locale: es }),
         });
@@ -1890,22 +1913,28 @@ incidenciasController.printAsistenceCards = async (req, res) => {
           doc.fontSize(9);
 
           // Capturar datos en buffers en lugar de escribir a disco
-          doc.on('data', (chunk) => {
+          doc.on("data", (chunk) => {
             buffersArray.push(chunk);
           });
 
-          doc.on('error', reject);
+          doc.on("error", reject);
 
           comisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
             const cardNumber = record.NUMTARJETA || "";
             const area = abreviarAdscripcion(record.ADSCRIPCION) || "";
-            const name = `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
-            const REL_L = record.TIPONOM === 'F51' || record.TIPONOM === 'M51' ? 'PB'
-              : record.TIPONOM === 'FCT' || record.TIPONOM === 'CCT' ? 'CC'
-                : record.TIPONOM === 'FCO' || record.TIPONOM === '511' ? 'CN'
-                  : record.TIPONOM || '';
-            const shift = record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
+            const name =
+              `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
+            const REL_L =
+              record.TIPONOM === "F51" || record.TIPONOM === "M51"
+                ? "PB"
+                : record.TIPONOM === "FCT" || record.TIPONOM === "CCT"
+                  ? "CC"
+                  : record.TIPONOM === "FCO" || record.TIPONOM === "511"
+                    ? "CN"
+                    : record.TIPONOM || "";
+            const shift =
+              record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
 
             // Ajuste dinámico de posición para NUM
             const baseNumSize = 22;
@@ -1956,7 +1985,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               {
                 width: docWidth,
                 align: "center",
-              }
+              },
             );
 
             doc.text(
@@ -1966,7 +1995,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               {
                 width: docWidth,
                 align: "center",
-              }
+              },
             );
 
             doc.text(
@@ -1976,7 +2005,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               {
                 width: docWidth,
                 align: "center",
-              }
+              },
             );
 
             // HORARIO
@@ -1992,7 +2021,8 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             });
 
             // QUINCENA
-            const offsetX = 0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
+            const offsetX =
+              0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
             const baseY =
               (5.6 - 1) * pt +
               ajusteY +
@@ -2025,13 +2055,13 @@ incidenciasController.printAsistenceCards = async (req, res) => {
                   {
                     width: docWidth - 1.5 * 28.35,
                     align: "left",
-                  }
+                  },
                 )
                 .restore();
             }
           });
 
-          doc.on('end', () => {
+          doc.on("end", () => {
             const buffer = Buffer.concat(buffersArray);
             resolve(buffer);
           });
@@ -2047,7 +2077,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
         pdfFiles.push({
           filename: fileName,
           buffer: pdfBuffer,
-          base64: pdfBuffer.toString('base64'),
+          base64: pdfBuffer.toString("base64"),
         });
       }
 
@@ -2059,23 +2089,29 @@ incidenciasController.printAsistenceCards = async (req, res) => {
           doc.fontSize(9);
 
           // Capturar datos en buffers
-          doc.on('data', (chunk) => {
+          doc.on("data", (chunk) => {
             buffersArray.push(chunk);
           });
 
-          doc.on('error', reject);
+          doc.on("error", reject);
 
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
 
             const cardNumber = record.NUMTARJETA || "";
             const area = abreviarAdscripcion(record.ADSCRIPCION) || "";
-            const name = `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
-            const REL_L = record.TIPONOM === 'F51' || record.TIPONOM === 'M51' ? 'PB'
-              : record.TIPONOM === 'FCT' || record.TIPONOM === 'CCT' ? 'CC'
-                : record.TIPONOM === 'FCO' || record.TIPONOM === '511' ? 'CN'
-                  : record.TIPONOM || '';
-            const shift = record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
+            const name =
+              `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
+            const REL_L =
+              record.TIPONOM === "F51" || record.TIPONOM === "M51"
+                ? "PB"
+                : record.TIPONOM === "FCT" || record.TIPONOM === "CCT"
+                  ? "CC"
+                  : record.TIPONOM === "FCO" || record.TIPONOM === "511"
+                    ? "CN"
+                    : record.TIPONOM || "";
+            const shift =
+              record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
 
             const baseNumSize = 22;
             const numStr = String(cardNumber || "");
@@ -2123,7 +2159,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               {
                 width: docWidth,
                 align: "center",
-              }
+              },
             );
 
             doc.text(
@@ -2133,7 +2169,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               {
                 width: docWidth,
                 align: "center",
-              }
+              },
             );
 
             doc.text(
@@ -2143,7 +2179,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               {
                 width: docWidth,
                 align: "center",
-              }
+              },
             );
 
             const shiftY =
@@ -2157,7 +2193,8 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               align: "center",
             });
 
-            const offsetX = 0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
+            const offsetX =
+              0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
             const baseY =
               (5.6 - 1) * pt +
               ajusteY +
@@ -2172,7 +2209,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             });
           });
 
-          doc.on('end', () => {
+          doc.on("end", () => {
             const buffer = Buffer.concat(buffersArray);
             resolve(buffer);
           });
@@ -2188,7 +2225,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
         pdfFiles.push({
           filename: fileName,
           buffer: pdfBuffer,
-          base64: pdfBuffer.toString('base64'),
+          base64: pdfBuffer.toString("base64"),
         });
       }
     }
@@ -2196,7 +2233,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Tarjetas generadas exitosamente (${quincenas.length} quincena(s))`,
-      pdfs: pdfFiles.map(pdf => ({
+      pdfs: pdfFiles.map((pdf) => ({
         filename: pdf.filename,
         data: pdf.base64, // Base64 encoded PDF
       })),

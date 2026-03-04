@@ -66,7 +66,13 @@ agenda.define("bajasExtemporaneas", async (job) => {
     const today = new Date().toISOString().slice(0, 10);
     const bajasPendientes = await query("BAJAS", {
       discharge_date: { $lte: today },
-      PROCESADO: false,
+      $or: [
+        { PROCESADO: false },
+        { PROCESADO: "false" },
+        { PROCESADO: "FALSE" },
+        { PROCESADO: { $exists: false } },
+        { PROCESADO: null },
+      ],
     });
 
     console.log(
@@ -80,88 +86,139 @@ agenda.define("bajasExtemporaneas", async (job) => {
         console.log(`Procesando baja extemporánea: ${baja._id}`);
 
         if (baja.discharge_date <= today && baja.reason !== "L-PRRO") {
-          const plantillaResult = await updateOne(
-            "PLANTILLA",
-            { _id: new ObjectId(baja.id_employee) },
-            {
-              $set: {
-                CONSEC: null,
-                CURP: null,
-                RFC: null,
-                AFILIACI: null,
-                NUMEMP: null,
-                NUMQUIN: 0,
-                FECHA_INGRESO: null,
-                SANGRE: null,
-                AVISAR: null,
-                TEL_EMERGENCIA1: null,
-                TEL_EMERGENCIA2: null,
-                NUMTARJETA: null,
-                TURNOMAT: null,
-                TURNOVES: null,
-                SABADO: null,
-                SEXO: null,
-                FECHA_NAC: null,
-                LUGARNAC: null,
-                CP: null,
-                TEL_PERSONAL: null,
-                ALERGIA: null,
-                TIPOPAG: null,
-                BANCO: null,
-                CUENTA: null,
-                NOMINA: null,
-                EMAIL: null,
-                DOMICILIO: null,
-                PROFES: null,
-                APE_PAT: null,
-                APE_MAT: "VACANTE",
-                NOMBRES: null,
-                VACACIONES: {
-                  PERIODO: 0,
-                  FECHA_VACACIONES: null,
-                  DIAS: null,
-                  FECHAS: {
-                    FECHA_INICIO: null,
-                    FECHA_FINAL: null,
-                  },
-                },
-                status: 2,
-                AREA_RESP: null,
-                STATUS_EMPLEADO: null,
-                GASCOM: 0,
-                GUARDE: 0,
-                SUELDO_GRV: 0,
-                CONYUGE: null,
-                DIRECCION: null,
-                DIRECCION_FISCAL: null,
-                EMAIL_INSTITUCIONAL: null,
-                ESTADONAC: null,
-                ESTADO_CIVIL: null,
-                ESTUDIOS: null,
-                FECHA_ENTRADA_DEFINITIVA: null,
-                NACIONALIDAD: null,
-                PARENTESCO: null,
-                TEL_CASA: null,
+          const limpiezaPlantilla = {
+            CONSEC: null,
+            CURP: null,
+            RFC: null,
+            AFILIACI: null,
+            NUMEMP: null,
+            NUMQUIN: 0,
+            FECHA_INGRESO: null,
+            SANGRE: null,
+            AVISAR: null,
+            TEL_EMERGENCIA1: null,
+            TEL_EMERGENCIA2: null,
+            NUMTARJETA: null,
+            TURNOMAT: null,
+            TURNOVES: null,
+            SABADO: null,
+            SEXO: null,
+            FECHA_NAC: null,
+            LUGARNAC: null,
+            CP: null,
+            TEL_PERSONAL: null,
+            ALERGIA: null,
+            TIPOPAG: null,
+            BANCO: null,
+            CUENTA: null,
+            NOMINA: null,
+            EMAIL: null,
+            DOMICILIO: null,
+            PROFES: null,
+            APE_PAT: null,
+            APE_MAT: "VACANTE",
+            NOMBRES: null,
+            VACACIONES: {
+              PERIODO: 0,
+              FECHA_VACACIONES: null,
+              DIAS: null,
+              FECHAS: {
+                FECHA_INICIO: null,
+                FECHA_FINAL: null,
               },
             },
-          );
+            status: 2,
+            AREA_RESP: null,
+            STATUS_EMPLEADO: null,
+            GASCOM: 0,
+            GUARDE: 0,
+            SUELDO_GRV: 0,
+            CONYUGE: null,
+            DIRECCION: null,
+            DIRECCION_FISCAL: null,
+            EMAIL_INSTITUCIONAL: null,
+            ESTADONAC: null,
+            ESTADO_CIVIL: null,
+            ESTUDIOS: null,
+            FECHA_ENTRADA_DEFINITIVA: null,
+            NACIONALIDAD: null,
+            PARENTESCO: null,
+            TEL_CASA: null,
+          };
+
+          let plantillaResult = null;
+          if (baja.id_employee) {
+            try {
+              plantillaResult = await updateOne(
+                "PLANTILLA",
+                { _id: new ObjectId(String(baja.id_employee)) },
+                { $set: limpiezaPlantilla },
+              );
+            } catch (errorIdObjectId) {
+              console.warn(
+                `id_employee no válido como ObjectId (${baja.id_employee}): ${errorIdObjectId.message}`,
+              );
+            }
+          }
+
+          if (!plantillaResult || plantillaResult.matchedCount === 0) {
+            plantillaResult = await updateOne(
+              "PLANTILLA",
+              { _id: String(baja.id_employee) },
+              { $set: limpiezaPlantilla },
+            );
+          }
+
+          if (
+            (!plantillaResult || plantillaResult.matchedCount === 0) &&
+            baja.NUMPLA !== undefined &&
+            baja.NUMPLA !== null
+          ) {
+            const numplaValue = String(baja.NUMPLA);
+            const numplaAsNumber = Number(numplaValue);
+            const filtrosNumpla = [{ NUMPLA: numplaValue }];
+            if (!Number.isNaN(numplaAsNumber)) {
+              filtrosNumpla.push({ NUMPLA: numplaAsNumber });
+            }
+
+            plantillaResult = await updateOne(
+              "PLANTILLA",
+              { $or: filtrosNumpla },
+              { $set: limpiezaPlantilla },
+            );
+          }
 
           if (!plantillaResult || plantillaResult.matchedCount === 0) {
             console.warn(
-              `No se encontró registro en PLANTILLA para id_empleado: ${baja.id_employee}`,
+              `No se encontró registro en PLANTILLA para id_empleado: ${baja.id_employee} ni por NUMPLA: ${baja.NUMPLA}`,
             );
             registrosErrores++;
+          } else {
+            console.log(
+              `PLANTILLA limpiada correctamente para baja ${baja._id}`,
+            );
+          }
+
+          const numplaValue = String(baja.NUMPLA);
+          const numplaAsNumber = Number(numplaValue);
+          const filtrosPlaza = [{ NUMPLA: numplaValue }];
+          if (!Number.isNaN(numplaAsNumber)) {
+            filtrosPlaza.push({ NUMPLA: numplaAsNumber });
           }
 
           const plazaResult = await updateOne(
             "PLAZAS",
-            { NUMPLA: baja.NUMPLA },
+            { $or: filtrosPlaza },
             { $set: { status: 2 } },
           );
 
           if (!plazaResult || plazaResult.matchedCount === 0) {
             console.warn(
               `No se encontró registro en PLAZAS para NUMPLA: ${baja.NUMPLA}`,
+            );
+          } else {
+            console.log(
+              `PLAZAS actualizada a status=2 para NUMPLA: ${baja.NUMPLA}`,
             );
           }
         }

@@ -28,9 +28,9 @@ router.get(
 );
 
 router.post(
-  "/getAltasBetweenDates",
+  "/getBajasBetweenDates",
   verifyToken,
-  reportesPersonalController.getAltasBetweenDates,
+  reportesPersonalController.getBajasBetweenDates,
 );
 
 module.exports = router;
