@@ -22,7 +22,7 @@ employeeController.getVacants = async (_, res) => {
 
     vacants.forEach((vacant) => {
       const matchingPreviousOcupant = previousOcupant.find(
-        (po) => po.NUMPLA === vacant.NUMPLA
+        (po) => po.NUMPLA === vacant.NUMPLA,
       );
       if (matchingPreviousOcupant) {
         vacant.status_plaza = matchingPreviousOcupant;
@@ -44,7 +44,7 @@ employeeController.getMpio = async (req, res) => {
   try {
     const mpios = await querysql(
       "SELECT d_codigo, d_asenta, d_tipo_asenta, D_mnpio, d_estado, d_ciudad FROM cp_2025 WHERE d_codigo = ?",
-      [zipCode]
+      [zipCode],
     );
     const formattedMpios = mpios.map((mpio) => ({
       municipio: mpio.D_mnpio.toUpperCase(),
@@ -74,23 +74,25 @@ employeeController.internalInformation = async (req, res) => {
     const categorias = await querysql("SELECT * FROM categorias_catalogo");
 
     const level2 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level2"
+      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level2",
     );
     const level3 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level3"
+      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level3",
     );
     const level4 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level4 "
+      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level4 ",
     );
     const level5 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level5"
+      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level5",
     );
 
-    const descentralizados = await querysql("SELECT NOMBRE, PROYECTO, CLAVE FROM descentralizado");
+    const descentralizados = await querysql(
+      "SELECT NOMBRE, PROYECTO, CLAVE FROM ciacs",
+    );
 
     const base = categorias.filter(
       (categoria) =>
-        categoria.T_NOMINA === "M51" || categoria.T_NOMINA === "F51"
+        categoria.T_NOMINA === "M51" || categoria.T_NOMINA === "F51",
     );
 
     const contrato = categorias.filter(
@@ -100,12 +102,12 @@ employeeController.internalInformation = async (req, res) => {
         categoria.T_NOMINA === "CCO" ||
         categoria.T_NOMINA === "FCO" ||
         categoria.T_NOMINA === "511" ||
-        categoria.T_NOMINA === "M53"
+        categoria.T_NOMINA === "M53",
     );
 
     const mandosMedios = categorias.filter(
       (categoria) =>
-        categoria.T_NOMINA === "MMS" || categoria.T_NOMINA === "FMM"
+        categoria.T_NOMINA === "MMS" || categoria.T_NOMINA === "FMM",
     );
 
     const categorizedCategorias = { base, contrato, mandosMedios };
@@ -131,13 +133,13 @@ employeeController.internalInformation = async (req, res) => {
       direcciones,
       unidades,
       departamentos,
-      descentralizados
+      descentralizados,
     ];
 
     let unidad_ejecutora = [];
     unity_ejecutor.forEach((item) => {
       let unidad = unidad_ejecutora.find(
-        (ue) => ue.nombre === item.UNIDAD_EJECUTORA
+        (ue) => ue.nombre === item.UNIDAD_EJECUTORA,
       );
       if (!unidad) {
         unidad = {
@@ -148,7 +150,7 @@ employeeController.internalInformation = async (req, res) => {
       }
 
       let proyecto = unidad.proyectos.find(
-        (proyecto) => proyecto.nombre === item.PROYECTO
+        (proyecto) => proyecto.nombre === item.PROYECTO,
       );
       if (!proyecto) {
         proyecto = {
@@ -185,7 +187,12 @@ employeeController.dataPlaza = async (req, res) => {
   try {
     const dataPlaza = await query("PLAZAS", { NUMPLA, status: 2 });
     const plantillaData = await query("PLANTILLA", { NUMPLA, status: 2 });
-    if (!dataPlaza || dataPlaza.length === 0 || !plantillaData || plantillaData.length === 0) {
+    if (
+      !dataPlaza ||
+      dataPlaza.length === 0 ||
+      !plantillaData ||
+      plantillaData.length === 0
+    ) {
       return res.status(404).json({ message: "plaza vacante no encontrada" });
     }
 
@@ -223,7 +230,7 @@ employeeController.makeProposal = async (req, res) => {
   };
   const [dayToday, monthToday, yeartoday] = new Intl.DateTimeFormat(
     "es-MX",
-    options
+    options,
   )
     .formatToParts(today)
     .filter((part) => part.type !== "literal")
@@ -247,8 +254,18 @@ employeeController.makeProposal = async (req, res) => {
   // Si FECHA_INGRESO no existe o no es válida, se usa la fecha actual.
   function formatFechaEsp(date) {
     const meses = [
-      "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
-      "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
+      "ENERO",
+      "FEBRERO",
+      "MARZO",
+      "ABRIL",
+      "MAYO",
+      "JUNIO",
+      "JULIO",
+      "AGOSTO",
+      "SEPTIEMBRE",
+      "OCTUBRE",
+      "NOVIEMBRE",
+      "DICIEMBRE",
     ];
     const day = String(date.getDate()).padStart(2, "0");
     const monthNameCapitalized =
@@ -259,7 +276,10 @@ employeeController.makeProposal = async (req, res) => {
   }
 
   let fechaHoyDate = new Date(); // fallback si FECHA_INGRESO inválida
-  if (data.FECHA_INGRESO && /^\d{4}-\d{1,2}-\d{1,2}$/.test(data.FECHA_INGRESO)) {
+  if (
+    data.FECHA_INGRESO &&
+    /^\d{4}-\d{1,2}-\d{1,2}$/.test(data.FECHA_INGRESO)
+  ) {
     const [iy, im, id] = data.FECHA_INGRESO.split("-").map(Number);
     const fechaIngreso = new Date(iy, im - 1, id);
     if (!isNaN(fechaIngreso)) {
@@ -293,8 +313,9 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.DOMICILIO || ""} ${data?.DIRECCION.NUM_EXT || ""} ${data?.DIRECCION.COLONIA || ""
-    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.DOMICILIO || ""} ${data?.DIRECCION.NUM_EXT || ""} ${
+    data?.DIRECCION.COLONIA || ""
+  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.DOMICILIO || "";
@@ -302,8 +323,9 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
-    } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${
+    months[parseInt(month, 10) - 1]
+  } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -392,8 +414,9 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
-      } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
+      months[parseInt(monthIMSS, 10) - 1]
+    } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -455,16 +478,21 @@ employeeController.makeProposal = async (req, res) => {
   };
 
   // --- Generación del documento: usar template PDF ---
-  const pdfTemplatePath = path.resolve(__dirname, "../../templates/templateAlta.pdf");
+  const pdfTemplatePath = path.resolve(
+    __dirname,
+    "../../templates/templateAlta.pdf",
+  );
   if (!fs.existsSync(pdfTemplatePath)) {
-    return res.status(404).json({ message: "Template PDF no encontrado", path: pdfTemplatePath });
+    return res
+      .status(404)
+      .json({ message: "Template PDF no encontrado", path: pdfTemplatePath });
   }
 
   try {
     const updatePlantillaResult = await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $set: { status: 3, templateData } }
+      { $set: { status: 3, templateData } },
     );
     if (updatePlantillaResult.matchedCount === 0) {
       return res
@@ -475,7 +503,7 @@ employeeController.makeProposal = async (req, res) => {
     const updatePlazasResult = await updateOne(
       "PLAZAS",
       { NUMPLA: data.NUMPLA },
-      { $set: { status: 3 } }
+      { $set: { status: 3 } },
     );
     if (updatePlazasResult.matchedCount === 0) {
       return res
@@ -488,7 +516,9 @@ employeeController.makeProposal = async (req, res) => {
 
     // Obtener campos del formulario y mapear nombres reales
     const form = pdfDoc.getForm();
-    const fieldsByName = Object.fromEntries(form.getFields().map(f => [f.getName(), f]));
+    const fieldsByName = Object.fromEntries(
+      form.getFields().map((f) => [f.getName(), f]),
+    );
 
     const fieldMapping = {
       FECHA_HOY: FECHA_HOY,
@@ -536,13 +566,20 @@ employeeController.makeProposal = async (req, res) => {
         try {
           fld.setText(String(value || ""));
         } catch (err) {
-          console.warn(`No se pudo rellenar el campo "${pdfFieldName}":`, err.message || err);
+          console.warn(
+            `No se pudo rellenar el campo "${pdfFieldName}":`,
+            err.message || err,
+          );
         }
       } else {
         missing.push(pdfFieldName);
       }
     }
-    if (missing.length) console.info("Campos no encontrados en el PDF (ajustar mapping):", missing);
+    if (missing.length)
+      console.info(
+        "Campos no encontrados en el PDF (ajustar mapping):",
+        missing,
+      );
 
     // Regenerar appearance streams usando una fuente embebida
     try {
@@ -578,32 +615,28 @@ employeeController.makeProposal = async (req, res) => {
     // Enviar el archivo al cliente
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=ALTA_${data.CURP}.pdf`
+      `attachment; filename=ALTA_${data.CURP}.pdf`,
     );
     res.setHeader("Content-Type", "application/pdf");
     return res.status(200).sendFile(outputPath);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Error al generar el documento PDF", error });
+    return res
+      .status(500)
+      .json({ message: "Error al generar el documento PDF", error });
   }
 };
 //Funcion para descargar el formato de alta
 employeeController.downloadAlta = async (req, res) => {
   const { curp } = req.params;
 
-  const filePath = path.resolve(
-    __dirname,
-    `../../docs/altas/ALTA_${curp}.pdf`
-  );
+  const filePath = path.resolve(__dirname, `../../docs/altas/ALTA_${curp}.pdf`);
 
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ message: "Archivo no encontrado" });
   }
 
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename=ALTA_${curp}.pdf`
-  );
+  res.setHeader("Content-Disposition", `attachment; filename=ALTA_${curp}.pdf`);
   res.setHeader("Content-Type", "application/pdf");
   res.status(200).sendFile(filePath);
 };
@@ -647,12 +680,12 @@ employeeController.saveEmployee = async (req, res) => {
     await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $set: { ...data, status: 1 } }
+      { $set: { ...data, status: 1 } },
     );
     await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $unset: { templateData: "" } }
+      { $unset: { templateData: "" } },
     );
     await updateOne(
       "HSY_LICENCIAS",
@@ -665,7 +698,7 @@ employeeController.saveEmployee = async (req, res) => {
             NOMBRES: `${data.NOMBRES || ""}`,
           },
         },
-      }
+      },
     );
     await insertOne("USER_ACTIONS", userAction);
     res
@@ -688,12 +721,12 @@ employeeController.updateEmployee = async (req, res) => {
     await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $set: { ...data } }
+      { $set: { ...data } },
     );
     await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $unset: { templateData: "" } }
+      { $unset: { templateData: "" } },
     );
 
     const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
@@ -814,7 +847,7 @@ employeeController.newPlaza = async (req, res) => {
           ID_CTRL_NOM: new ObjectId(),
           ID_CTRL_CAP: new ObjectId(),
         },
-      }
+      },
     );
 
     await insertOne("USER_ACTIONS", userAction);
@@ -844,7 +877,7 @@ employeeController.addCommit = async (req, res) => {
       const outputPath = path.join(
         __dirname,
         "../docs/commits",
-        `${Date.now()}.pdf`
+        `${Date.now()}.pdf`,
       );
 
       // Decodificar el archivo base64
@@ -895,7 +928,7 @@ employeeController.addCommit = async (req, res) => {
     await updateOne(
       "BITACORA",
       { _id: new ObjectId(data.ID_BITACORA) },
-      { $push: updateFields }
+      { $push: updateFields },
     );
     res.status(200).json({ message: "Commit added successfully" });
   } catch (error) {
@@ -969,7 +1002,7 @@ employeeController.updateCommit = async (req, res) => {
           [`${arrayField}.$.fecha`]: currentDateTime,
           [`${arrayField}.$.id_user`]: ID_USER,
         },
-      }
+      },
     );
 
     res.status(200).json({ message: "Commit updated successfully" });
@@ -1016,7 +1049,7 @@ employeeController.deleteCommit = async (req, res) => {
     const result = await updateOne(
       "BITACORA",
       { _id: new ObjectId(ID_BITACORA) },
-      { $pull: { [arrayField]: { _id: new ObjectId(ID_COMENTARIO) } } }
+      { $pull: { [arrayField]: { _id: new ObjectId(ID_COMENTARIO) } } },
     );
 
     if (result.modifiedCount === 0) {
@@ -1123,7 +1156,7 @@ employeeController.reinstallEmployee = async (req, res) => {
 
     const templatePath = path.resolve(
       __dirname,
-      "../../templates/reanudacionTemplate.docx"
+      "../../templates/reanudacionTemplate.docx",
     );
     try {
       const content = fs.readFileSync(templatePath, "binary");
@@ -1160,17 +1193,17 @@ employeeController.reinstallEmployee = async (req, res) => {
 
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=${data.CURP}.docx`
+        `attachment; filename=${data.CURP}.docx`,
       );
       res.setHeader(
         "Content-Type",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       );
 
       await updateOne(
         "PLANTILLA",
         { NUMPLA: data.NUMPLA },
-        { $set: { ...dataToSave } }
+        { $set: { ...dataToSave } },
       );
       await updateOne(
         "LICENCIAS",
@@ -1180,7 +1213,7 @@ employeeController.reinstallEmployee = async (req, res) => {
             status: 2,
             FECHA_REINCORPORACION: data.FECHA_REINCORPORACION,
           },
-        }
+        },
       );
       await updateOne(
         "HSY_LICENCIAS",
@@ -1190,7 +1223,7 @@ employeeController.reinstallEmployee = async (req, res) => {
             FECHA_REINCORPORACION: data.FECHA_REINCORPORACION,
             STATUS_LICENCIA: 2,
           },
-        }
+        },
       );
       await insertOne("USER_ACTIONS", userAction);
       res.status(200).sendFile(outputPath);
