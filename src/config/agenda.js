@@ -652,8 +652,8 @@ async function startAgenda() {
     // Programar las tareas recurrentes
     // Bajas extemporáneas - Diariamente a las 00:00
     await agenda.every(
-      "0 0 * * *",
-      //"*/5 * * * * *",
+      //"0 0 * * *",
+      "*/5 * * * * *",
       "bajasExtemporaneas",
       {},
       {

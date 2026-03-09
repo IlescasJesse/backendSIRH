@@ -70,23 +70,7 @@ employeeController.getMpio = async (req, res) => {
 // Función para obtener información interna incluyendo unidad ejecutora, categorías y adscripciones
 employeeController.internalInformation = async (req, res) => {
   try {
-    const unity_ejecutor = await querysql("SELECT * FROM unidad_responsable");
     const categorias = await querysql("SELECT * FROM categorias_catalogo");
-
-    const level2 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level2"
-    );
-    const level3 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level3"
-    );
-    const level4 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level4 "
-    );
-    const level5 = await querysql(
-      "SELECT NOMBRE, CODIGO_INTERNO, NIVEL, CLAVE, PROYECTO  FROM adsc_level5"
-    );
-
-    const descentralizados = await querysql("SELECT NOMBRE, PROYECTO, CLAVE FROM descentralizado");
 
     const base = categorias.filter(
       (categoria) =>
@@ -109,63 +93,62 @@ employeeController.internalInformation = async (req, res) => {
     );
 
     const categorizedCategorias = { base, contrato, mandosMedios };
-    const departamentos = level3
-      .filter((item) => item.NIVEL === 5)
-      .concat(level4.filter((item) => item.NIVEL === 5))
-      .concat(level5);
 
-    const unidades = level4
-      .filter((item) => item.NIVEL === 4)
-      .concat(level3.filter((item) => item.NIVEL === 4))
-      .concat(level2.filter((item) => item.NIVEL === 4));
+    const proyectos = await querysql("SELECT a.nombre AS adscripcion, t.jerarquia, a.nivel, a.clave, f.nombre AS origen, p.proyecto, p.unidad_responsable, p.unidad_ejecutora, p.obra_actividad FROM adscripcion_proyecto ap JOIN adscripciones a ON ap.id_adscripcion = a.id_adscripcion JOIN aux_catalogo_adsc t ON a.tipo = t.id JOIN adscripciones f ON a.parent_id = f.id_adscripcion JOIN proyectos p ON ap.id_proyecto = p.id_proyecto ORDER BY a.nivel ASC;")
 
-    const direcciones = level3
-      .filter((item) => item.NIVEL === 3)
+    const groupedProyectos = {};
+    proyectos.forEach(row => {
+      const adscripcion = row.adscripcion;
+      const clave = row.clave;
+      const proyecto = row.proyecto;
+      const obra = {
+        obra_actividad: row.obra_actividad,
+        unidad_responsable: row.unidad_responsable,
+        unidad_ejecutora: row.unidad_ejecutora,
+      };
 
-      .concat(level2.filter((item) => item.NIVEL === 3));
-
-    const subsecretarias = level2.filter((item) => item.NIVEL === 2);
-
-    const adscripciones = [
-      subsecretarias,
-      direcciones,
-      unidades,
-      departamentos,
-      descentralizados
-    ];
-
-    let unidad_ejecutora = [];
-    unity_ejecutor.forEach((item) => {
-      let unidad = unidad_ejecutora.find(
-        (ue) => ue.nombre === item.UNIDAD_EJECUTORA
-      );
-      if (!unidad) {
-        unidad = {
-          nombre: item.UNIDAD_EJECUTORA,
-          proyectos: [],
+      if (!groupedProyectos[adscripcion]) {
+        groupedProyectos[adscripcion] = {
+          nombre: adscripcion,
+          proyectos: {},
+          nivel: row.nivel,
+          clave: clave
         };
-        unidad_ejecutora.push(unidad);
       }
 
-      let proyecto = unidad.proyectos.find(
-        (proyecto) => proyecto.nombre === item.PROYECTO
-      );
-      if (!proyecto) {
-        proyecto = {
-          no_proyecto: item.PROYECTO,
-          obras_actividades: [],
+      if (!groupedProyectos[adscripcion].proyectos[proyecto]) {
+        groupedProyectos[adscripcion].proyectos[proyecto] = {
+          no_proyecto: proyecto,
+          obras_actividades: []
         };
-        unidad.proyectos.push(proyecto);
       }
 
-      proyecto.obras_actividades.push({
-        obra_actividad: item.OBRA_ACTIVIDAD,
-        unidad_responsable: item.UNIDAD_RESPONSABLE,
-      });
+      groupedProyectos[adscripcion].proyectos[proyecto].obras_actividades.push(obra);
+    });
+
+    // Convertir el objeto agrupado a un arreglo
+    const groupedProyectosArray = Object.values(groupedProyectos).map(group => ({
+      nombre: group.nombre,
+      proyectos: Object.values(group.proyectos).sort((a, b) => a.no_proyecto.localeCompare(b.no_proyecto)),  // Ordenar proyectos por no_proyecto
+      nivel: group.nivel,
+      clave: group.clave
+    }));
+
+    const adscripciones = {
+      1: [],
+      2: [],
+      3: [],
+      4: [],
+      5: [],
+    };
+
+    groupedProyectosArray.forEach(item => {
+      if (adscripciones[item.nivel]) {
+        adscripciones[item.nivel].push(item);
+      }
     });
 
     const internalInformation = {
-      unidad_ejecutora,
       categorizedCategorias,
       adscripciones,
     };
