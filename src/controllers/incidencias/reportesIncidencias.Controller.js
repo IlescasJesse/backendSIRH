@@ -4,8 +4,8 @@ const { ObjectId } = require("mongodb");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
-const { DBFFile } = require('dbffile');
-const archiver = require('archiver');
+const { DBFFile } = require("dbffile");
+const archiver = require("archiver");
 const PizZip = require("pizzip");
 const fontPath = path.join(__dirname, "../../assets/fonts/Consolas.ttf");
 const fontPathArial = path.join(__dirname, "../../assets/fonts/arial.ttf");
@@ -161,7 +161,11 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
         });
         // Ordenar empleados del proyecto por RFC A-Z
         proyectosAgrupados[proyecto].sort((a, b) =>
-          (a.RFC || "").toString().localeCompare((b.RFC || "").toString(), "es", { sensitivity: "base" }),
+          (a.RFC || "")
+            .toString()
+            .localeCompare((b.RFC || "").toString(), "es", {
+              sensitivity: "base",
+            }),
         );
         (doc.text(
           "---------------------------------------------------------------------------------------",
@@ -258,7 +262,6 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
     filtro.AREA_RESP = Array.isArray(areaResp) ? { $in: areaResp } : areaResp;
   }
 
-
   // Filtro por rango de fechas usando FECHA_CAPTURA
   const normalizeFechaCaptura = (fecha) => {
     if (!fecha) return fecha;
@@ -276,38 +279,43 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
   const economicos_quincena = await query("PERMISOS_ECONOMICOS", filtro);
 
   if (!economicos_quincena || economicos_quincena.length === 0) {
-    return res.status(404).json({ message: "No se encontraron datos para la quincena especificada." });
+    return res.status(404).json({
+      message: "No se encontraron datos para la quincena especificada.",
+    });
   }
 
   try {
-    const outputDir = path.join(__dirname, '../../docs/reportes/p_economicos/');
+    const outputDir = path.join(__dirname, "../../docs/reportes/p_economicos/");
     fs.mkdirSync(outputDir, { recursive: true });
 
-    const dbfPath = path.join(outputDir, `ECONOMICOS_${areaResp === 'PLAN' ? 'SPIP' : 'SEFIN'}_${fechaDesde}_${fechaHasta}.dbf`);
+    const dbfPath = path.join(
+      outputDir,
+      `ECONOMICOS_${areaResp === "PLAN" ? "SPIP" : "SEFIN"}_${fechaDesde}_${fechaHasta}.dbf`,
+    );
     if (fs.existsSync(dbfPath)) fs.unlinkSync(dbfPath);
 
     const fields = [
-      { name: 'PBPRFC', type: 'C', size: 13 },
-      { name: 'PBPNOM', type: 'C', size: 80 },
-      { name: 'CPROCVE', type: 'C', size: 20 },
-      { name: 'CCATCVE', type: 'C', size: 20 },
-      { name: 'CMOTCVE', type: 'C', size: 5 },
-      { name: 'CGOCCVE', type: 'C', size: 5 },
-      { name: 'PBPFPI', type: 'D', size: 8 },
-      { name: 'PBPFPF', type: 'D', size: 8 },
-      { name: 'PBPNDP', type: 'N', size: 5, decs: 0 },
-      { name: 'DESCTOS', type: 'N', size: 10, decs: 2 },
-      { name: 'IMPORTE', type: 'N', size: 12, decs: 2 },
-      { name: 'INNOMINA', type: 'C', size: 10 },
-      { name: 'PBPOBS', type: 'C', size: 255 },
-      { name: 'CAPTURA', type: 'D', size: 8 },
-      { name: 'CNOMCVE', type: 'N', size: 5, decs: 0 },
-      { name: 'CTINCVE', type: 'N', size: 5, decs: 0 },
+      { name: "PBPRFC", type: "C", size: 13 },
+      { name: "PBPNOM", type: "C", size: 80 },
+      { name: "CPROCVE", type: "C", size: 20 },
+      { name: "CCATCVE", type: "C", size: 20 },
+      { name: "CMOTCVE", type: "C", size: 5 },
+      { name: "CGOCCVE", type: "C", size: 5 },
+      { name: "PBPFPI", type: "D", size: 8 },
+      { name: "PBPFPF", type: "D", size: 8 },
+      { name: "PBPNDP", type: "N", size: 5, decs: 0 },
+      { name: "DESCTOS", type: "N", size: 10, decs: 2 },
+      { name: "IMPORTE", type: "N", size: 12, decs: 2 },
+      { name: "INNOMINA", type: "C", size: 10 },
+      { name: "PBPOBS", type: "C", size: 255 },
+      { name: "CAPTURA", type: "D", size: 8 },
+      { name: "CNOMCVE", type: "N", size: 5, decs: 0 },
+      { name: "CTINCVE", type: "N", size: 5, decs: 0 },
     ];
 
     const parseAnyDate = (fechaStr) => {
       if (!fechaStr) return null;
-      const parts = fechaStr.split(/[\/\-]/).map(p => p.trim());
+      const parts = fechaStr.split(/[\/\-]/).map((p) => p.trim());
       if (parts.length !== 3) return null;
       if (parts[0].length === 4) {
         const y = parseInt(parts[0], 10);
@@ -324,36 +332,42 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
 
     // Extraer apellido para ordenar
     const extractApellido = (nombre) => {
-      if (!nombre) return '';
+      if (!nombre) return "";
       // Si contiene coma, tomar la parte antes de la coma (apellidos)
-      if (nombre.includes(',')) {
-        return nombre.split(',')[0].trim();
+      if (nombre.includes(",")) {
+        return nombre.split(",")[0].trim();
       }
       // Si no, tomar la primera palabra
       return nombre.split(/\s+/)[0];
     };
 
     let records = economicos_quincena.map((permiso) => ({
-      PBPRFC: permiso.RFC || '',
-      PBPNOM: permiso.NOMBRE || '',
-      CPROCVE: permiso.PROYECTO || '',
-      CCATCVE: permiso.CLAVECAT || '',
-      CMOTCVE: 'PEC',
-      CGOCCVE: 'CON',
+      PBPRFC: permiso.RFC || "",
+      PBPNOM: permiso.NOMBRE || "",
+      CPROCVE: permiso.PROYECTO || "",
+      CCATCVE: permiso.CLAVECAT || "",
+      CMOTCVE: "PEC",
+      CGOCCVE: "CON",
       PBPFPI: parseAnyDate(permiso.DESDE),
       PBPFPF: parseAnyDate(permiso.HASTA),
       PBPNDP: permiso.NUM_DIAS != null ? Number(permiso.NUM_DIAS) : 0,
       DESCTOS: 0,
       IMPORTE: 0,
-      INNOMINA: permiso.TIPONOM === 'F51' ? 'FORANEO' : permiso.TIPONOM === 'M51' ? 'CENTRAL' : '',
-      PBPOBS: '',
+      INNOMINA:
+        permiso.TIPONOM === "F51"
+          ? "FORANEO"
+          : permiso.TIPONOM === "M51"
+            ? "CENTRAL"
+            : "",
+      PBPOBS: "",
       CAPTURA: parseAnyDate(permiso.FECHA_CAPTURA),
-      CNOMCVE: permiso.TIPONOM === 'F51' ? 160 : permiso.TIPONOM === 'M51' ? 100 : 0,
+      CNOMCVE:
+        permiso.TIPONOM === "F51" ? 160 : permiso.TIPONOM === "M51" ? 100 : 0,
       CTINCVE: 1,
       apellido: extractApellido(permiso.NOMBRE), // campo temporal para ordenar
     }));
 
-    records.sort((a, b) => a.apellido.localeCompare(b.apellido, 'es'));
+    records.sort((a, b) => a.apellido.localeCompare(b.apellido, "es"));
 
     // Remover campo temporal
     records = records.map(({ apellido, ...rest }) => rest);
@@ -361,17 +375,26 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
     const dbf = await DBFFile.create(dbfPath, fields);
     await dbf.appendRecords(records);
 
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename=ECONOMICOS_${areaResp === 'PLAN' ? 'SPIP' : 'SEFIN'}_${fechaDesde}_${fechaHasta}.dbf`);
-    res.download(dbfPath, `ECONOMICOS_${areaResp === 'PLAN' ? 'SPIP' : 'SEFIN'}_${fechaDesde}_${fechaHasta}.dbf`, (err) => {
-      if (err) {
-        console.error('Error al descargar el DBF:', err);
-        return res.status(500).json({ message: 'Error al descargar el archivo.' });
-      }
-    });
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=ECONOMICOS_${areaResp === "PLAN" ? "SPIP" : "SEFIN"}_${fechaDesde}_${fechaHasta}.dbf`,
+    );
+    res.download(
+      dbfPath,
+      `ECONOMICOS_${areaResp === "PLAN" ? "SPIP" : "SEFIN"}_${fechaDesde}_${fechaHasta}.dbf`,
+      (err) => {
+        if (err) {
+          console.error("Error al descargar el DBF:", err);
+          return res
+            .status(500)
+            .json({ message: "Error al descargar el archivo." });
+        }
+      },
+    );
   } catch (error) {
-    console.error('Error al generar DBF:', error);
-    res.status(500).json({ message: 'Error al generar el DBF.' });
+    console.error("Error al generar DBF:", error);
+    res.status(500).json({ message: "Error al generar el DBF." });
   }
 };
 reportesIncidenciasController.printIndividualEconomicDays = async (
@@ -520,7 +543,11 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
 
         // Ordenar empleados del proyecto por RFC A-Z
         proyectosAgrupados[proyecto].sort((a, b) =>
-          (a.RFC || "").toString().localeCompare((b.RFC || "").toString(), "es", { sensitivity: "base" }),
+          (a.RFC || "")
+            .toString()
+            .localeCompare((b.RFC || "").toString(), "es", {
+              sensitivity: "base",
+            }),
         );
 
         (doc.text(
@@ -616,7 +643,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
   const plantillaCentral = await query("PLANTILLA", {});
   const plantillaForanea = await query("PLANTILLA_FORANEA", {});
   const plantillaMap = new Map(
-    [...plantillaCentral, ...plantillaForanea].map(p => [
+    [...plantillaCentral, ...plantillaForanea].map((p) => [
       String(p.ID_CTRL_ASIST),
       p,
     ]),
@@ -697,8 +724,9 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -735,19 +763,19 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -789,7 +817,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
       const { TURNOMAT = "", TURNOVES = "" } = plantillaMap.get(ctrl) || {};
 
       const tieneTurnoVesp = Boolean(
-        TURNOVES && String(TURNOVES).trim() !== ""
+        TURNOVES && String(TURNOVES).trim() !== "",
       );
 
       if (rowCount === 17) {
@@ -885,6 +913,15 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     AREA_RESP: "AUD",
   });
 
+  const plantillaCentral = await query("PLANTILLA", {});
+  const plantillaForanea = await query("PLANTILLA_FORANEA", {});
+  const plantillaMap = new Map(
+    [...plantillaCentral, ...plantillaForanea].map((p) => [
+      String(p.ID_CTRL_ASIST),
+      p,
+    ]),
+  );
+
   // Filtrar resultados para incluir solo los proyectos especificados
   const filteredIncidencias = incidencias_auditoria;
   const doc = new PDFDocument();
@@ -959,8 +996,9 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -997,19 +1035,19 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -1047,6 +1085,13 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     // Dibujar filas con datos, limitando a 17 filas por página
     let rowCount = 0;
     filteredIncidencias.forEach((incidencia) => {
+      const ctrl = String(incidencia.ID_CTRL_ASIST || "");
+      const { TURNOMAT = "", TURNOVES = "" } = plantillaMap.get(ctrl) || {};
+
+      const tieneTurnoVesp = Boolean(
+        TURNOVES && String(TURNOVES).trim() !== "",
+      );
+
       if (rowCount === 17) {
         doc.addPage();
 
@@ -1073,7 +1118,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
         const replacements = {
           A: "F",
           B: "FR",
-          E: "RM",
+          E: tieneTurnoVesp ? "RV" : "RM",
           V: "MD",
           // Agregar más reemplazos según sea necesario
         };
@@ -1121,9 +1166,10 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     doc.moveDown(2);
     doc.text("ACOTACIONES:", 30, y + rowHeight + 10);
     doc.text("F = FALTA", 30, y + rowHeight + 25);
-    doc.text("FR = FALTA POR RETARDO ", 100, y + rowHeight + 25);
-    doc.text("RM = RETARDO MATUTINO", 250, y + rowHeight + 25);
-    doc.text("MD = MEDIA DÍA", 450, y + rowHeight + 25);
+    doc.text("FR = FALTA POR RETARDO", 125, y + rowHeight + 25);
+    doc.text("RM = RETARDO MATUTINO", 270, y + rowHeight + 25);
+    doc.text("RV = RETARDO VESPERTINO", 413, y + rowHeight + 25);
+    doc.text("MD = MEDIA DÍA", 30, y + rowHeight + 37);
 
     doc.end();
   } catch (error) {
@@ -1138,6 +1184,15 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     QUINCENA: parseInt(quin, 10),
     AREA_RESP: "PLAN",
   });
+
+  const plantillaCentral = await query("PLANTILLA", {});
+  const plantillaForanea = await query("PLANTILLA_FORANEA", {});
+  const plantillaMap = new Map(
+    [...plantillaCentral, ...plantillaForanea].map((p) => [
+      String(p.ID_CTRL_ASIST),
+      p,
+    ]),
+  );
 
   // Filtrar resultados para incluir solo los proyectos especificados
   const filteredIncidencias = incidencias_planeacion;
@@ -1213,8 +1268,9 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
             : "28"
           : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+        monthNames[month - 1]
+      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1251,19 +1307,19 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
+          (i + 1).toString().padStart(2, "0"),
+        )
       : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
+          {
+            length:
+              new Date(
+                new Date().getFullYear(),
+                parseInt(quin / 2),
+                0,
+              ).getDate() - 15,
+          },
+          (_, i) => (i + 16).toString().padStart(2, "0"),
+        );
 
     // Encabezado de la tabla
     const tableHeaders = [
@@ -1301,6 +1357,12 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     // Dibujar filas con datos, limitando a 17 filas por página
     let rowCount = 0;
     filteredIncidencias.forEach((incidencia) => {
+      const ctrl = String(incidencia.ID_CTRL_ASIST || "");
+      const { TURNOMAT = "", TURNOVES = "" } = plantillaMap.get(ctrl) || {};
+
+      const tieneTurnoVesp = Boolean(
+        TURNOVES && String(TURNOVES).trim() !== "",
+      );
       if (rowCount === 17) {
         doc.addPage();
 
@@ -1327,7 +1389,7 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
         const replacements = {
           A: "F",
           B: "FR",
-          E: "RM",
+          E: tieneTurnoVesp ? "RV" : "RM",
           V: "MD",
           // Agregar más reemplazos según sea necesario
         };
@@ -1375,9 +1437,10 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
     doc.moveDown(2);
     doc.text("ACOTACIONES:", 30, y + rowHeight + 10);
     doc.text("F = FALTA", 30, y + rowHeight + 25);
-    doc.text("FR = FALTA POR RETARDO ", 100, y + rowHeight + 25);
-    doc.text("RM = RETARDO MATUTINO", 250, y + rowHeight + 25);
-    doc.text("MD = MEDIA DÍA", 450, y + rowHeight + 25);
+    doc.text("FR = FALTA POR RETARDO", 125, y + rowHeight + 25);
+    doc.text("RM = RETARDO MATUTINO", 270, y + rowHeight + 25);
+    doc.text("RV = RETARDO VESPERTINO", 413, y + rowHeight + 25);
+    doc.text("MD = MEDIA DÍA", 30, y + rowHeight + 37);
 
     doc.end();
   } catch (error) {
@@ -1455,8 +1518,9 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1682,8 +1746,9 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -1909,8 +1974,9 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
           : "28"
         : new Date(year, month, 0).getDate();
 
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${
+      monthNames[month - 1]
+    } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
   };
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
@@ -2066,19 +2132,25 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
 reportesIncidenciasController.printRetardosDbf = async (req, res) => {
   try {
     const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
-    const areaResp = req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
+    const areaResp =
+      req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
 
     const filtro = { QUINCENA: parseInt(quin, 10) };
-    if (areaResp) filtro.AREA_RESP = Array.isArray(areaResp) ? { $in: areaResp } : areaResp;
+    if (areaResp)
+      filtro.AREA_RESP = Array.isArray(areaResp) ? { $in: areaResp } : areaResp;
 
     const incidencias = await query("INCIDENCIAS", filtro);
     if (!incidencias || incidencias.length === 0) {
-      return res.status(404).json({ message: "No se encontraron datos para la quincena especificada." });
+      return res.status(404).json({
+        message: "No se encontraron datos para la quincena especificada.",
+      });
     }
 
     const plantilla = await query("PLANTILLA", {});
-    const plantillaMap = new Map(plantilla.map(u => [String(u.ID_CTRL_ASIST), u]));
-    incidencias.forEach(i => {
+    const plantillaMap = new Map(
+      plantilla.map((u) => [String(u.ID_CTRL_ASIST), u]),
+    );
+    incidencias.forEach((i) => {
       const p = plantillaMap.get(String(i.ID_CTRL_ASIST));
       if (p) {
         i.NUEMP = p.NUMEMP || i.NUEMP;
@@ -2087,41 +2159,44 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
       }
     });
 
-    const outputDir = path.join(__dirname, '../../docs/reportes/inasistencias_auditoria/');
+    const outputDir = path.join(
+      __dirname,
+      "../../docs/reportes/inasistencias_auditoria/",
+    );
     fs.mkdirSync(outputDir, { recursive: true });
 
     const dbfPath = path.join(outputDir, `PRUEBA${quin}.dbf`);
-    const dbtPath = dbfPath.replace(/\.dbf$/i, '.dbt');
+    const dbtPath = dbfPath.replace(/\.dbf$/i, ".dbt");
     if (fs.existsSync(dbfPath)) fs.unlinkSync(dbfPath);
     if (fs.existsSync(dbtPath)) fs.unlinkSync(dbtPath);
 
     const fields = [
-      { name: 'PBPRFC', type: 'C', size: 13 },
-      { name: 'PBPNUE', type: 'N', size: 8, decimalPlaces: 0 },
-      { name: 'CPROCVE', type: 'C', size: 17 },
-      { name: 'PBPNOM', type: 'C', size: 35 },
-      { name: 'CCATCVE', type: 'C', size: 7 },
-      { name: 'CNOMCVE', type: 'N', size: 3, decimalPlaces: 0 },
-      { name: 'CTINCVE', type: 'N', size: 2, decimalPlaces: 0 },
-      { name: 'PBPIMS', type: 'C', size: 11 },
+      { name: "PBPRFC", type: "C", size: 13 },
+      { name: "PBPNUE", type: "N", size: 8, decimalPlaces: 0 },
+      { name: "CPROCVE", type: "C", size: 17 },
+      { name: "PBPNOM", type: "C", size: 35 },
+      { name: "CCATCVE", type: "C", size: 7 },
+      { name: "CNOMCVE", type: "N", size: 3, decimalPlaces: 0 },
+      { name: "CTINCVE", type: "N", size: 2, decimalPlaces: 0 },
+      { name: "PBPIMS", type: "C", size: 11 },
 
-      { name: 'INAIMAT', type: 'N', size: 5, decimalPlaces: 1 },
-      { name: 'INAIVES', type: 'N', size: 3, decimalPlaces: 0 },
-      { name: 'INARMAT', type: 'N', size: 5, decimalPlaces: 1 },
-      { name: 'INARVES', type: 'N', size: 3, decimalPlaces: 0 },
+      { name: "INAIMAT", type: "N", size: 5, decimalPlaces: 1 },
+      { name: "INAIVES", type: "N", size: 3, decimalPlaces: 0 },
+      { name: "INARMAT", type: "N", size: 5, decimalPlaces: 1 },
+      { name: "INARVES", type: "N", size: 3, decimalPlaces: 0 },
 
-      { name: 'INASTAT', type: 'L', size: 1 },
-      { name: 'INAINDIC', type: 'N', size: 2, decimalPlaces: 0 },
-      { name: 'INACONFC', type: 'C', size: 1 },
-      { name: 'IMSS_ANT', type: 'C', size: 11 },
-      { name: 'CURP', type: 'C', size: 18 },
-      { name: 'EXTERNO', type: 'C', size: 1 },
-      { name: 'INHORARIO', type: 'C', size: 1 },
+      { name: "INASTAT", type: "L", size: 1 },
+      { name: "INAINDIC", type: "N", size: 2, decimalPlaces: 0 },
+      { name: "INACONFC", type: "C", size: 1 },
+      { name: "IMSS_ANT", type: "C", size: 11 },
+      { name: "CURP", type: "C", size: 18 },
+      { name: "EXTERNO", type: "C", size: 1 },
+      { name: "INHORARIO", type: "C", size: 1 },
     ];
 
-    const extractApellido = (nombre = '') => {
-      if (!nombre) return '';
-      if (nombre.includes(',')) return nombre.split(',')[0].trim();
+    const extractApellido = (nombre = "") => {
+      if (!nombre) return "";
+      if (nombre.includes(",")) return nombre.split(",")[0].trim();
       return nombre.split(/\s+/)[0];
     };
 
@@ -2129,60 +2204,81 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
       return Number(Number(value || 0).toFixed(decimals));
     }
 
-    let records = incidencias.map(incidencia => {
+    let records = incidencias.map((incidencia) => {
       const incidenciasDias = incidencia.INCIDENCIAS || {};
-      const valoresDias = Object.values(incidenciasDias).map(v => (v == null ? '' : String(v).toUpperCase()));
-      const tieneBA = valoresDias.some(v => v === 'B' || v === 'A');
+      const valoresDias = Object.values(incidenciasDias).map((v) =>
+        v == null ? "" : String(v).toUpperCase(),
+      );
+      const tieneBA = valoresDias.some((v) => v === "B" || v === "A");
 
       return {
-        PBPRFC: incidencia.RFC || '',
+        PBPRFC: incidencia.RFC || "",
         PBPNUE: Number.parseInt(incidencia.NUEMP, 10) || 0,
-        CPROCVE: incidencia.PROYECTO || '',
-        PBPNOM: incidencia.NOMBRE || '',
-        CCATCVE: incidencia.CLAVECAT || '',
-        CNOMCVE: Number(incidencia.TIPONOM === 'F51' || incidencia.TIPONOM === 'FCT' || incidencia.TIPONOM === 'FCO' || incidencia.TIPONOM === 'F53' ? 160 : incidencia.TIPONOM === 'M51' || incidencia.TIPONOM === 'CCT' || incidencia.TIPONOM === '511' || incidencia.TIPONOM === 'M53' ? 100 : 0) || 0,
-        CTINCVE: Number(incidencia.TIPONOM === 'F51' || incidencia.TIPONOM === 'M51' ? 1 : 3) || 0,
-        PBPIMS: incidencia.AFILIACI ? String(incidencia.AFILIACI).substring(0, 11) : '',
-        INAIMAT: toDecimal(
-          incidencia.CONTADORES_REPORTE?.INASISTENCIAS,
-          1
-        ),
+        CPROCVE: incidencia.PROYECTO || "",
+        PBPNOM: incidencia.NOMBRE || "",
+        CCATCVE: incidencia.CLAVECAT || "",
+        CNOMCVE:
+          Number(
+            incidencia.TIPONOM === "F51" ||
+              incidencia.TIPONOM === "FCT" ||
+              incidencia.TIPONOM === "FCO" ||
+              incidencia.TIPONOM === "F53"
+              ? 160
+              : incidencia.TIPONOM === "M51" ||
+                  incidencia.TIPONOM === "CCT" ||
+                  incidencia.TIPONOM === "511" ||
+                  incidencia.TIPONOM === "M53"
+                ? 100
+                : 0,
+          ) || 0,
+        CTINCVE:
+          Number(
+            incidencia.TIPONOM === "F51" || incidencia.TIPONOM === "M51"
+              ? 1
+              : 3,
+          ) || 0,
+        PBPIMS: incidencia.AFILIACI
+          ? String(incidencia.AFILIACI).substring(0, 11)
+          : "",
+        INAIMAT: toDecimal(incidencia.CONTADORES_REPORTE?.INASISTENCIAS, 1),
 
         INAIVES: 0,
 
-        INARMAT: toDecimal(
-          incidencia.CONTADORES_REPORTE?.RETARDOS,
-          1
-        ),
+        INARMAT: toDecimal(incidencia.CONTADORES_REPORTE?.RETARDOS, 1),
         INARVES: Number(0),
         INASTAT: Boolean(tieneBA),
         INAINDIC: Number(0),
-        INACONFC: '',
-        IMSS_ANT: '',
-        CURP: '',
-        EXTERNO: 'C',
-        INHORARIO: '',
+        INACONFC: "",
+        IMSS_ANT: "",
+        CURP: "",
+        EXTERNO: "C",
+        INHORARIO: "",
         apellido: extractApellido(incidencia.NOMBRE),
       };
     });
 
-    records.sort((a, b) => a.apellido.localeCompare(b.apellido, 'es'));
+    records.sort((a, b) => a.apellido.localeCompare(b.apellido, "es"));
     records = records.map(({ apellido, ...rest }) => rest);
 
     const dbf = await DBFFile.create(dbfPath, fields, { fileCode: 0x03 });
     await dbf.appendRecords(records);
 
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename=PRUEBA${quin}.dbf`);
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=PRUEBA${quin}.dbf`,
+    );
     return res.download(dbfPath, `PRUEBA${quin}.dbf`, (err) => {
       if (err) {
-        console.error('Error al descargar el DBF:', err);
-        return res.status(500).json({ message: 'Error al descargar el archivo.' });
+        console.error("Error al descargar el DBF:", err);
+        return res
+          .status(500)
+          .json({ message: "Error al descargar el archivo." });
       }
     });
   } catch (error) {
-    console.error('Error al generar DBF:', error);
-    return res.status(500).json({ message: 'Error al generar el DBF.' });
+    console.error("Error al generar DBF:", error);
+    return res.status(500).json({ message: "Error al generar el DBF." });
   }
 };
 reportesIncidenciasController.getReportStatus = async (req, res) => {
@@ -2468,8 +2564,10 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     doc.moveDown(3);
 
     doc.text(
-      `CONFORME Al STATUS DE ${statusText} SE ${empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
-      } UN TOTAL DE: ${empleadosFiltrados.length} ${empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
+      `CONFORME Al STATUS DE ${statusText} SE ${
+        empleadosFiltrados.length > 1 ? "ENCONTRARÓN" : "ENCONTRÓ"
+      } UN TOTAL DE: ${empleadosFiltrados.length} ${
+        empleadosFiltrados.length > 1 ? "EMPLEADOS" : "EMPLEADO"
       }`,
       doc.page.margins.left,
       y + 10,
