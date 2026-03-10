@@ -346,7 +346,7 @@ employeeController.getEmployee = async (req, res) => {
   }
 };
 employeeController.updateProyect = async (req, res) => {
-  const { _id, PROYECTO, ADSCRIPCION, AREA_RESP } = req.body;
+  const { _id, PROYECTO, ADSCRIPCION, AREA_RESP, CLAVE } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
@@ -372,7 +372,7 @@ employeeController.updateProyect = async (req, res) => {
     const result = await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
-      { $set: { PROYECTO, ADSCRIPCION, AREA_RESP } },
+      { $set: { PROYECTO, ADSCRIPCION, AREA_RESP, CLAVE } },
     );
     await insertOne("HSY_PROYECTOS", hsy_data);
 
