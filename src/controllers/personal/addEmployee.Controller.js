@@ -7,6 +7,8 @@ const path = require("path");
 const { PDFDocument, StandardFonts } = require("pdf-lib");
 const { createNotification } = require("../../services/notification.service");
 const { permission } = require("process");
+const PizZip = require("pizzip");
+const Docxtemplater = require("docxtemplater");
 
 employeeController = {};
 
@@ -294,9 +296,8 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.DOMICILIO || ""} ${data?.DIRECCION.NUM_EXT || ""} ${
-    data?.DIRECCION.COLONIA || ""
-  } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = `${data?.DIRECCION.DOMICILIO || ""} ${data?.DIRECCION.NUM_EXT || ""} ${data?.DIRECCION.COLONIA || ""
+    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.DOMICILIO || "";
@@ -304,9 +305,8 @@ employeeController.makeProposal = async (req, res) => {
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
   const [year, month, day] = FECHA_INGRESO.split("-");
-  const FECHA_FORMATTED = `${day} DE ${
-    months[parseInt(month, 10) - 1]
-  } DE ${year}`;
+  const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
+    } DE ${year}`;
 
   let templateData = {};
   let LEVEL1 = "";
@@ -395,9 +395,8 @@ employeeController.makeProposal = async (req, res) => {
     FECHA_IMSS_FORMATTED = "DESCONOCIDO";
   } else {
     [yearIMSS, monthIMSS, dayIMSS] = FECHA_INGRESO_IMSS.split("-");
-    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${
-      months[parseInt(monthIMSS, 10) - 1]
-    } DE ${parseInt(yearIMSS, 10)}`;
+    FECHA_IMSS_FORMATTED = `${parseInt(dayIMSS, 10)} DE ${months[parseInt(monthIMSS, 10) - 1]
+      } DE ${parseInt(yearIMSS, 10)}`;
   }
 
   const SEXO = data.SEXO ? data.SEXO : "";
@@ -1215,7 +1214,7 @@ employeeController.reinstallEmployee = async (req, res) => {
       });
     }
   } catch (error) {
-    res.status(500).json({ message: "Error reincoorporar al empleado", error });
+    res.status(500).json({ message: "Error reincoorporar al empleado", error: error.message });
   }
 };
 module.exports = employeeController;

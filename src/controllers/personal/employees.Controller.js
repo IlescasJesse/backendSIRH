@@ -46,12 +46,39 @@ employeeController.getProfileData = async (req, res) => {
       hsy_status,
     };
     // Buscar el empleado por su ID
-    const employee = await query("PLANTILLA", {
-      _id: new ObjectId(id),
-      $or: [{ STATUS: 1 }, { STATUS: 2 }, { status: 1 }, { status: 2 }],
-    });
+    // const employee = await query("PLANTILLA", {
+    //   _id: new ObjectId(id),
+    //   $or: [{ STATUS: 1 }, { STATUS: 2 }, { status: 1 }, { status: 2 }],
+    // });
+    // if (!employee || employee.length === 0) {
+    //   return res.status(404).json({ message: "Empleado no encontrado" });
+    // }
+
+    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(id), $or: [{ STATUS: 1 }, { STATUS: 2 }, { status: 1 }, { status: 2 }] }),
+      query("LICENCIAS", { _id: new ObjectId(id), $or: [{ status: 1 }] }),
+    ]);
+
+    const employee = employeePlantilla.length
+      ? employeePlantilla
+      : employeeForanea.length
+        ? employeeForanea
+        : [];
+
     if (!employee || employee.length === 0) {
-      return res.status(404).json({ message: "Empleado no encontrado" });
+      res.status(404).send({ error: "No data found" });
+      return;
+    }
+
+    const licenciaActiva = await query("LICENCIAS", {
+      _id: new ObjectId(id),
+      status: 1,
+    });
+
+    if (licenciaActiva && licenciaActiva.length > 0) {
+      employee[0].LICENCIA_ACTIVA = true;
+    } else {
+      employee[0].LICENCIA_ACTIVA = false;
     }
 
     if (employee[0].DIRECCION) {
@@ -263,7 +290,7 @@ employeeController.getProfileData = async (req, res) => {
     // Enviar la respuesta con los datos del empleado
     res.json(employee[0]);
   } catch (error) {
-    console.error(error?.message , error?.stack);
+    console.error(error?.message, error?.stack);
     res.status(500).json({ message: "Error al buscar el empleado", error: error.message ?? String(error) });
   }
 };
