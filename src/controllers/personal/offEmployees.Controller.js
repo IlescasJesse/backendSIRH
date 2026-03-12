@@ -22,54 +22,19 @@ offEmployeeController.getVacants = async (req, res) => {
 };
 
 offEmployeeController.getDatatoOff = async (req, res) => {
-  const { query: searchQuery } = req.params;
-  if (!/^[A-Z0-9]{18}$/.test(searchQuery)) {
-    return res.status(500).json({ message: "CURP inválida" });
-  }
+  const { _id } = req.params;
 
   try {
-    let empleados;
-    const queryDivided = searchQuery.split(" ");
+    const [empleadosPlantilla = [], empleadosForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(_id), status: 1 }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(_id), status: 1 }),
+    ]);
 
-    if (searchQuery) {
-      const regexQueries = [
-        { CURP: { $regex: searchQuery, $options: "i" } },
-        { NOMBRES: { $regex: searchQuery, $options: "i" } },
-        { APE_MAT: { $regex: searchQuery, $options: "i" } },
-        { APE_PAT: { $regex: searchQuery, $options: "i" } },
-      ];
+    const empleados = [...empleadosPlantilla, ...empleadosForanea];
 
-      if (queryDivided.length > 1) {
-        regexQueries.push({
-          $or: [
-            {
-              $and: [
-                { APE_MAT: { $regex: queryDivided[0], $options: "i" } },
-                { APE_PAT: { $regex: queryDivided[1], $options: "i" } },
-              ],
-            },
-            {
-              $and: [
-                { APE_MAT: { $regex: queryDivided[1], $options: "i" } },
-                { APE_PAT: { $regex: queryDivided[0], $options: "i" } },
-              ],
-            },
-            {
-              $and: [
-                { NOMBRES: { $regex: queryDivided[0], $options: "i" } },
-                { APE_PAT: { $regex: queryDivided[1], $options: "i" } },
-              ],
-            },
-          ],
-        });
-      }
+    const categoria = await querysql(`SELECT * FROM categorias_catalogo WHERE CLAVE_CATEGORIA = '${empleados[0].CLAVECAT}'`);
 
-      empleados = await query("PLANTILLA", { $or: regexQueries });
-    } else {
-      empleados = await query("PLANTILLA", {});
-    }
-    const arrayUnires = await querysql("SELECT * FROM unidad_responsable");
-    const arrayCategorias = await querysql("SELECT * FROM categorias_catalogo");
+    const proyecto = await querysql(`SELECT * FROM proyectos WHERE proyecto = '${empleados[0].PROYECTO}'`);
 
     const licenses = await query("LICENCIAS", {
       NUMPLA: empleados[0].NUMPLA,
@@ -96,20 +61,15 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       DOMICILIO: emp.DOMICILIO
         ? emp.DOMICILIO
         : emp.DIRECCION?.DOMICILIO ||
-          `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${
-            emp.DIRECCION?.MUNICIPIO || ""
-          }, ${emp.DIRECCION?.ESTADO || ""}`,
+        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
+        }, ${emp.DIRECCION?.ESTADO || ""}`,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
-      CATEGORIA_DESCRIPCION:
-        arrayCategorias.find((cat) => cat.CLAVE_CATEGORIA === emp.CLAVECAT)
-          ?.DESCRIPCION || "No encontrado",
+      CATEGORIA_DESCRIPCION: categoria[0]?.DESCRIPCION || "No encontrado",
       NIVEL: emp.NIVEL,
       PROYECTO: emp.PROYECTO,
-      UNIDAD_RESPONSABLE:
-        arrayUnires.find((uni) => uni.PROYECTO === emp.PROYECTO)
-          ?.UNIDAD_RESPONSABLE || "No encontrado",
+      UNIDAD_RESPONSABLE: proyecto ? proyecto[0].unidad_responsable : "No encontrado",
       TIPONOM: emp.TIPONOM,
       SEXO: emp.SEXO,
       FECHA_INGRESO: emp.FECHA_INGRESO,
@@ -317,9 +277,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
   const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${
-    months[date.getMonth()]
-  } DE ${date.getFullYear()}`;
+  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
+    } DE ${date.getFullYear()}`;
 
   if (lastTipoNom === "F51" || lastTipoNom === "M51") {
     relacionB = true;
@@ -480,9 +439,8 @@ offEmployeeController.getDataLicenses = async (req, res) => {
     if (licenses.length > 0) {
       if (ocupante.length > 0 && ocupante[0].CURP) {
         let OCUPANTE = {
-          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${
-            ocupante[0]?.APE_MAT || ""
-          } ${ocupante[0]?.NOMBRES || ""}`.trim(),
+          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${ocupante[0]?.APE_MAT || ""
+            } ${ocupante[0]?.NOMBRES || ""}`.trim(),
         };
         res
           .status(404)
@@ -519,9 +477,8 @@ offEmployeeController.getLicenses = async (req, res) => {
             plantilla && plantilla[0] && plantilla[0].CURP,
           );
           let OCUPANTE = {
-            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${
-              plantilla[0]?.APE_MAT || ""
-            } ${plantilla[0]?.NOMBRES || ""}`.trim(),
+            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${plantilla[0]?.APE_MAT || ""
+              } ${plantilla[0]?.NOMBRES || ""}`.trim(),
           };
           if (OCUPANTE_ACTIVO) {
             return { ...lic, OCUPANTE };

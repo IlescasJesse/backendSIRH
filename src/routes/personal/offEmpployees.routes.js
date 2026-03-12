@@ -4,7 +4,7 @@ const offEmployeeController = require("../../controllers/personal/offEmployees.C
 const verifyToken = require("../../middleware/authMiddleware");
 
 router.post(
-  "/getDataOff/:query",
+  "/getDataOff/:_id",
   verifyToken,
   offEmployeeController.getDatatoOff
 );

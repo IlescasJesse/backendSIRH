@@ -25,6 +25,7 @@ const permisosExtController = {};
 permisosExtController.getProfile = async (req, res) => {
   const id = req.params.id;
   const user = req.user;
+  const currentYear = moment().year();
 
   try {
     const hsy_proyectos = await query("HSY_PROYECTOS", {
@@ -72,14 +73,33 @@ permisosExtController.getProfile = async (req, res) => {
     });
     emp.bitacora = bitacora;
 
+    const permits = await query("PERMISOS_ECONOMICOS", {
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
+      AÑO: currentYear,
+    });
     const permisosExt = await query("PERMISOS_EXT", {
       ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
     });
+    const justificantes = await query("JUSTIFICACIONES", {
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
+    });
+    const incapacidades = await query("INCAPACIDADES", {
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
+    });
+    const comisiones = await query("COMISIONES", {
+      ID_CTRL_ASIST: new ObjectId(emp.ID_CTRL_ASIST) || [],
+    });
+
+
     emp.historial = historial;
 
     const ASIST_PROFILE = {
       employee: [emp],
+      permisos: permits,
+      justificantes: justificantes,
+      incapacidades: incapacidades,
       permisosExt: permisosExt,
+      comisiones: comisiones,
     };
     const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
     const userAction = {
