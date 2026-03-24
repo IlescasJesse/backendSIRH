@@ -33,7 +33,6 @@ offEmployeeController.getDatatoOff = async (req, res) => {
     const empleados = [...empleadosPlantilla, ...empleadosForanea];
 
     const categoria = await querysql(`SELECT * FROM categorias_catalogo WHERE CLAVE_CATEGORIA = '${empleados[0].CLAVECAT}'`);
-
     const proyecto = await querysql(`SELECT * FROM proyectos WHERE proyecto = '${empleados[0].PROYECTO}'`);
 
     const licenses = await query("LICENCIAS", {
@@ -89,16 +88,7 @@ offEmployeeController.getDatatoOff = async (req, res) => {
 offEmployeeController.saveDataOff = async (req, res) => {
   const { data } = req.body;
   const user = req.user;
-  console.log("[offEmployees.saveDataOff] Inicio", {
-    usuario: user?.username || "N/A",
-    curp: data?.CURP || null,
-    id_employee: data?.id_employee || null,
-    numpla: data?.NUMPLA || null,
-    discharge_date: data?.discharge_date || null,
-    reason: data?.reason || null,
-    PROCESADO_recibido: data?.PROCESADO,
-    tipo_PROCESADO: typeof data?.PROCESADO,
-  });
+
   const currentYear = new Date().getFullYear();
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",

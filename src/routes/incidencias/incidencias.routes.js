@@ -113,5 +113,10 @@ router.post(
   verifyToken,
   incidenciasController.printAsistenceCards
 );
+router.post(
+  "/getAllEmployeesByStatus",
+  verifyToken,
+  incidenciasController.getAllEmployeesByStatus
+);
 
 module.exports = router;

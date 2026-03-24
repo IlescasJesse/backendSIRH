@@ -339,16 +339,15 @@ router.get("/bajas/pendientes", async (req, res) => {
           // Información del empleado desde PLANTILLA (si existe)
           empleado: empleado
             ? {
-                _id: empleado._id ? empleado._id.toString() : null,
-                nombre: `${empleado.NOMBRES || ""} ${empleado.APE_PAT || ""} ${
-                  empleado.APE_MAT || ""
+              _id: empleado._id ? empleado._id.toString() : null,
+              nombre: `${empleado.NOMBRES || ""} ${empleado.APE_PAT || ""} ${empleado.APE_MAT || ""
                 }`.trim(),
-                NUMEMP: empleado.NUMEMP ? String(empleado.NUMEMP) : null,
-                status:
-                  empleado.status !== null && empleado.status !== undefined
-                    ? Number(empleado.status)
-                    : null,
-              }
+              NUMEMP: empleado.NUMEMP ? String(empleado.NUMEMP) : null,
+              status:
+                empleado.status !== null && empleado.status !== undefined
+                  ? Number(empleado.status)
+                  : null,
+            }
             : null,
 
           // Indicadores
@@ -490,6 +489,7 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
             NACIONALIDAD: null,
             PARENTESCO: null,
             TEL_CASA: null,
+            NUMPLA_ORIGEN: null,
           },
         },
       );

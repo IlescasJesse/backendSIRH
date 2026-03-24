@@ -33,4 +33,10 @@ router.post(
   reportesPersonalController.getBajasBetweenDates,
 );
 
+router.post(
+  "/getPlantillaReportArea",
+  verifyToken,
+  reportesPersonalController.getPlantillaReportArea,
+);
+
 module.exports = router;

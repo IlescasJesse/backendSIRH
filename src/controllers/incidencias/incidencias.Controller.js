@@ -18,6 +18,7 @@ const {
   isBefore,
 } = require("date-fns");
 const { es } = require("date-fns/locale");
+const { querysql } = require("../../config/mysql");
 const getCustomQuarter = (date) => {
   const month = moment(date, "YYYY-MM-DD").month() + 1;
   if (month >= 1 && month <= 4) return 1;
@@ -370,15 +371,7 @@ incidenciasController.getProfile = async (req, res) => {
 incidenciasController.updateStatusEmployee = async (req, res) => {
   const data = req.body;
   const user = req.user;
-  const STATUS_EMPLEADO = {
-    FOLIO: data.FOLIO || "",
-    STATUS: data.STATUS,
-    LUGAR_COMISIONADO: data.LUGAR_COMISIONADO,
-    DESDE: data.DESDE,
-    HASTA: data.HASTA,
-    OBSERVACIONES: data.OBSERVACIONES,
-    PROYECTO: data.PROYECTO || "",
-  };
+  const STATUS_EMPLEADO = data.STATUS_EMPLEADO; // Ahora es un arreglo de objetos de estado
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
@@ -409,23 +402,27 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
       ? "PLANTILLA"
       : "PLANTILLA_FORANEA";
 
-    const prevStatus = result[0].STATUS_EMPLEADO || {};
-    const hsy_data = {
-      ...STATUS_EMPLEADO,
-      currentDateTime,
-      last_status: prevStatus.STATUS || null,
-      last_lugarComisionado: prevStatus.LUGAR_COMISIONADO || null,
-      last_desde: prevStatus.DESDE || null,
-      last_hasta: prevStatus.HASTA || null,
-      last_proyecto: prevStatus.PROYECTO || null,
-      last_folio: prevStatus.FOLIO || null,
-      id_employee: new ObjectId(data._id),
-    };
-    delete hsy_data._id;
+    const prevStatus = result[0].STATUS_EMPLEADO || []; // Ahora asumimos que es un arreglo (o vacío si es objeto/undefined)
 
-    await insertOne("HSY_STATUS_EMPLEADO", hsy_data);
+    // Iterar sobre cada estado en el nuevo STATUS_EMPLEADO
+    for (let i = 0; i < STATUS_EMPLEADO.length; i++) {
+      const status = STATUS_EMPLEADO[i];
+      const hsy_data = {
+        ...status, // Extender el objeto de estado actual
+        currentDateTime,
+        last_status: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].STATUS : (prevStatus.STATUS || null),
+        last_lugarComisionado: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].LUGAR_COMISIONADO : (prevStatus.LUGAR_COMISIONADO || null),
+        last_desde: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].DESDE : (prevStatus.DESDE || null),
+        last_hasta: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].HASTA : (prevStatus.HASTA || null),
+        last_proyecto: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].PROYECTO : (prevStatus.PROYECTO || null),
+        last_folio: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].FOLIO : (prevStatus.FOLIO || null),
+        id_employee: new ObjectId(data._id),
+      };
+      delete hsy_data._id; // Remover si está presente
+      await insertOne("HSY_STATUS_EMPLEADO", hsy_data);
+    }
 
-    const updateFields = { STATUS_EMPLEADO };
+    const updateFields = { STATUS_EMPLEADO }; // Ahora el arreglo completo
     if (data.AREA_RESP !== undefined && data.AREA_RESP !== null) {
       updateFields.AREA_RESP = data.AREA_RESP;
     }
@@ -1012,9 +1009,9 @@ incidenciasController.updateEconomicPermit = async (req, res) => {
       currentQuarter === 1
         ? false
         : permits.some(
-            (p) =>
-              p.CUATRIMESTRE === previousQuarter && p._id.toString() !== _id,
-          );
+          (p) =>
+            p.CUATRIMESTRE === previousQuarter && p._id.toString() !== _id,
+        );
 
     // Si no hay permisos en el cuatrimestre anterior, permitir acumulación a 6 días
     if (!hasPreviousQuarterPermits && currentQuarter !== 1) {
@@ -1557,7 +1554,14 @@ incidenciasController.getAllEmployeesByArea = async (req, res) => {
       status: 1,
       NUMTARJETA: { $exists: true, $nin: [null, ""] },
       TIPONOM: { $nin: ["FMM", "MMS"] },
-      "STATUS_EMPLEADO.STATUS": { $nin: ["EXIMA", "COM_LAB"] },
+
+      STATUS_EMPLEADO: {
+        $not: {
+          $elemMatch: {
+            STATUS: { $in: ["EXIMA", "COM_LAB"] }
+          }
+        }
+      }
     };
 
     const [plantilla = [], foranea = []] = await Promise.all([
@@ -1599,6 +1603,129 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       .status(404)
       .json({ message: "No hay empleados para los parámetros especificados" });
   }
+
+  // ===============================
+  // OBTENER ADSCRIPCIONES DE MYSQL
+  // ===============================
+  const adscripciones = await querysql(
+    "SELECT id_adscripcion, nombre, nivel, parent_id FROM adscripciones"
+  );
+
+  const mapaAdscripciones = {};
+
+  adscripciones.forEach((a) => {
+    mapaAdscripciones[a.id_adscripcion] = a;
+  });
+
+  // departamentos que NO deben subir
+  const departamentosEspeciales = [
+    "DEPARTAMENTO DE RECURSOS HUMANOS",
+    "DEPARTAMENTO DE RECURSOS FINANCIEROS",
+    "DEPARTAMENTO DE RECURSOS MATERIALES",
+    "DEPARTAMENTO DE SERVICIOS GENERALES",
+    "DEPARTAMENTO DE SERVICIOS CENTRALES",
+    "DEPARTAMENTO DE SEGUIMIENTO ADMINISTRATIVO",
+  ];
+
+  // función para obtener adscripción correcta
+  function obtenerAdscripcionNivel3(nombreAdscripcion) {
+    const ads = Object.values(mapaAdscripciones).find((a) =>
+      a.nombre.toUpperCase().includes(nombreAdscripcion.toUpperCase())
+    );
+
+    if (!ads) return nombreAdscripcion;
+
+    if (
+      departamentosEspeciales.some((dep) =>
+        ads.nombre.toUpperCase().includes(dep)
+      )
+    ) {
+      return ads.nombre;
+    }
+
+    if (ads.nivel <= 3) {
+      return ads.nombre;
+    }
+
+    let actual = ads;
+    let nivel2 = null
+
+    while (actual.parent_id && mapaAdscripciones[actual.parent_id]) {
+      const padre = mapaAdscripciones[actual.parent_id];
+
+      if (padre.nivel === 3) {
+        return padre.nombre;
+      }
+
+      if (padre.nivel === 2) {
+        nivel2 = padre;
+      }
+
+      actual = padre;
+    }
+
+    // si no encontró nivel 3 usar nivel 2
+    if (nivel2) {
+      return nivel2.nombre;
+    }
+
+    return ads.nombre;
+  }
+
+  const abreviaturasAdscripciones = {
+    "DIRECCIÓN ADMINISTRATIVA": "DIREC. ADMINISTRATIVA",
+    "DEPARTAMENTO DE RECURSOS HUMANOS": "DEPTO. DE REC. HUMANOS",
+    "DEPARTAMENTO DE RECURSOS FINANCIEROS": "DEPTO. DE REC. FINANCIEROS",
+    "DEPARTAMENTO DE RECURSOS MATERIALES": "DEPTO. DE REC. MATERIALES",
+    "DEPARTAMENTO DE SERVICIOS GENERALES": "DEPTO. DE SERV. GENERALES",
+    "DEPARTAMENTO DE SEGUIMIENTO ADMINISTRATIVO": "DEPTO. DE SEG. ADMINISTRATIVO",
+
+    "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA": "SUBSRIA. DE EGRESOS, CONT. Y TES.",
+    "DIRECCIÓN DE CONTABILIDAD GUBERNAMENTAL": "DIREC. DE CONTABILIDAD GUB.",
+    "DIRECCIÓN DE PRESUPUESTO": "DIREC. DE PRESUPUESTO",
+    "TESORERÍA": "TESORERÍA",
+
+    "SUBSECRETARÍA DE INGRESOS": "SUBSRIA. DE INGRESOS",
+    "DIRECCIÓN DE INGRESOS Y RECAUDACIÓN": "DIREC. DE INGRESOS Y REC.",
+    "DIRECCIÓN DE AUDITORÍA E INSPECCIÓN FISCAL": "DIREC. DE AUD. E INS. FISCAL",
+
+    "PROCURADURÍA FISCAL": "PROC. FISCAL",
+    "DIRECCIÓN DE NORMATIVIDAD Y ASUNTOS JURÍDICOS": "DIREC. DE NORM. Y ASUN. JURÍ.",
+    "DIRECCIÓN DE LO CONTENCIOSO": "DIREC. DE LO CONTENCIOSO",
+
+    "SUBSECRETARÍA DE PLANEACIÓN E INVERSIÓN PÚBLICA": "SUBSRIA. DE PLAN. E INV. PUB.",
+    "DIRECCIÓN DE PLANEACIÓN ESTATAL": "DIREC. DE PLAN. ESTATAL",
+    "DIRECCIÓN DE PROGRAMACIÓN DE LA INVERSIÓN PÚBLICA": "DIREC. DE PROG. DE LA INV. PÚBLICA",
+    "DIRECCIÓN DE SEGUIMIENTO A LA INVERSIÓN PÚBLICA": "DIREC. DE SEG. A LA INV. PÚBLICA",
+
+    "DIRECCIÓN DE LA INSTANCIA TÉCNICA DE EVALUACIÓN": "DIREC. DE LA INST. TÉC. DE EVAL.",
+
+    "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS"
+  };
+
+  function abreviarAdscripcion(nombre) {
+
+    if (!nombre) return "";
+
+    const nombreUpper = nombre.toUpperCase();
+
+    if (abreviaturasAdscripciones[nombreUpper]) {
+      return abreviaturasAdscripciones[nombreUpper];
+    }
+
+    return nombre; // si no existe abreviatura, deja el nombre original
+  }
+
+  // aplicar a los empleados
+  employees = employees.map((emp) => {
+    const adscripcion = obtenerAdscripcionNivel3(emp.ADSCRIPCION);
+    return {
+      ...emp,
+      ADSCRIPCION: abreviarAdscripcion(adscripcion),
+    }
+  });
+
+
   try {
     const {
       employees: employeesBody,
@@ -1655,183 +1782,9 @@ incidenciasController.printAsistenceCards = async (req, res) => {
     const docWidth = 8.1 * 28.35;
     const docHeight = 18.3 * 28.35;
 
-    // ...existing code...
-    const abreviarAdscripcion = (texto) => {
-      if (!texto) return "";
-      let original = String(texto).trim();
-
-      // Detect and extract trailing single-letter, possibly quoted (preserve quotes)
-      let trailing = "";
-      const quotedTrailing = original.match(/(['"])\s*([A-Za-z])\s*\1$/);
-      if (quotedTrailing) {
-        // keep quotes around the letter exactly as in source
-        const quote = quotedTrailing[1];
-        const letter = quotedTrailing[2].toUpperCase();
-        trailing = `${quote}${letter}${quote}`;
-        original = original.slice(0, quotedTrailing.index).trim();
-      } else {
-        const simpleTrailing = original.match(/\s+([A-Za-z])\s*$/);
-        if (simpleTrailing) {
-          trailing = simpleTrailing[1].toUpperCase();
-          original = original.replace(/\s+[A-Za-z]\s*$/, "").trim();
-        }
-      }
-
-      // Force DPTO. prefix when starts with DEPARTAMENTO / DEPARTAMENTAL (keep any following DE/DEL)
-      const deptMatch = original.match(
-        /^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i,
-      );
-      if (deptMatch) {
-        const rest = original
-          .replace(/^(DEPARTAMENTO|DEPARTAMENTAL)\b\s*(DE|DEL)?\s*/i, "")
-          .trim();
-        original = rest ? `DPTO. DE ${rest}` : "DPTO.";
-      }
-
-      const upper = original.toUpperCase();
-
-      const exact = {
-        "SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA":
-          "SUBSEC. DE EGRESOS, CONT. Y TES.",
-        "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE":
-          "COORD. DE C.I.A.C.",
-        "COORDINACION DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE":
-          "COORD. DE C.I.A.C.",
-        "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE": "C.I.A.C.",
-        "MODULO DE ATENCIÓN AL CONTRIBUYENTE": "M.A.C.",
-        "MÓDULO DE ATENCIÓN AL CONTRIBUYENTE": "M.A.C.",
-        "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)":
-          "OTORG. DE SERV. ADMINISTRATIVOS",
-      };
-
-      for (const k of Object.keys(exact)) {
-        if (upper.startsWith(k)) {
-          const resto = original.substring(k.length).trim();
-          const out = (exact[k] + (resto ? " " + resto : "")).toUpperCase();
-          return trailing ? `${out} ${trailing}` : out;
-        }
-      }
-
-      const palabrasAbrevia = {
-        SUBSECRETARÍA: "SUBSEC.",
-        SUBSECRETARIA: "SUBSEC.",
-        PROCURADURÍA: "PROCUR.",
-        PROCURADURIA: "PROCUR.",
-        DIRECCIÓN: "DIREC.",
-        DIRECCION: "DIREC.",
-        COORDINACIÓN: "COORD.",
-        COORDINACION: "COORD.",
-        DEPARTAMENTO: "DPTO.",
-        DEPARTAMENTAL: "DPTO.",
-        REVISIÓN: "REV.",
-        REVISION: "REV.",
-        ANÁLISIS: "ANÁ.",
-        ANALISIS: "ANÁ.",
-        SECTOR: "SECT.",
-        PARAESTATAL: "PA.",
-        SERVICIOS: "SERV.",
-        RECURSOS: "REC.",
-        GUBERNAMENTAL: "GUB.",
-        RECAUDACIÓN: "REC.",
-        RECAUDACION: "REC.",
-        OTORGAMIENTO: "OTOR.",
-        SANTA: "STA.",
-      };
-
-      let resultado = original;
-      for (const [palabra, abrev] of Object.entries(palabrasAbrevia)) {
-        const regex = new RegExp(`\\b${palabra}\\b`, "gi");
-        resultado = resultado.replace(regex, abrev);
-      }
-
-      // Normalize spaces and uppercase
-      resultado = resultado.replace(/\s+/g, " ").trim().toUpperCase();
-
-      // If fits, return (preserve trailing letter/quotes)
-      if (resultado.length <= 35)
-        return trailing ? `${resultado} ${trailing}` : resultado;
-
-      // Compression rules
-      const omit = new Set([
-        "DE",
-        "DEL",
-        "LA",
-        "LAS",
-        "EL",
-        "LOS",
-        "Y",
-        "AL",
-        "DELA",
-        "PARA",
-      ]);
-
-      // Split into parts (clean punctuation)
-      const parts = resultado
-        .replace(/[.,()]/g, "")
-        .split(/\s+/)
-        .map((p) => p.trim())
-        .filter(Boolean);
-
-      const hasDptoPrefix =
-        parts[0] && parts[0].toUpperCase().startsWith("DPTO");
-
-      // Preferred compressed form: keep "DPTO. DE" and then take first two letters of each meaningful word joined by dots
-      if (hasDptoPrefix) {
-        // Determine start index after prefix and optional DE
-        let startIdx = 1;
-        if (parts[1] && parts[1].toUpperCase() === "DE") startIdx = 2;
-
-        const meaningful = parts
-          .slice(startIdx)
-          .filter((p) => !omit.has(p.toUpperCase()));
-        if (meaningful.length > 0) {
-          const twoLetterTokens = meaningful.map((p) => {
-            const clean = p.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // remove accents
-            return clean.slice(0, 2).toUpperCase();
-          });
-          const candidateCore = `${twoLetterTokens.join(".")}`;
-          const candidate = `DPTO. DE ${candidateCore}.`;
-          if (candidate.length <= 35)
-            return trailing ? `${candidate} ${trailing}` : candidate;
-          // If still too long, try initials (no extra dots after trailing)
-          const initials = meaningful.map((p) => p[0].toUpperCase()).join(".");
-          const cand2 = `DPTO. DE ${initials}.`;
-          if (cand2.length <= 60)
-            return trailing ? `${cand2} ${trailing}` : cand2;
-        }
-      }
-
-      // Generic tight compression: keep 'omit' tokens (DE, etc.) and abbreviate others to two letters + "."
-      const tight = parts.map((p, idx) => {
-        const up = p.toUpperCase();
-        if (omit.has(up)) return up;
-        if (up.endsWith(".")) return up;
-        const clean = p.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        return clean.slice(0, 2).toUpperCase() + ".";
-      });
-
-      let compressed = tight.join(" ");
-
-      // If still over limit, ultra-compact: keep DPTO. prefix if present, then initials of meaningful words
-      if (compressed.length > 35) {
-        const meaningful = parts.filter((p, i) => {
-          const up = p.toUpperCase();
-          if (i === 0 && hasDptoPrefix) return false;
-          return !omit.has(up);
-        });
-        const initials =
-          meaningful.map((p) => p[0].toUpperCase()).join(".") + ".";
-        const prefix = hasDptoPrefix ? "DPTO. DE" : "";
-        compressed = prefix ? `${prefix} ${initials}` : initials;
-      }
-
-      return trailing ? `${compressed} ${trailing}` : compressed;
-    };
-    // ...existing code...
-
     employees = employees.map((emp) => ({
       ...emp,
-      STATUS_EMPLEADO: emp.STATUS_EMPLEADO || {},
+      STATUS_EMPLEADO: Array.isArray(emp.STATUS_EMPLEADO) ? emp.STATUS_EMPLEADO : [],
     }));
 
     const ordenarPorTarjeta = (a, b) => {
@@ -1840,20 +1793,20 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       return numA - numB;
     };
 
+    function hasStatus(emp, statuses) {
+      const statusArray = emp.STATUS_EMPLEADO || [];
+      return statusArray.some(s => statuses.includes(s.STATUS));
+    }
+
     const comisionados = employees
-      .filter(
-        (emp) =>
-          emp.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
-          emp.STATUS_EMPLEADO?.STATUS === "COM_LAB",
+      .filter(emp =>
+        hasStatus(emp, ["COM_SDCL", "COM_LAB"])
       )
       .sort(ordenarPorTarjeta);
+
     const noComisionados = employees
-      .filter(
-        (emp) =>
-          !(
-            emp.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
-            emp.STATUS_EMPLEADO?.STATUS === "COM_LAB"
-          ),
+      .filter(emp =>
+        !hasStatus(emp, ["COM_SDCL", "COM_LAB"])
       )
       .sort(ordenarPorTarjeta);
 
@@ -1922,7 +1875,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
           comisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
             const cardNumber = record.NUMTARJETA || "";
-            const area = abreviarAdscripcion(record.ADSCRIPCION) || "";
+            const area = record.ADSCRIPCION || "";
             const name =
               `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
             const REL_L =
@@ -2037,10 +1990,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             });
 
             // COMISIONADO
-            if (
-              record.STATUS_EMPLEADO?.STATUS === "COM_SDCL" ||
-              record.STATUS_EMPLEADO?.STATUS === "COM_LAB"
-            ) {
+            if (hasStatus(record, ["COM_SDCL", "COM_LAB"])) {
               doc
                 .save()
                 .fontSize(22)
@@ -2099,7 +2049,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             if (index > 0) doc.addPage();
 
             const cardNumber = record.NUMTARJETA || "";
-            const area = abreviarAdscripcion(record.ADSCRIPCION) || "";
+            const area = record.ADSCRIPCION || "";
             const name =
               `${record.APE_PAT || ""} ${record.APE_MAT || ""} ${record.NOMBRES || ""}`.trim();
             const REL_L =
@@ -2248,6 +2198,49 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       message: "Error generating cards",
       error: err.message,
     });
+  }
+};
+
+incidenciasController.getAllEmployeesByStatus = async (req, res) => {
+  const { status } = req.body;
+  let queryCondition;
+
+  queryCondition = {
+    STATUS_EMPLEADO: {
+      $elemMatch: { STATUS: status }
+    }
+  };
+
+  try {
+    const employees = await query("PLANTILLA", queryCondition);
+
+    if (!employees || employees.length === 0) {
+      return res.status(404).json({ message: "No hay empleados con el status especificado" });
+    }
+
+    let empleadosFiltrados = employees;
+    empleadosFiltrados = empleadosFiltrados
+      .map((emp) => ({
+        _id: emp._id,
+        NOMBRE: `${emp.APE_PAT || ""} ${emp.APE_MAT || ""} ${emp.NOMBRES || ""}`.trim(),
+        ADSCRIPCION: emp.ADSCRIPCION || "",
+        TIPONOM: emp.TIPONOM || "",
+        NUMTARJETA: emp.NUMTARJETA || "",
+        NUMPLA: emp.NUMPLA || "",
+        NUMEMP: emp.NUMEMP || "",
+        STATUS_EMPLEADO: (emp.STATUS_EMPLEADO || [])
+          .filter((s) => s.STATUS === status),
+      }))
+      .sort((a, b) => {
+        const numA = Number(a.NUMTARJETA) || 0;
+        const numB = Number(b.NUMTARJETA) || 0;
+        return numB - numA;
+      });
+
+    res.status(200).json(empleadosFiltrados);
+  } catch (error) {
+    console.error("Error al obtener empleados:", error.message);
+    res.status(500).json({ message: "Error al obtener la información." });
   }
 };
 

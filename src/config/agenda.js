@@ -144,6 +144,7 @@ agenda.define("bajasExtemporaneas", async (job) => {
             NACIONALIDAD: null,
             PARENTESCO: null,
             TEL_CASA: null,
+            NUMPLA_ORIGEN: null,
           };
 
           let plantillaResult = null;

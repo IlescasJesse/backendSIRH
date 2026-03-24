@@ -96,12 +96,44 @@ employeeController.internalInformation = async (req, res) => {
 
     const categorizedCategorias = { base, contrato, mandosMedios };
 
-    const proyectos = await querysql("SELECT a.nombre AS adscripcion, t.jerarquia, a.nivel, a.clave, f.nombre AS origen, p.proyecto, p.unidad_responsable, p.unidad_ejecutora, p.obra_actividad FROM adscripcion_proyecto ap JOIN adscripciones a ON ap.id_adscripcion = a.id_adscripcion JOIN aux_catalogo_adsc t ON a.tipo = t.id JOIN adscripciones f ON a.parent_id = f.id_adscripcion JOIN proyectos p ON ap.id_proyecto = p.id_proyecto ORDER BY a.nivel ASC;")
+    const proyectos = await querysql(`
+    SELECT 
+      a.nombre AS adscripcion, 
+      t.jerarquia, 
+      a.nivel, 
+      a.clave, 
+      f.nombre AS origen, 
+      p.proyecto, 
+      p.unidad_responsable, 
+      p.unidad_ejecutora, 
+      p.obra_actividad 
+    FROM adscripciones a
+    LEFT JOIN adscripcion_proyecto ap ON ap.id_adscripcion = a.id_adscripcion
+    LEFT JOIN proyectos p ON ap.id_proyecto = p.id_proyecto
+    JOIN aux_catalogo_adsc t ON a.tipo = t.id
+    LEFT JOIN adscripciones f ON a.parent_id = f.id_adscripcion
+    ORDER BY a.nivel ASC
+    `);
 
     const groupedProyectos = {};
     proyectos.forEach(row => {
       const adscripcion = row.adscripcion;
       const clave = row.clave;
+
+      // Si no hay proyecto, solo añade la adscripción sin proyectos
+      if (!row.proyecto) {
+        if (!groupedProyectos[adscripcion]) {
+          groupedProyectos[adscripcion] = {
+            nombre: adscripcion,
+            proyectos: {},
+            nivel: row.nivel,
+            clave: clave
+          };
+        }
+        return; // Salta al siguiente
+      }
+
+      // Si hay proyecto, procesa normalmente
       const proyecto = row.proyecto;
       const obra = {
         obra_actividad: row.obra_actividad,
@@ -255,7 +287,7 @@ employeeController.makeProposal = async (req, res) => {
       meses[date.getMonth()].charAt(0).toUpperCase() +
       meses[date.getMonth()].slice(1).toLowerCase();
     const year = date.getFullYear();
-    return `Oaxaca de Juárez, Oax. ${day} de ${monthNameCapitalized} de ${year}`;
+    return `Oaxaca de Juárez, Oax.${day} de ${monthNameCapitalized} de ${year}`;
   }
 
   let fechaHoyDate = new Date(); // fallback si FECHA_INGRESO inválida
@@ -276,7 +308,7 @@ employeeController.makeProposal = async (req, res) => {
   const ID_PLAZA = data.ID_PLAZA ? data.ID_PLAZA : "";
   const monthNameCapitalized =
     monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase();
-  // const FECHA_HOY = `Oaxaca de Juárez, Oax. ${dayToday} de ${monthNameCapitalized} de ${yeartoday}`;
+  // const FECHA_HOY = `Oaxaca de Juárez, Oax.${ dayToday } de ${ monthNameCapitalized } de ${ yeartoday }`;
   const RFC = data.RFC ? data.RFC : "";
   const NUMPLA = data.NUMPLA ? data.NUMPLA : "";
   const CURP = data.CURP ? data.CURP : "";
@@ -505,8 +537,12 @@ employeeController.makeProposal = async (req, res) => {
       RFC: RFC,
       CURP: CURP,
       NUMPLA: NUMPLA,
-      NOMBRE_COMPLETO: `${APE_PAT} ${APE_MAT} ${NOMBRES} `.trim(),
-      SUSTITUYE: `${APE_PAT_OCUPANT} ${APE_MAT_OCUPANT} ${NOM_OCUPANT}`.trim(),
+      APE_PAT: APE_PAT,
+      APE_MAT: APE_MAT,
+      NOMBRES: NOMBRES,
+      APE_PAT_OCUPANT: APE_PAT_OCUPANT,
+      APE_MAT_OCUPANT: APE_MAT_OCUPANT,
+      NOM_OCUPANT: NOM_OCUPANT,
       UNI_EJECU: UNI_EJECU,
       CLAVE_PRESUPUESTAL: CLAVE_PRESUPUESTAL,
       C_TRABAJO: C_TRABAJO,
@@ -547,7 +583,7 @@ employeeController.makeProposal = async (req, res) => {
           fld.setText(String(value || ""));
         } catch (err) {
           console.warn(
-            `No se pudo rellenar el campo "${pdfFieldName}":`,
+            `No se pudo rellenar el campo "${pdfFieldName}": `,
             err.message || err,
           );
         }
@@ -595,7 +631,7 @@ employeeController.makeProposal = async (req, res) => {
     // Enviar el archivo al cliente
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=ALTA_${data.CURP}.pdf`,
+      `attachment; filename = ALTA_${data.CURP}.pdf`,
     );
     res.setHeader("Content-Type", "application/pdf");
     return res.status(200).sendFile(outputPath);
@@ -610,13 +646,13 @@ employeeController.makeProposal = async (req, res) => {
 employeeController.downloadAlta = async (req, res) => {
   const { curp } = req.params;
 
-  const filePath = path.resolve(__dirname, `../../docs/altas/ALTA_${curp}.pdf`);
+  const filePath = path.resolve(__dirname, `../../ docs / altas / ALTA_${curp}.pdf`);
 
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ message: "Archivo no encontrado" });
   }
 
-  res.setHeader("Content-Disposition", `attachment; filename=ALTA_${curp}.pdf`);
+  res.setHeader("Content-Disposition", `attachment; filename = ALTA_${curp}.pdf`);
   res.setHeader("Content-Type", "application/pdf");
   res.status(200).sendFile(filePath);
 };
@@ -652,7 +688,7 @@ employeeController.saveEmployee = async (req, res) => {
   const userAction = {
     username: user.username,
     module: "PSL-PRO",
-    action: `SE GUARDO NUEVO EMPLEADO:  "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+    action: `SE GUARDO NUEVO EMPLEADO: "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
     timestamp: currentDateTime,
   };
 
@@ -673,9 +709,9 @@ employeeController.saveEmployee = async (req, res) => {
       {
         $set: {
           OCUPANTE: {
-            APE_PAT: `${data.APE_PAT || ""}`,
-            APE_MAT: `${data.APE_MAT || ""}`,
-            NOMBRES: `${data.NOMBRES || ""}`,
+            APE_PAT: `${data.APE_PAT || ""} `,
+            APE_MAT: `${data.APE_MAT || ""} `,
+            NOMBRES: `${data.NOMBRES || ""} `,
           },
         },
       },
@@ -1173,7 +1209,7 @@ employeeController.reinstallEmployee = async (req, res) => {
 
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=${data.CURP}.docx`,
+        `attachment; filename = ${data.CURP}.docx`,
       );
       res.setHeader(
         "Content-Type",

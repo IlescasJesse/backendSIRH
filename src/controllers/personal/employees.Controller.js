@@ -81,6 +81,16 @@ employeeController.getProfileData = async (req, res) => {
       employee[0].LICENCIA_ACTIVA = false;
     }
 
+    const faceRecognition = await query("VECTORES_FACIALES", {
+      employeeId: new ObjectId(id),
+    });
+
+    if (faceRecognition && faceRecognition.length > 0) {
+      employee[0].FACE_RECOGNITION = true;
+    } else {
+      employee[0].FACE_RECOGNITION = false;
+    }
+
     if (employee[0].DIRECCION) {
       employee[0].DIRECCION_COMPLETA = `${employee[0].DIRECCION.DOMICILIO} ${employee[0].DIRECCION.NUM_EXT}, ${employee[0].DIRECCION.COLONIA}, ${employee[0].DIRECCION.MUNICIPIO} ${employee[0].DIRECCION.ESTADO}.`;
       employee[0].CP = employee[0].DIRECCION.CP;
@@ -90,7 +100,7 @@ employeeController.getProfileData = async (req, res) => {
 
     // Buscar el estado de la plaza del empleado
     const status_plaza = await query("PLAZAS", {
-      NUMPLA: employee[0].NUMPLA,
+      NUMPLA: employee[0].NUMPLA_ORIGEN ? employee[0].NUMPLA_ORIGEN : employee[0].NUMPLA,
     });
 
     if (!status_plaza || status_plaza.length === 0) {
@@ -431,7 +441,7 @@ employeeController.updateProyect = async (req, res) => {
   }
 };
 employeeController.recategorizeEmployee = async (req, res) => {
-  const { _id, CLAVECAT, NOMCATE, NIVEL, TIPONOM } = req.body;
+  const { _id, NUMPLA, CLAVECAT, NOMCATE, NIVEL, TIPONOM } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
@@ -444,10 +454,18 @@ employeeController.recategorizeEmployee = async (req, res) => {
       return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
+    let NUMPLA_ORIGEN = employee[0].NUMPLA_ORIGEN;
+
+    // Si NO tiene plaza origen, se asigna la actual (la primera con la que entró)
+    if (!NUMPLA_ORIGEN) {
+      NUMPLA_ORIGEN = employee[0].NUMPLA;
+    }
+
     const fullName = `${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}`;
     const hsy_data = {
       ...req.body,
       currentDateTime,
+      last_numpla: employee[0].NUMPLA,
       last_clavecat: employee[0].CLAVECAT,
       last_nomcate: employee[0].NOMCATE,
       last_level: employee[0].NIVEL,
@@ -458,7 +476,7 @@ employeeController.recategorizeEmployee = async (req, res) => {
     const result = await updateOne(
       "PLANTILLA",
       { _id: new ObjectId(_id) },
-      { $set: { CLAVECAT, NOMCATE, NIVEL, TIPONOM } },
+      { $set: { NUMPLA, CLAVECAT, NOMCATE, NIVEL, TIPONOM, NUMPLA_ORIGEN } },
     );
     await insertOne("HSY_RECATEGORIZACIONES", hsy_data);
 
@@ -467,9 +485,7 @@ employeeController.recategorizeEmployee = async (req, res) => {
     }
 
     if (result.modifiedCount === 0) {
-      return res
-        .status(404)
-        .json({ message: "Empleado no encontrado o sin cambios" });
+      return res.status(404).json({ message: "Empleado no encontrado o sin cambios" });
     }
 
     // Registrar la acción del usuario
@@ -481,9 +497,7 @@ employeeController.recategorizeEmployee = async (req, res) => {
     };
     await insertOne("USER_ACTIONS", userAction);
 
-    res
-      .status(200)
-      .json({ message: "Empleado actualizado correctamente", _id });
+    res.status(200).json({ message: "Empleado actualizado correctamente", _id });
   } catch (error) {
     console.error("Error al actualizar el empleado:", error);
     res.status(500).json({ message: "Error al actualizar el empleado", error });
@@ -589,13 +603,7 @@ employeeController.getEmployeeCount = async (req, res) => {
   };
 
   try {
-    // Obtener empleados activos de ambas colecciones
-    const [empleadosPlantilla = [], empleadosForanea = []] = await Promise.all([
-      query("PLANTILLA", { $or: [{ STATUS: 1 }, { status: 1 }] }),
-      query("PLANTILLA_FORANEA", { $or: [{ STATUS: 1 }, { status: 1 }] }),
-    ]);
-
-    const todosEmpleados = [...empleadosPlantilla, ...empleadosForanea];
+    const todosEmpleados = await query("PLANTILLA", { status: 1 });
 
     // Contar por tipo de nombramiento
     const conteo = {};

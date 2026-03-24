@@ -87,10 +87,8 @@ app.use(
   require("./routes/incidencias/incidencias.routes")
 );
 //rutas para permisos extraordinarios
-app.use(
-  "/api/permisos-ext",
-  require("./routes/permisos-ext/permisosExt.routes")
-);
+app.use("/api/permisos-ext", require("./routes/permisos-ext/permisosExt.routes"));
+app.use("/api/permisos-ext", require("./routes/permisos-ext/reportes.routes"));
 //rutas para vacaciones
 app.use("/api/vacaciones", require("./routes/vacaciones/vacaciones.routes"));
 //rutas para gafetes

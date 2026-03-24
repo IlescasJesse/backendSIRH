@@ -2,8 +2,9 @@ const { query } = require("../../config/mongo");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
-
+const { querysql } = require("../../config/mysql");
 const PizZip = require("pizzip");
+const { ro } = require("date-fns/locale");
 const fontPath = path.join(__dirname, "../../assets/fonts/Consolas.ttf");
 const reportesPersonalController = {};
 
@@ -81,17 +82,17 @@ reportesPersonalController.getReportVacants = async (req, res) => {
     vacants.sort((a, b) => {
       const nameA = a.status_plaza?.previousOcuppants?.length
         ? (
-            a.status_plaza.previousOcuppants[
-              a.status_plaza.previousOcuppants.length - 1
-            ].NOMBRE || ""
-          ).toUpperCase()
+          a.status_plaza.previousOcuppants[
+            a.status_plaza.previousOcuppants.length - 1
+          ].NOMBRE || ""
+        ).toUpperCase()
         : "";
       const nameB = b.status_plaza?.previousOcuppants?.length
         ? (
-            b.status_plaza.previousOcuppants[
-              b.status_plaza.previousOcuppants.length - 1
-            ].NOMBRE || ""
-          ).toUpperCase()
+          b.status_plaza.previousOcuppants[
+            b.status_plaza.previousOcuppants.length - 1
+          ].NOMBRE || ""
+        ).toUpperCase()
         : "";
       return nameA.localeCompare(nameB);
     });
@@ -271,8 +272,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
       }
 
       doc.text(
-        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${vacants.length} ${
-          vacants.length > 1 ? "VACANTES" : "VACANTES ACTIVAS"
+        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${vacants.length} ${vacants.length > 1 ? "VACANTES" : "VACANTES ACTIVAS"
         }.`,
         doc.page.margins.left,
         y + 10,
@@ -309,7 +309,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
   const doc = new PDFDocument({ layout: "landscape", margin: 40 });
   const { RESPONSABLE } = req.body;
   try {
-    const licenses = await query("LICENCIAS", {});
+    const licenses = await query("LICENCIAS", { status: 1 });
     if (!licenses || licenses.length === 0) {
       return res.status(500).json({ licenses });
     }
@@ -492,8 +492,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
       }
 
       doc.text(
-        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${
-          licenses.length
+        `CONFORME A LA BÚSQUEDA SE ENCONTRARON EL TOTAL DE: ${licenses.length
         } ${licenses.length > 1 ? "LICENCIAS ACTIVAS" : "LICENCIA ACTIVA"}.`,
         doc.page.margins.left,
         y + 10,
@@ -582,30 +581,48 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
   if (CLAVE) {
     if (Array.isArray(CLAVE)) {
       filtro.CLAVE = { $in: CLAVE };
-      claveText = `${
-        CLAVE.length > 1 ? "LAS CLAVES" : "LA CLAVE"
-      } "${CLAVE.join(", ")}"`;
+      claveText = `${CLAVE.length > 1 ? "LAS CLAVES" : "LA CLAVE"
+        } "${CLAVE.join(", ")}"`;
     } else {
       filtro.CLAVE = CLAVE;
       claveText = `LA CLAVE "${CLAVE}"`;
     }
   }
   if (STATUS_EMPLEADO) {
+
     if (STATUS_EMPLEADO === "ACTIVO") {
+
       filtro["$or"] = [
+        { STATUS_EMPLEADO: { $exists: false } },
         { STATUS_EMPLEADO: null },
-        { "STATUS_EMPLEADO.STATUS": null },
+        { STATUS_EMPLEADO: { $size: 0 } },
+        {
+          STATUS_EMPLEADO: {
+            $not: {
+              $elemMatch: {
+                STATUS: { $ne: null }
+              }
+            }
+          }
+        }
       ];
+
       statusText = `EL STATUS DE "ACTIVO"`;
+
     } else {
-      filtro["STATUS_EMPLEADO.STATUS"] = STATUS_EMPLEADO;
-      if (STATUS_EMPLEADO === "COM_SDCL")
-        statusText = `EL STATUS DE "COMISIONADO AL SINDICATO"`;
-      else if (STATUS_EMPLEADO === "COM_LAB")
-        statusText = `EL STATUS DE "COMISIONADO LABORALMENTE"`;
-      else if (STATUS_EMPLEADO === "ASIG_LAB")
-        statusText = `EL STATUS DE "ASIGNADO LABORALMENTE"`;
-      else if (STATUS_EMPLEADO === "EXIMA") statusText = `EL STATUS DE "EXIMA"`;
+
+      filtro.STATUS_EMPLEADO = {
+        $elemMatch: { STATUS: STATUS_EMPLEADO }
+      };
+
+      const statusMap = {
+        COM_SDCL: "COMISIONADO AL SINDICATO",
+        COM_LAB: "COMISIONADO LABORALMENTE",
+        ASIG_LAB: "ASIGNADO LABORALMENTE",
+        EXIMA: "EXIMA"
+      };
+
+      statusText = `EL STATUS DE "${statusMap[STATUS_EMPLEADO] || STATUS_EMPLEADO}"`;
     }
   }
   filtro.status = 1;
@@ -657,9 +674,8 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
         return edad >= minEdad && edad <= maxEdad;
       });
     }
-    edadText = `LA EDAD ENTRE "${
-      match ? `${match[1]} A ${match[2]} AÑOS"` : ""
-    }`;
+    edadText = `LA EDAD ENTRE "${match ? `${match[1]} A ${match[2]} AÑOS"` : ""
+      }`;
   }
 
   empleadosFiltrados = empleadosFiltrados
@@ -672,9 +688,9 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       ADSCRIPCION: emp.ADSCRIPCION,
       NOMCATE: emp.NOMCATE,
       FECHA_NAC: emp.FECHA_NAC,
-      STATUS_EMPLEADO: emp?.STATUS_EMPLEADO?.STATUS || "",
+      STATUS_EMPLEADO: emp?.STATUS_EMPLEADO || [],
     }))
-    .sort((a, b) => a.NOMBRE.localeCompare(b.NOMBRE));
+    .sort((a, b) => b.NOMBRE.localeCompare(a.NOMBRE));
 
   if (empleadosFiltrados.length === 0) {
     return res
@@ -900,28 +916,23 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       } else if (filtros.length === 2) {
         filtrosStr = `${filtros[0]} Y ${filtros[1]}`;
       } else if (filtros.length > 2) {
-        filtrosStr = `${filtros.slice(0, -1).join(", ")} Y ${
-          filtros[filtros.length - 1]
-        }`;
+        filtrosStr = `${filtros.slice(0, -1).join(", ")} Y ${filtros[filtros.length - 1]
+          }`;
       }
 
       const filtroTexto =
         filtros.length === 1
-          ? `CONFORME AL FILTRO DE ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
-              empleadosFiltrados.length
-            } ${
-              empleadosFiltrados.length > 1
-                ? "EMPLEADOS QUE CUMPLEN"
-                : "EMPLEADO QUE CUMPLE"
-            } CON EL CRITERIO.`
+          ? `CONFORME AL FILTRO DE ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${empleadosFiltrados.length
+          } ${empleadosFiltrados.length > 1
+            ? "EMPLEADOS QUE CUMPLEN"
+            : "EMPLEADO QUE CUMPLE"
+          } CON EL CRITERIO.`
           : filtros.length > 1
-            ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${
-                empleadosFiltrados.length
-              } ${
-                empleadosFiltrados.length > 1
-                  ? "EMPLEADOS QUE CUMPLEN"
-                  : "EMPLEADO QUE CUMPLE"
-              } CON LOS CRITERIOS.`
+            ? `CONFORME A LOS SIGUIENTES FILTROS DE BÚSQUEDA: ${filtrosStr} SE ENCONTRARON EL TOTAL DE: ${empleadosFiltrados.length
+            } ${empleadosFiltrados.length > 1
+              ? "EMPLEADOS QUE CUMPLEN"
+              : "EMPLEADO QUE CUMPLE"
+            } CON LOS CRITERIOS.`
             : "";
 
       doc.text(filtroTexto, doc.page.margins.left, y + 10, {
@@ -953,20 +964,8 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     const statusParam = req.params.status ? parseInt(req.params.status, 10) : 1;
 
     const filtro = { status: statusParam };
-    const excludeFields = {
-      ID_CTRL_ASSIST: 0,
-      ID_CTRL_TALON: 0,
-      ID_CTRL_NOM: 0,
-      ID_CTRL_CAP: 0,
-      VACACIONES: 0,
-      status: 0,
-      AREA_RESP: 0,
-      ID_BITACORA: 0,
-      STATUS_EMPLEADO: 0,
-      ID_CTRL_ASIST: 0,
-      _id: 0,
-    };
-    const plantilla = await query("PLANTILLA", filtro, excludeFields);
+
+    const plantilla = await query("PLANTILLA", filtro);
 
     if (!plantilla || plantilla.length === 0) {
       return res
@@ -980,21 +979,149 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("PLANTILLA");
 
-    // Determina las columnas a exportar
-    const campos = Object.keys(plantilla[0]);
+    const columnas = [
+      // Identificación del empleado
+      { header: "NUMEMP", key: "NUMEMP" },
+      { header: "NUMPLA", key: "NUMPLA" },
+      { header: "APE_PAT", key: "APE_PAT" },
+      { header: "APE_MAT", key: "APE_MAT" },
+      { header: "NOMBRES", key: "NOMBRES" },
 
-    // Agrega solo los encabezados de las columnas
-    worksheet.addRow(campos.map((c) => c.toUpperCase()));
+      // Datos laborales
+      { header: "CLAVE", key: "CLAVE" },
+      { header: "AREA", key: "ADSCRIPCION" },
+      { header: "PROYECTO", key: "PROYECTO" },
+      { header: "TIPONOM", key: "TIPONOM" },
+      { header: "CLAVECAT", key: "CLAVECAT" },
+      { header: "NOMCATE", key: "NOMCATE" },
+      { header: "NIVEL", key: "NIVEL" },
+      { header: "INGRESO", key: "FECHA_INGRESO" },
+      { header: "NOMBRAMIENTO", key: "FECHA_NOMBRAMIENTO" },
+
+      // Datos personales
+      { header: "CURP", key: "CURP" },
+      { header: "RFC", key: "RFC" },
+      { header: "SEXO", key: "SEXO" },
+      { header: "FECHA_NAC", key: "FECHA_NAC" },
+      { header: "NACIONALIDAD", key: "NACIONALIDAD" },
+      { header: "EDOCIVIL", key: "ESTADO_CIVIL" },
+      { header: "CONYUGE", key: "CONYUGE" },
+
+      // Contacto
+      { header: "CELULAR", key: "TEL_PERSONAL" },
+      { header: "EMAIL", key: "EMAIL" },
+
+      // Domicilio
+      { header: "CP", key: "CP" },
+      { header: "DOMICILIO", key: "DOMICILIO" },
+      { header: "LUGARNAC", key: "LUGARNAC" },
+
+      // Datos médicos / emergencia
+      { header: "AFILIACION", key: "AFILIACI" },
+      { header: "SANGRE", key: "SANGRE" },
+      { header: "ALERGIA", key: "ALERGIA" },
+      { header: "AVISAR", key: "AVISAR" },
+      { header: "TELEFONO", key: "TEL_EMERGENCIA1" },
+      { header: "TELEFONO1", key: "TEL_EMERGENCIA2" },
+
+      // Familia
+      { header: "PADRE", key: "PADRE" },
+      { header: "MADRE", key: "MADRE" },
+
+      // Profesional
+      { header: "PROFESION", key: "PROFESION1" },
+      { header: "PROFESION2", key: "PROFESION2" },
+
+      // Datos bancarios
+      { header: "TIPOPAGO", key: "TIPOPAG" },
+      { header: "BANCO", key: "BANCO" },
+      { header: "CUENTA", key: "CUENTA" },
+      { header: "FOLIONORTE", key: "FOLNORTE" },
+
+      // Operativos
+      { header: "NUMTARJETA", key: "NUMTARJETA" },
+      { header: "TURNOMAT", key: "TURNOMAT" },
+      { header: "TURNOVES", key: "TURNOVES" },
+      { header: "AREAR_ESP", key: "AREA_RESP" },
+
+      // Históricos
+      { header: "OCUPANTE_ANTERIOR", key: "OCUPANTE_ANT" },
+      { header: "FECHA_BAJA", key: "FECHA_BAJA" },
+      { header: "MOTIVO", key: "MOTIVO" },
+    ];
+
+    worksheet.columns = columnas;
+
+    const plazas = await query("PLAZAS", {});
+
+    const mapaPlazas = new Map();
+
+    plazas.forEach((p) => {
+      mapaPlazas.set(p.NUMPLA, p);
+    });
+
+    const areaRespMapping = {
+      CTRAL: "CENTRAL",
+      AUD: "AUDITORÍA",
+      PLAN: "PLANEACIÓN",
+      CAST: "CATASTRO",
+    };
+
+    const motivoBajaMapping = {
+      "R-DEF": "RENUNCIA - DEFINITIVA",
+      "R-OCA": "RENUNCIA - POR OCUPAR OTRO CARGO",
+      "R-JUB": "RENUNCIA - POR JUBILACIÓN",
+      "R-PEN": "RENUNCIA - POR PENSIÓN",
+      "L-IBASE": "LICENCIA - INDEFINIDA A BASE",
+      "L-SS": "LICENCIA - SIN GOCE DE SUELDO",
+      "L-PRRO": "LICENCIA - PRÓRROGA",
+      "RR": "RECISIÓN O REVOCACIÓN",
+      "DEF": "DEFUNCIÓN"
+    };
 
     // Agrega los datos
-    plantilla.forEach((item) => {
-      worksheet.addRow(campos.map((c) => item[c]));
-    });
+    for (const item of plantilla) {
 
-    // Ajusta el ancho de columnas
-    worksheet.columns.forEach((col) => {
-      col.width = 20;
-    });
+      const plaza = mapaPlazas.get(item.NUMPLA) || {};
+      const ocupanteReciente = (plaza.previousOcuppants || []).slice(-1)[0] || {};
+
+      const direccion = item.DIRECCION || {};
+      const estudios = item.ESTUDIOS || {};
+      const est1 = estudios.PRIMER_ESTUDIO || {};
+      const est2 = estudios.SEGUNDO_ESTUDIO || {};
+
+      const fila = {
+        ...item,
+
+        AREA_RESP: areaRespMapping[item.AREA_RESP] || item.AREA_RESP || "",
+
+        CP: direccion?.CP || item.CP || "",
+        DOMICILIO: direccion?.DOMICILIO
+          ? `${direccion.DOMICILIO} ${direccion.NUM_EXT || ""}${direccion.COLONIA ? `, ${direccion.COLONIA}` : ""
+          }${direccion.MUNICIPIO ? `, ${direccion.MUNICIPIO}` : ""}${direccion.ESTADO ? `, ${direccion.ESTADO}` : ""
+          }`
+          : item.DOMICILIO || "",
+
+        PROFESION1: est1?.NIVEL_ESTUDIO
+          ? `${est1.NIVEL_ESTUDIO} ${est1.PROFES || ""}${est1.CEDULA ? ` (CÉDULA: ${est1.CEDULA})` : ""
+          }`
+          : item.PROFESION || "",
+
+        PROFESION2: est2?.NIVEL_ESTUDIO
+          ? `${est2.NIVEL_ESTUDIO} ${est2.PROFES || ""}${est2.CEDULA ? ` (CÉDULA: ${est2.CEDULA})` : ""
+          }`
+          : "",
+
+        OCUPANTE_ANT: ocupanteReciente.NOMBRE || "",
+        FECHA_BAJA: ocupanteReciente.FECHA_BAJA || "",
+        MOTIVO: motivoBajaMapping[ocupanteReciente.MOTIVO_BAJA] || ocupanteReciente.MOTIVO_BAJA || "",
+      };
+
+
+      worksheet.addRow(fila);
+    };
+
+    worksheet.getRow(1).font = { bold: true };
 
     // Genera el archivo y responde para descarga
     const fechaStr = moment().format("YYYY-MM-DD_HH-mm-ss");
@@ -1232,9 +1359,9 @@ reportesPersonalController.getBajasBetweenDates = async (req, res) => {
           NOMCATE: empleadoPlantilla.NOMCATE || baja.NOMCATE || "",
           INGRESO: formatDateDisplay(
             empleadoPlantilla.FECHA_INGRESO ||
-              baja.INGRESO ||
-              baja.FECHA_INGRESO ||
-              baja._fechaBaja,
+            baja.INGRESO ||
+            baja.FECHA_INGRESO ||
+            baja._fechaBaja,
           ),
           CELULAR:
             empleadoPlantilla.TEL_PERSONAL ||
@@ -1341,6 +1468,716 @@ reportesPersonalController.getBajasBetweenDates = async (req, res) => {
       message: "Error al generar el reporte de bajas.",
       error: error.message,
     });
+  }
+};
+
+reportesPersonalController.getPlantillaReportArea = async (req, res) => {
+  try {
+    const { ADSCRIPCION, CLAVE, SUBNIVELES } = req.body;
+    let claves = [];
+    let adscripcionDisplay = "";
+    const toTitleCase = (text) => {
+      if (!text || typeof text !== 'string') return '';
+      return text
+        .toLowerCase()
+        .split(' ')
+        .map((word, idx) => {
+          if (!word) return '';
+          // opcional: mantener algunas palabras en minúscula (de, y, e, la, el, etc.)
+          const smallWords = ['de', 'la', 'las', 'el', 'los', 'y', 'e', 'en', 'a', 'por', 'para', 'con', 'del', 'al'];
+          if (idx > 0 && smallWords.includes(word)) {
+            return word;
+          }
+          // mantener acentos con toLower/toUpper
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        })
+        .join(' ');
+    };
+
+    if (ADSCRIPCION !== 'TODAS') {
+      if (SUBNIVELES === true) {
+        const adscripciones = await querysql(
+          `WITH RECURSIVE jerarquia AS ( SELECT id_adscripcion, nombre, clave, parent_id FROM adscripciones WHERE clave = ${CLAVE} UNION ALL SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id FROM adscripciones a INNER JOIN jerarquia j ON a.parent_id = j.id_adscripcion ) SELECT * FROM jerarquia;`
+        );
+        claves = adscripciones.map(a => a.clave);
+
+        // Buscar el padre del CLAVE actual
+        const adscripcionActual = await querysql(
+          `SELECT parent_id, nombre FROM adscripciones WHERE clave = '${CLAVE}' LIMIT 1`
+        );
+
+        if (adscripcionActual && adscripcionActual[0]?.parent_id) {
+          // Obtener el padre (nivel 2 si CLAVE es nivel 3)
+          const adscripcionPadre = await querysql(
+            `SELECT nombre FROM adscripciones WHERE id_adscripcion = ${adscripcionActual[0].parent_id} LIMIT 1`
+          );
+
+          if (adscripcionPadre && adscripcionPadre[0]?.nombre) {
+            adscripcionDisplay = adscripcionPadre[0].nombre;
+          }
+        }
+      } else {
+        claves = [CLAVE];
+        adscripcionDisplay = ADSCRIPCION;
+      }
+    } else {
+      const adscripciones = await querysql(`SELECT clave FROM adscripciones;`);
+      claves = adscripciones.map(a => a.clave);
+    }
+
+    const employees = await query("PLANTILLA", { CLAVE: { $in: claves } });
+
+    if (!employees || employees.length === 0) {
+      return res
+        .status(202)
+        .json({ message: "No hay empleados con los filtros especificados" });
+    }
+
+    // Cargar licencias activas
+    const licenciasActivas = await query("LICENCIAS", { status: 1 });
+
+    // Crear un Set con los IDs de empleados en licencias
+    const empleadosEnLicencia = new Set();
+    licenciasActivas.forEach((lic) => {
+      if (lic.id_employee) {
+        empleadosEnLicencia.add(String(lic.id_employee));
+      }
+    });
+
+    const ExcelJS = require("exceljs");
+    const moment = require("moment");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("PLANTILLA");
+
+    const path = require('path');
+
+    // Imagen izquierda
+    const imageId1 = workbook.addImage({
+      filename: path.join(__dirname, '../../assets/img/logo_secretaria_honestidad.png'),
+      extension: 'png'
+    });
+
+    worksheet.addImage(imageId1, {
+      tl: { col: 0, row: 0 },
+      ext: { width: 270, height: 50 }
+    });
+
+    // Imagen derecha
+    const imageId2 = workbook.addImage({
+      filename: path.join(__dirname, '../../assets/img/header_logo_secretaria_honestidad.jpg'),
+      extension: 'jpg'
+    });
+
+    worksheet.addImage(imageId2, {
+      tl: { col: 8, row: 0 },
+      ext: { width: 450, height: 20 }
+    });
+
+    worksheet.columns = [
+      { header: "Nombre", key: "NOMBRE", width: 50 },
+      { header: "Categoría", key: "NOMCATE", width: 30 },
+      { header: "Si", key: "LICENCIA_SI", width: 11 },
+      { header: "No", key: "LICENCIA_NO", width: 11 },
+      { header: "Área a la que esta comisionado", key: "LUGAR_COMISIONADO", width: 15 },
+      { header: "Periodo de Ausencia o Comisión", key: "PERIODO", width: 15 },
+      { header: "Percepción mensual", key: "PERCEPCION", width: 15 },
+      { header: "Sueldo Base", key: "SUELDO_BASE", width: 12 },
+      { header: "Observaciones", key: "ADSCRIPCION", width: 65 },
+    ];
+
+    worksheet.spliceRows(1, 0, [], []);
+
+    worksheet.mergeCells('A3:I3');
+    worksheet.getCell('A3').value = 'Fecha: ' + moment().locale('es').format('D [de] MMMM [del] YYYY');
+    worksheet.getCell('A3').alignment = { horizontal: 'right', vertical: 'middle' };
+
+    worksheet.mergeCells('A5:I5');
+    worksheet.getCell('A5').value = 'RECURSOS HUMANOS';
+    worksheet.getCell('A5').alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getCell('A5').font = { bold: true };
+
+    worksheet.mergeCells('D6:F6');
+    worksheet.getCell('D6').value = 'Plantilla actualizada del personal';
+    worksheet.getCell('D6').alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getCell('D6').font = { bold: true };
+
+    worksheet.mergeCells('H6:I6');
+    worksheet.getCell('H6').value = 'FOMATO: ER-F3-RH01';
+    worksheet.getCell('H6').alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getCell('H6').font = { bold: true };
+
+    worksheet.mergeCells('H7:I8');
+    worksheet.getCell('H7').value = 'Hoja: 3 de 3';
+    worksheet.getCell('H7').alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getCell('H7').font = { bold: true };
+
+    worksheet.mergeCells('H9:I9');
+    worksheet.getCell('H9').value = 'Anexo Tres (3)';
+    worksheet.getCell('H9').alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getCell('H9').font = { bold: true };
+
+    worksheet.mergeCells('H10:I10');
+    worksheet.getCell('H10').value = 'Recursos Humanos';
+    worksheet.getCell('H10').alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getCell('H10').font = { bold: true };
+
+    worksheet.mergeCells('H11:I11');
+    worksheet.getCell('H11').value = 'Plantilla actualizada del personal';
+    worksheet.getCell('H11').alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getCell('H11').font = { bold: true };
+
+    worksheet.getCell('A12').value = 'Órgano Público:';
+    worksheet.getCell('A12').alignment = { horizontal: 'left', vertical: 'middle' };
+    worksheet.getCell('A12').font = { bold: true };
+
+    worksheet.getCell('B12').value = 'Secretaría de Finanzas del Poder Ejecutivo del Gobierno del Estado de Oaxaca';
+    worksheet.getCell('B12').alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.getCell('A13').value = 'Área Administrativa:';
+    worksheet.getCell('A13').alignment = { horizontal: 'left', vertical: 'middle' };
+    worksheet.getCell('A13').font = { bold: true };
+
+    worksheet.getCell('B13').value = toTitleCase(adscripcionDisplay);
+    worksheet.getCell('B13').alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.mergeCells('A15:A16');
+    worksheet.mergeCells('B15:B16');
+    worksheet.mergeCells('C15:D15');
+    worksheet.mergeCells('E15:E16');
+    worksheet.mergeCells('F15:F16');
+    worksheet.mergeCells('G15:G16');
+    worksheet.mergeCells('H15:H16');
+    worksheet.mergeCells('I15:I16');
+
+    worksheet.getCell('A15').value = 'Nombre';
+    worksheet.getCell('B15').value = 'Categoría';
+    worksheet.getCell('C15').value = 'Licencia, permiso, comisión o incapacidad';
+    worksheet.getCell('E15').value = 'Área a la que esta comisionado';
+    worksheet.getCell('F15').value = 'Periodo de Ausencia o Comisión';
+    worksheet.getCell('G15').value = 'Percepción mensual';
+    worksheet.getCell('H15').value = 'Sueldo Base';
+    worksheet.getCell('I15').value = 'Observaciones';
+    worksheet.getCell('C16').value = 'Si';
+    worksheet.getCell('D16').value = 'No';
+
+    if (ADSCRIPCION && ADSCRIPCION !== 'TODAS' && SUBNIVELES === true) {
+      const adscripFriendly = toTitleCase(ADSCRIPCION);
+      const infoRow = worksheet.addRow([`Área de Adscripción: ${adscripFriendly}`]);
+      worksheet.mergeCells(`A${infoRow.number}:I${infoRow.number}`);
+
+      const cell = worksheet.getCell(`A${infoRow.number}`);
+
+      // separar texto
+      const prefix = 'Área de Adscripción: ';
+      const value = adscripFriendly; // mantiene mayúsculas/minúsculas
+      const fullText = prefix + value;
+
+      cell.value = fullText;
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+      // ExcelJS no admite rich text en una célula merge directamente muy bien,
+      // se usa "richText" si estás en versión compatible:
+      cell.value = {
+        richText: [
+          { text: prefix, font: { bold: true, italic: false, name: 'Arial', size: 10 } },
+          { text: value, font: { bold: false, italic: true, name: 'Arial', size: 10 } },
+        ],
+      };
+
+      // fallback si no soporta richText:
+      if (!cell.value || !cell.value.richText) {
+        cell.font = { name: 'Arial', size: 10, italic: true };
+      }
+    }
+
+    worksheet.getRow(15).height = 35;
+    worksheet.getRow(16).height = 17;
+
+    const headerCells = [
+      'A15', 'B15', 'C15', 'E15', 'F15', 'G15', 'H15', 'I15', 'C16', 'D16',
+    ];
+    headerCells.forEach((cell) => {
+      const c = worksheet.getCell(cell);
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
+      c.font = { bold: true, size: 10 };
+      c.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    // Obtener jerarquía de adscripciones
+    const jerarquia = await querysql(`
+WITH RECURSIVE jerarquia AS (
+  SELECT 
+    id_adscripcion,
+    nombre,
+    clave,
+    parent_id,
+    0 AS nivel,
+    LPAD(clave, 10, '0') AS path
+  FROM adscripciones
+  WHERE clave = ?
+
+  UNION ALL
+
+  SELECT 
+    a.id_adscripcion,
+    a.nombre,
+    a.clave,
+    a.parent_id,
+    j.nivel + 1,
+    CONCAT(j.path, '-', LPAD(a.clave, 10, '0'))
+  FROM adscripciones a
+  INNER JOIN jerarquia j 
+    ON a.parent_id = j.id_adscripcion
+)
+SELECT * FROM jerarquia
+ORDER BY path;
+`, [CLAVE]);
+
+    // Crear mapa de orden jerárquico
+    const ordenJerarquico = new Map();
+    jerarquia.forEach((item, index) => {
+      ordenJerarquico.set(Number(item.clave), index);
+    });
+
+    // Agrupar empleados por condición laboral (Base / Contrato / Otros)
+    const groupedEmployees = {
+      BASE: [],
+      NOMBRAMIENTO: [],
+      MANDOS_MEDIOS: [],
+      CONTRATO: [],
+    };
+
+    const toCondition = (tipo) => {
+      const code = String(tipo || '').toUpperCase();
+      if (code === 'M51' || code === 'F51') return 'BASE';
+      if (code === 'FCO' || code === '511') return 'NOMBRAMIENTO';
+      if (code === 'FCT' || code === 'CCT') return 'CONTRATO';
+      if (code === 'FMM' || code === 'MMS') return 'MANDOS_MEDIOS';
+    };
+
+    for (const item of employees) {
+      const condition = toCondition(item.TIPONOM);
+      groupedEmployees[condition].push(item);
+    }
+
+    const sections = [
+      { key: 'BASE', title: 'Plaza por condición laboral: Base' },
+      { key: 'NOMBRAMIENTO', title: 'Plaza por condición laboral: Nombramiento Confianza' },
+      { key: 'CONTRATO', title: 'Plaza por condición laboral: Contrato Contrato' },
+      { key: 'MANDOS_MEDIOS', title: 'Plaza por condición laboral: Mandos Medios y Superiores' },
+    ];
+
+    // ==========================
+    // 🔹 1. CARGAR CATÁLOGOS
+    // ==========================
+    const [
+      catalogoBase,
+      catalogoContrato,
+      catalogoMandos,
+      isrTable,
+      quinBase,
+      quinConfianza,
+      quinMandos,
+      segVida,
+      subsidioISR
+    ] = await Promise.all([
+      querysql(`SELECT * FROM catalogo_base`),
+      querysql(`SELECT * FROM catalogo_contrato`),
+      querysql(`SELECT * FROM catalogo_mandosmedios`),
+      querysql(`SELECT * FROM catalogo_isr`),
+      querysql(`SELECT * FROM quin_base`),
+      querysql(`SELECT * FROM quin_confianza`),
+      querysql(`SELECT * FROM quin_mandosmedios`),
+      querysql(`SELECT * FROM seg_vida`),
+      querysql(`SELECT * FROM subsidio_isr WHERE id = 1`)
+    ]);
+
+    // ==========================
+    // 🔹 2. CREAR MAPS
+    // ==========================
+    const baseMap = new Map();
+    catalogoBase.forEach(x => baseMap.set(String(x.nivel), x));
+
+    const contratoMap = new Map();
+    catalogoContrato.forEach(x => contratoMap.set(String(x.nivel), x));
+
+    const mandosMap = new Map();
+    catalogoMandos.forEach(x => mandosMap.set(String(x.nivel), x));
+
+    const quinBaseMap = new Map();
+    quinBase.forEach(x => quinBaseMap.set(String(x.NIVEL), x));
+
+    const quinConfianzaMap = new Map();
+    quinConfianza.forEach(x => quinConfianzaMap.set(String(x.nivel), x));
+
+    const quinMandosMap = new Map();
+    quinMandos.forEach(x => quinMandosMap.set(String(x.nivel), x));
+
+    const segVidaMap = new Map();
+    segVida.forEach(x => segVidaMap.set(String(x.nivel), x));
+
+    // ==========================
+    // 🔹 3. FUNCIÓN ISR
+    // ==========================
+    function calcularISR(sueldo) {
+      const row = isrTable.find(r =>
+        sueldo > parseFloat(r.limite_inf) &&
+        sueldo < parseFloat(r.limite_sup)
+      );
+
+      if (!row) return 0;
+
+      return (
+        ((sueldo - parseFloat(row.limite_inf)) *
+          parseFloat(row.porcentajeliminf)) /
+        100 +
+        parseFloat(row.cuota_fija)
+      );
+    }
+
+    // ==========================
+    // 🔹 4. PROCESAR EMPLEADO
+    // ==========================
+    function procesarNomina(employee) {
+      let percepciones = {};
+      let deducciones = {};
+
+      const nivel = String(employee.NIVEL);
+      const tipo = employee.TIPONOM;
+
+      switch (tipo) {
+
+        // ======================
+        // 🔸 BASE
+        // ======================
+        case "M51":
+        case "F51":
+
+          percepciones = baseMap.get(nivel);
+          if (!percepciones) break;
+
+          const sueldoBase = parseFloat(percepciones.sueldo_base);
+
+          deducciones.ISR = Number(calcularISR(sueldoBase).toFixed(2));
+
+          if (employee.FECHA_NOMBRAMIENTO) {
+            deducciones.FONDO_PENSIONES = Number((sueldoBase * 0.09).toFixed(2));
+          }
+
+          if (employee.DELEGACION) {
+            deducciones.CUOTA_SINDICAL = Number((sueldoBase * 0.01).toFixed(2));
+          }
+
+          deducciones.IMSS = Number((sueldoBase * 0.041219).toFixed(2));
+
+          if (employee.NUMQUIN > 0) {
+            const quin = quinBaseMap.get(nivel);
+            if (quin) {
+              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+                quin[`quin_${employee.NUMQUIN}`];
+            }
+          }
+
+          break;
+
+        // ======================
+        // 🔸 CONTRATO
+        // ======================
+        case "F53":
+        case "M53":
+        case "FCT":
+        case "CCT":
+        case "FCO":
+        case "511":
+
+          percepciones = contratoMap.get(nivel);
+          if (!percepciones) break;
+
+          const sueldoB = parseFloat(percepciones.sueldo_base);
+          const estimulo = parseFloat(percepciones.estimulo);
+
+          const sueldoGravable = sueldoB + estimulo;
+
+          let isr = calcularISR(sueldoGravable);
+
+          if (sueldoGravable < parseFloat(subsidioISR[0].lim_sup)) {
+            isr = Math.max(0, isr - parseFloat(subsidioISR[0].SUBSIDIO));
+          }
+
+          deducciones.ISR = Number(isr.toFixed(2));
+          deducciones.IMSS = Number((sueldoB * 0.041219).toFixed(2));
+
+          if (employee.NUMQUIN > 0 && tipo === "CN") {
+            const quin = quinConfianzaMap.get(nivel);
+            if (quin) {
+              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+                quin[`quin_${employee.NUMQUIN}`];
+            }
+          }
+
+          break;
+
+        // ======================
+        // 🔸 MANDOS MEDIOS
+        // ======================
+        case "FMM":
+        case "MMS":
+
+          percepciones = mandosMap.get(nivel);
+          console.log(percepciones);
+
+          if (!percepciones) break;
+
+          const sueldoMM = parseFloat(percepciones.sueldo_base);
+          const rdl = parseFloat(percepciones.rdl);
+          const comp = parseFloat(percepciones.comp_fija_garan);
+
+          const sueldoGravableMM = sueldoMM + rdl + comp;
+
+          let isrMM = calcularISR(sueldoGravableMM);
+          isrMM = isrMM - parseFloat(percepciones.isr_rdl);
+
+          deducciones.ISR = Number(isrMM.toFixed(2));
+
+          const seguro = segVidaMap.get(nivel);
+          if (seguro) {
+            deducciones.SEGURO_VIDA = Number(parseFloat(seguro.seg_vida).toFixed(2));
+          }
+
+          deducciones.FONDO_PEN = Number((sueldoMM * 0.09).toFixed(2));
+
+          delete percepciones.isr_rdl;
+          delete percepciones.rdl;
+
+          if (employee.NUMQUIN > 0 && tipo === "CN") {
+            const quin = quinMandosMap.get(nivel);
+            if (quin) {
+              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+                quin[`quin_${employee.NUMQUIN}`];
+            }
+          }
+
+          break;
+
+        default:
+          throw new Error("Tipo de nómina no reconocido");
+      }
+
+      return { percepciones, deducciones };
+    }
+
+    for (const section of sections) {
+      const group = groupedEmployees[section.key];
+      if (!group || group.length === 0) continue;
+
+      const rowHeader = worksheet.addRow([section.title]);
+      worksheet.mergeCells(`A${rowHeader.number}:I${rowHeader.number}`);
+      const headerCell = worksheet.getCell(`A${rowHeader.number}`);
+      headerCell.font = { bold: true };
+      rowHeader.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      });
+
+      // Ordenar por jerarquía de adscripción
+      const sortedGroup = group.sort((a, b) => {
+        const ordenA = ordenJerarquico.get(Number(a.CLAVE)) ?? 9999;
+        const ordenB = ordenJerarquico.get(Number(b.CLAVE)) ?? 9999;
+        
+        if (ordenA !== ordenB) {
+          return ordenA - ordenB;
+        }
+        
+        // Desempate por apellido
+        return (a.APE_PAT || '').localeCompare(b.APE_PAT || '');
+      });
+
+      for (const emp of sortedGroup) {
+        const { percepciones, deducciones } = procesarNomina(emp);
+
+        const sumarPercepciones = (obj) => {
+          return Object.entries(obj || {}).reduce((acc, [key, val]) => {
+            if (['nivel', 'id'].includes(key)) return acc;
+            const num = Number(val);
+            return acc + (isNaN(num) ? 0 : num);
+          }, 0);
+        };
+
+        const sumarDeducciones = (obj) => {
+          return Object.values(obj || {}).reduce((acc, val) => {
+            const num = parseFloat(val);
+            return acc + (isNaN(num) ? 0 : num);
+          }, 0);
+        };
+
+        const totalPercepciones = sumarPercepciones(percepciones);
+        const totalDeducciones = sumarDeducciones(deducciones);
+
+        const percepcionNeta = totalPercepciones - totalDeducciones;
+        const row = worksheet.addRow({
+          NOMBRE:
+            emp.status !== 1
+              ? 'V A C A N T E'
+              : `${emp.APE_PAT || ''} ${emp.APE_MAT || ''} ${emp.NOMBRES || ''}`.trim(),
+          NOMCATE: emp.NOMCATE || '',
+          LICENCIA_SI: empleadosEnLicencia.has(String(emp._id)) ? 'X' : '',
+          LICENCIA_NO: empleadosEnLicencia.has(String(emp._id)) ? '' : 'X',
+          LUGAR_COMISIONADO: '',
+          PERIODO: '',
+          PERCEPCION: parseFloat(percepcionNeta),
+          SUELDO_BASE: parseFloat(percepciones?.sueldo_base || 0),
+          ADSCRIPCION: emp.ADSCRIPCION || ''
+        });
+
+        row.getCell('PERCEPCION').numFmt = '#,##0.00';
+        row.getCell('SUELDO_BASE').numFmt = '#,##0.00';
+
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+          if (cell.col === 3 || cell.col === 4) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          } else {
+            cell.alignment = { vertical: 'middle', wrapText: true };
+          }
+        });
+      }
+    }
+
+    // 1) fila de separación (opcional)
+    worksheet.addRow([]);
+    worksheet.addRow([]);
+
+    // 2) fila de cierre / firmas
+    const rowFirma = worksheet.addRow([
+      'ELABORÓ', // A
+      '',        // B
+      'ENTREGA', // C
+      '',        // D
+      '',        // E
+      '',        // F
+      '',        // G
+      '',        // H
+      'RECIBE',  // I
+    ]);
+
+    // Unir C-D-E
+    worksheet.mergeCells(
+      `C${rowFirma.number}:E${rowFirma.number}`
+    );
+
+    // Estilos
+    worksheet.getCell(`A${rowFirma.number}`).font = { bold: true };
+    worksheet.getCell(`C${rowFirma.number}`).font = { bold: true };
+    worksheet.getCell(`I${rowFirma.number}`).font = { bold: true };
+
+    worksheet.getCell(`A${rowFirma.number}`).alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+    };
+    worksheet.getCell(`C${rowFirma.number}`).alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+    };
+    worksheet.getCell(`I${rowFirma.number}`).alignment = {
+      horizontal: 'left',
+      vertical: 'middle',
+    };
+
+    // 1) fila de separación (opcional)
+    worksheet.addRow([]);
+
+    // 2) fila de cierre / firmas
+    const rowLineaFirma = worksheet.addRow([
+      '____________________________________________', // A
+      '',        // B
+      '____________________________________________', // C
+      '',        // D
+      '',        // E
+      '',        // F
+      '',        // G
+      '',        // H
+      '____________________________________________',  // I
+    ]);
+
+    // Unir C-D-E
+    worksheet.mergeCells(
+      `C${rowLineaFirma.number}:E${rowLineaFirma.number}`
+    );
+
+    // 2) fila de cierre / firmas
+    const rowNombreFirma = worksheet.addRow([
+      'L.A. LAURA CONCEPCION MARTÍNEZ GUTIÉRREZ', // A
+      '',        // B
+      '', // C
+      '',        // D
+      '',        // E
+      '',        // F
+      '',        // G
+      '',        // H
+      '',  // I
+    ]);
+
+    // 2) fila de cierre / firmas
+    const rowPuestoFirma = worksheet.addRow([
+      'JEFA DEL DEPTO. DE RECURSOS HUMANOS', // A
+      '',        // B
+      '', // C
+      '',        // D
+      '',        // E
+      '',        // F
+      '',        // G
+      '',        // H
+      '',  // I
+    ]);
+
+    const imageIdBottom = workbook.addImage({
+      filename: path.join(__dirname, '../../assets/img/footer_logo_secretaria_honestidad.png'),
+      extension: 'png',
+    });
+
+    // Ubicación: columna I estilo "derecha", fila después de las firmas
+    const bottomRow = rowLineaFirma.number + 3; // 2 filas de separación
+    worksheet.addImage(imageIdBottom, {
+      tl: { col: 8, row: bottomRow },
+      ext: { width: 470, height: 20 }
+    });
+
+    worksheet.eachRow({ includeEmpty: true }, (row) => {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = {
+          ...cell.font, // 👈 conserva bold, etc.
+          name: 'Arial',
+          size: 10,
+        };
+      });
+    });
+
+    const fechaStr = moment().format('YYYY-MM-DD_HH-mm-ss');
+    const fileName = `PLANTILLA_${fechaStr}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error al generar el archivo Excel:', error.message);
+    res.status(500).json({ message: 'Error al generar el archivo Excel.' });
   }
 };
 module.exports = reportesPersonalController;
