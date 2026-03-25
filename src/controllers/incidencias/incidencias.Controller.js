@@ -415,6 +415,7 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
         last_desde: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].DESDE : (prevStatus.DESDE || null),
         last_hasta: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].HASTA : (prevStatus.HASTA || null),
         last_proyecto: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].PROYECTO : (prevStatus.PROYECTO || null),
+        last_clave: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].CLAVE : (prevStatus.CLAVE || null),
         last_folio: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].FOLIO : (prevStatus.FOLIO || null),
         id_employee: new ObjectId(data._id),
       };
