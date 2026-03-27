@@ -983,9 +983,10 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       // Identificación del empleado
       { header: "NUMEMP", key: "NUMEMP" },
       { header: "NUMPLA", key: "NUMPLA" },
-      { header: "APE_PAT", key: "APE_PAT" },
-      { header: "APE_MAT", key: "APE_MAT" },
-      { header: "NOMBRES", key: "NOMBRES" },
+      // { header: "APE_PAT", key: "APE_PAT" },
+      // { header: "APE_MAT", key: "APE_MAT" },
+      // { header: "NOMBRES", key: "NOMBRES" },
+      { header: "NOMBRE", key: "NOMBRE_COMPLETO" },
 
       // Datos laborales
       { header: "CLAVE", key: "CLAVE" },
@@ -1092,7 +1093,10 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
       const fila = {
         ...item,
+        NOMBRE_COMPLETO: `${item.APE_PAT || ""} ${item.APE_MAT || ""} ${item.NOMBRES || ""}`.trim(),
 
+        CLAVE: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.CLAVE || item.CLAVE,
+        ADSCRIPCION: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || item.ADSCRIPCION,
         AREA_RESP: areaRespMapping[item.AREA_RESP] || item.AREA_RESP || "",
 
         CP: direccion?.CP || item.CP || "",
@@ -1994,11 +1998,11 @@ ORDER BY path;
       const sortedGroup = group.sort((a, b) => {
         const ordenA = ordenJerarquico.get(Number(a.CLAVE)) ?? 9999;
         const ordenB = ordenJerarquico.get(Number(b.CLAVE)) ?? 9999;
-        
+
         if (ordenA !== ordenB) {
           return ordenA - ordenB;
         }
-        
+
         // Desempate por apellido
         return (a.APE_PAT || '').localeCompare(b.APE_PAT || '');
       });
