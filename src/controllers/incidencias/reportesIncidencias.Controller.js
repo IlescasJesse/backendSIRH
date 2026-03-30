@@ -21,10 +21,7 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
   );
   const doc = new PDFDocument();
   const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
-  const areaResp =
-    req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
-  console.log(quin);
-  console.log(areaResp);
+  const areaResp = req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
 
   // Construir el filtro
   const filtro = {
@@ -41,7 +38,6 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
   }
 
   const economicos_quincena = await query("PERMISOS_ECONOMICOS", filtro);
-  console.log(economicos_quincena);
 
   // Validar si no hay datos
   if (economicos_quincena.length === 0) {
@@ -50,9 +46,11 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
     });
   }
 
+  let folder = areaResp.includes("PLAN") ? "planeacion" : "sefin";
+
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/p_economicos/QUINCENA${quin}.pdf`,
+    `../../docs/reportes/incidencias/permisos_economicos/archivos_pdf/${folder}/ECONOMICOS_QUINCENA_${quin}.pdf`,
   );
 
   try {
@@ -68,9 +66,9 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=QUINCENA${quin}.pdf`,
+        `attachment; filename=QUINCENA_${quin}.pdf`,
       );
-      res.download(filePath, `QUINCENA${quin}.pdf`, (err) => {
+      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
           res.status(500).json({ message: "Error al descargar el archivo." });
@@ -285,12 +283,13 @@ reportesIncidenciasController.printEconomicDaysDbf = async (req, res) => {
   }
 
   try {
-    const outputDir = path.join(__dirname, "../../docs/reportes/p_economicos/");
+    let folder = areaResp.includes("PLAN") ? "planeacion" : "sefin";
+    const outputDir = path.join(__dirname, `../../docs/reportes/incidencias/permisos_economicos/archivos_dbf/${folder}/`);
     fs.mkdirSync(outputDir, { recursive: true });
 
     const dbfPath = path.join(
       outputDir,
-      `ECONOMICOS_${areaResp === "PLAN" ? "SPIP" : "SEFIN"}_${fechaDesde}_${fechaHasta}.dbf`,
+      `ECONOMICOS_${fechaDesde}_${fechaHasta}.dbf`,
     );
     if (fs.existsSync(dbfPath)) fs.unlinkSync(dbfPath);
 
@@ -409,8 +408,6 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
   const fechaHasta = req.body.FECHA_HASTA;
   const areaResp = req.body.AREA_RESP;
 
-  console.log("Request body:", req.body);
-
   // Construir filtro base
   const filtro = {};
 
@@ -443,9 +440,11 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
     });
   }
 
+  let folder = areaResp.includes("PLAN") ? "planeacion" : "sefin";
+
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/p_economicos/REPORTE_ECONOMICOS_${fechaDesde}_${fechaHasta}.pdf`,
+    `../../docs/reportes/incidencias/permisos_economicos/archivos_pdf/${folder}/ECONOMICOS_${fechaDesde}_${fechaHasta}.pdf`,
   );
 
   try {
@@ -662,7 +661,7 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias_central/INCIDENCIAS${quin}.pdf`,
+    `../../docs/reportes/incidencias/central/archivos_pdf/incidencias/QUINCENA_${quin}.pdf`,
   );
 
   try {
@@ -678,9 +677,9 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=INCIDENCIAS_CENTRAL_${quin}.pdf`,
+        `attachment; filename=QUINCENA_${quin}.pdf`,
       );
-      res.download(filePath, `INCIDENCIAS_CENTRAL_${quin}.pdf`, (err) => {
+      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
           res.status(500).json({ message: "Error al descargar el archivo." });
@@ -933,7 +932,7 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias_auditoria/INCIDENCIAS${quin}.pdf`,
+    `../../docs/reportes/incidencias/auditoria/archivos_pdf/incidencias/QUINCENA_${quin}.pdf`,
   );
 
   try {
@@ -949,9 +948,9 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=INCIDENCIAS_AUDITORIA_${quin}.pdf`,
+        `attachment; filename=QUINCENA_${quin}.pdf`,
       );
-      res.download(filePath, `INCIDENCIAS_AUDITORIA_${quin}.pdf`, (err) => {
+      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
           res.status(500).json({ message: "Error al descargar el archivo." });
@@ -1204,7 +1203,7 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias_planeacion/INCIDENCIAS${quin}.pdf`,
+    `../../docs/reportes/incidencias/planeacion/archivos_pdf/incidencias/QUINCENA_${quin}.pdf`,
   );
 
   try {
@@ -1220,9 +1219,9 @@ reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=INCIDENCIAS_PLANEACION_${quin}.pdf`,
+        `attachment; filename=QUINCENA_${quin}.pdf`,
       );
-      res.download(filePath, `INCIDENCIAS_PLANEACION_${quin}.pdf`, (err) => {
+      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
           res.status(500).json({ message: "Error al descargar el archivo." });
@@ -1524,7 +1523,7 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
   const doc = new PDFDocument();
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/inasistencias_central/INASISTENCIAS_CENTRAL_${quin}.pdf`,
+    `../../docs/reportes/incidencias/central/archivos_pdf/retardos_e_inasistencias/QUINCENA_${quin}.pdf`,
   );
 
   const stream = fs.createWriteStream(filePath);
@@ -1538,9 +1537,9 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=INASISTENCIAS_CENTRAL_${quin}.pdf`,
+      `attachment; filename=QUINCENA_${quin}.pdf`,
     );
-    res.download(filePath, `INASISTENCIAS_CENTRAL_${quin}.pdf`, (err) => {
+    res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
       if (err) {
         console.error("Error al descargar el archivo:", err.message);
         res.status(500).json({ message: "Error al descargar el archivo." });
@@ -1751,7 +1750,7 @@ reportesIncidenciasController.printInasistenciasAuditoria = async (
   const doc = new PDFDocument();
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/inasistencias_auditoria/INASISTENCIAS_AUDITORIA_${quin}.pdf`,
+    `../../docs/reportes/incidencias/auditoria/archivos_pdf/retardos_e_inasistencias/QUINCENA_${quin}.pdf`,
   );
 
   const stream = fs.createWriteStream(filePath);
@@ -1978,7 +1977,7 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
   const doc = new PDFDocument();
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/inasistencias_planeacion/INASISTENCIAS_PLANEACION_${quin}.pdf`,
+    `../../docs/reportes/incidencias/planeacion/archivos_pdf/retardos_e_inasistencias/QUINCENA_${quin}.pdf`,
   );
 
   const stream = fs.createWriteStream(filePath);
@@ -1992,9 +1991,9 @@ reportesIncidenciasController.printInasistenciasPlaneacion = async (
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=INASISTENCIAS_PLANEACION_${quin}.pdf`,
+      `attachment; filename=QUINCENA_${quin}.pdf`,
     );
-    res.download(filePath, `INASISTENCIAS_PLANEACION_${quin}.pdf`, (err) => {
+    res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
       if (err) {
         console.error("Error al descargar el archivo:", err.message);
         res.status(500).json({ message: "Error al descargar el archivo." });
@@ -2153,13 +2152,14 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
       }
     });
 
+    let folder = areaResp.includes("CTRAL") ? "central" : areaResp.includes("AUD") ? "auditoria" : "planeacion";
     const outputDir = path.join(
       __dirname,
-      "../../docs/reportes/inasistencias_auditoria/",
+      `../../docs/reportes/incidencias/${folder}/archivos_dbf/`,
     );
     fs.mkdirSync(outputDir, { recursive: true });
 
-    const dbfPath = path.join(outputDir, `PRUEBA${quin}.dbf`);
+    const dbfPath = path.join(outputDir, `QUINCENA_${quin}.dbf`);
     const dbtPath = dbfPath.replace(/\.dbf$/i, ".dbt");
     if (fs.existsSync(dbfPath)) fs.unlinkSync(dbfPath);
     if (fs.existsSync(dbtPath)) fs.unlinkSync(dbtPath);
@@ -2260,9 +2260,9 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=PRUEBA${quin}.dbf`,
+      `attachment; filename=QUINCENA_${quin}.dbf`,
     );
-    return res.download(dbfPath, `PRUEBA${quin}.dbf`, (err) => {
+    return res.download(dbfPath, `QUINCENA_${quin}.dbf`, (err) => {
       if (err) {
         console.error("Error al descargar el DBF:", err);
         return res
@@ -2375,9 +2375,15 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     return row;
   });
 
+  let nameFile = "";
+  if (status === "COM_SDCL") nameFile = `COMISIONADO_AL_SINDICATO`;
+  else if (status === "COM_LAB") nameFile = `COMISIONADO_LABORALMENTE`;
+  else if (status === "ASIG_LAB") nameFile = `ASIGNADO_LABORALMENTE`;
+  else if (status === "EXIMA") nameFile = `EXIMA`;
+
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias/PERSONAL_STATUS.pdf`,
+    `../../docs/reportes/incidencias/estatus_empleado/${nameFile}.pdf`,
   );
 
   try {
@@ -2387,7 +2393,6 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     stream.on("error", (err) => {
       console.error("Error al escribir el archivo:", err.message);
       res.status(500).json({ message: "Error al generar el reporte." });
-      doc.end();
     });
 
     stream.on("finish", () => {
@@ -2728,7 +2733,7 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
 
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias/VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
+    `../../docs/reportes/incidencias/visitas_domiciliarias/QUINCENA_${quin}.pdf`,
   );
 
   try {
@@ -2744,9 +2749,9 @@ reportesIncidenciasController.generateReporteVisitaDom = async (req, res) => {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=VISITA_DOMICILIARIA_QUIN${quin}.pdf`,
+        `attachment; filename=QUINCENA_${quin}.pdf`,
       );
-      res.download(filePath, `VISITA_DOMICILIARIA_QUIN${quin}.pdf`, (err) => {
+      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
         if (err) {
           console.error("Error al descargar el archivo:", err.message);
           res.status(500).json({ message: "Error al descargar el archivo." });

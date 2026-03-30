@@ -16,6 +16,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
   try {
     let vacants = [];
     let title = "";
+    let nameFile = "";
     if (queryParam === "ALL") {
       vacants = await query("PLANTILLA", {
         status: { $in: [2, 3] },
@@ -42,24 +43,28 @@ reportesPersonalController.getReportVacants = async (req, res) => {
         ],
       });
       title = "VACANTES DISPONIBLES";
+      nameFile = "DISPONIBLES";
     } else if (queryParam === "B") {
       vacants = await query("PLANTILLA", {
         status: { $in: [2, 3] },
         $or: [{ TIPONOM: { $in: ["F51", "M51"] } }],
       });
       title = "VACANTES DISPONIBLES DE BASE";
+      nameFile = "BASE";
     } else if (queryParam === "C") {
       vacants = await query("PLANTILLA", {
         status: { $in: [2, 3] },
         $or: [{ TIPONOM: { $in: ["FCT", "CCT", "FCO", "511", "F53", "M53"] } }],
       });
       title = "VACANTES DISPONIBLES DE CONFIANZA";
+      nameFile = "CONFIANZA";
     } else if (queryParam === "MM") {
       vacants = await query("PLANTILLA", {
         status: { $in: [2, 3] },
         $or: [{ TIPONOM: { $in: ["FMM", "MMS"] } }],
       });
       title = "VACANTES DISPONIBLES DE MANDOS MEDIOS";
+      nameFile = "MANDOS_MEDIOS";
     }
 
     if (!vacants || vacants.length === 0) {
@@ -125,7 +130,7 @@ reportesPersonalController.getReportVacants = async (req, res) => {
 
     const filePath = path.join(
       __dirname,
-      `../../docs/reportes/personal/VACANTES.pdf`,
+      `../../docs/reportes/personal/vacantes/VACANTES_${nameFile}.pdf`,
     );
 
     try {
@@ -344,7 +349,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
 
     const filePath = path.join(
       __dirname,
-      `../../docs/reportes/personal/LICENCIAS.pdf`,
+      `../../docs/reportes/personal/licencias/LICENCIAS_ACTIVAS.pdf`,
     );
 
     try {
@@ -360,9 +365,9 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename=LICENCIAS.pdf`,
+          `attachment; filename=LICENCIAS_ACTIVAS.pdf`,
         );
-        res.download(filePath, `LICENCIAS.pdf`, (err) => {
+        res.download(filePath, `LICENCIAS_ACTIVAS.pdf`, (err) => {
           if (err) {
             console.error("Error al descargar el archivo:", err.message);
             res.status(500).json({ message: "Error al descargar el archivo." });
@@ -574,20 +579,6 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     filtro.CLAVECAT = NOMCATE.CLAVE_CATEGORIA;
     nomcateText = `LA CATEGORÍA "${NOMCATE.DESCRIPCION}"`;
   }
-  if (ADSCRIPCION) {
-    filtro.ADSCRIPCION = ADSCRIPCION;
-    adscripText = `LA ADSCRIPCIÓN "${ADSCRIPCION}"`;
-  }
-  if (CLAVE) {
-    if (Array.isArray(CLAVE)) {
-      filtro.CLAVE = { $in: CLAVE };
-      claveText = `${CLAVE.length > 1 ? "LAS CLAVES" : "LA CLAVE"
-        } "${CLAVE.join(", ")}"`;
-    } else {
-      filtro.CLAVE = CLAVE;
-      claveText = `LA CLAVE "${CLAVE}"`;
-    }
-  }
   if (STATUS_EMPLEADO) {
 
     if (STATUS_EMPLEADO === "ACTIVO") {
@@ -636,9 +627,30 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
   }
 
   let empleadosFiltrados = employees;
+
+  if (CLAVE) {
+    const claveArray = Array.isArray(CLAVE) ? CLAVE : [CLAVE];
+    empleadosFiltrados = empleadosFiltrados.filter((emp) => {
+      // Priorizar STATUS_EMPLEADO.CLAVE si existe
+      const statusClave = emp.STATUS_EMPLEADO?.find(se => se.CLAVE)?.CLAVE;
+      const claveToCheck = statusClave !== undefined ? statusClave : emp.CLAVE;
+      return claveArray.includes(claveToCheck);
+    });
+  }
+
+  // Agregar filtrado posterior para ADSCRIPCION
+  if (ADSCRIPCION) {
+    empleadosFiltrados = empleadosFiltrados.filter((emp) => {
+      // Priorizar STATUS_EMPLEADO.LUGAR_COMISIONADO si existe (para ASIG_LAB u otros)
+      const statusAdscrip = emp.STATUS_EMPLEADO?.find(se => se.LUGAR_COMISIONADO)?.LUGAR_COMISIONADO;
+      const adscripToCheck = statusAdscrip || emp.ADSCRIPCION;
+      return adscripToCheck === ADSCRIPCION;
+    });
+  }
+
   if (NOMBRE) {
     const nombreBuscado = NOMBRE.replace(/\s+/g, " ").trim().toLowerCase();
-    empleadosFiltrados = employees.filter((emp) => {
+    empleadosFiltrados = empleadosFiltrados.filter((emp) => {
       const nombreCompleto = `${emp.APE_PAT} ${emp.APE_MAT} ${emp.NOMBRES}`
         .replace(/\s+/g, " ")
         .trim()
@@ -685,7 +697,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       SEXO: emp.SEXO,
       TIPONOM: emp.TIPONOM,
       NUMPLA: emp.NUMPLA,
-      ADSCRIPCION: emp.ADSCRIPCION,
+      ADSCRIPCION: emp?.STATUS_EMPLEADO?.find(se => se.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || emp?.ADSCRIPCION || "",
       NOMCATE: emp.NOMCATE,
       FECHA_NAC: emp.FECHA_NAC,
       STATUS_EMPLEADO: emp?.STATUS_EMPLEADO || [],
@@ -958,6 +970,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     }
   }
 };
+
 reportesPersonalController.getPlantillaXLSX = async (req, res) => {
   try {
     // Obtener el parámetro status de los params de la ruta y convertirlo a entero
@@ -1130,11 +1143,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     // Genera el archivo y responde para descarga
     const fechaStr = moment().format("YYYY-MM-DD_HH-mm-ss");
     const tipoRegistro =
-      statusParam === 1
-        ? "ACTIVOS"
-        : statusParam === 2
-          ? "VACANTES"
-          : "PLANTILLA";
+      statusParam === 1 ? "ACTIVOS" : statusParam === 2 ? "VACANTES" : "PLANTILLA";
     const fileName = `PLANTILLA_${tipoRegistro}_${fechaStr}.xlsx`;
     res.setHeader(
       "Content-Type",

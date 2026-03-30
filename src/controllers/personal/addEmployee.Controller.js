@@ -325,7 +325,7 @@ employeeController.makeProposal = async (req, res) => {
   const OBRA_ACT = data.OBRA_ACT ? data.OBRA_ACT : "";
   const CLAVECAT = data.CLAVECAT ? data.CLAVECAT : "";
   const NOMCATE = data.NOMCATE ? data.NOMCATE : "";
-  const FECHA_INGRESO = data.FECHA_INGRESO ? data.FECHA_INGRESO : "";
+  const FECHA_INGRESO = data.FECHA_INGRESO ? new Date(data.FECHA_INGRESO) : null;
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
   const DIRECCION_COMPLETA = `${data?.DIRECCION.DOMICILIO || ""} ${data?.DIRECCION.NUM_EXT || ""} ${data?.DIRECCION.COLONIA || ""
@@ -336,7 +336,7 @@ employeeController.makeProposal = async (req, res) => {
   const MUNICIPIO = data?.DIRECCION.MUNICIPIO || "";
   const ESTADO = data?.DIRECCION.ESTADO || "";
   const NUM_EXT = data?.NUM_EXT ? data?.NUM_EXT : "";
-  const [year, month, day] = FECHA_INGRESO.split("-");
+  const [year, month, day] = data?.FECHA_INGRESO.split("-");
   const FECHA_FORMATTED = `${day} DE ${months[parseInt(month, 10) - 1]
     } DE ${year}`;
 
@@ -646,7 +646,7 @@ employeeController.makeProposal = async (req, res) => {
 employeeController.downloadAlta = async (req, res) => {
   const { curp } = req.params;
 
-  const filePath = path.resolve(__dirname, `../../ docs / altas / ALTA_${curp}.pdf`);
+  const filePath = path.resolve(__dirname, `../../docs/altas/ALTA_${curp}.pdf`);
 
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ message: "Archivo no encontrado" });
@@ -691,6 +691,9 @@ employeeController.saveEmployee = async (req, res) => {
     action: `SE GUARDO NUEVO EMPLEADO: "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
     timestamp: currentDateTime,
   };
+
+  // Convertir FECHA_INGRESO a formato Date si existe
+  data.FECHA_INGRESO = data.FECHA_INGRESO ? new Date(data.FECHA_INGRESO) : null;
 
   try {
     await updateOne(

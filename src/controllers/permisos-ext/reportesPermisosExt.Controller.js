@@ -147,19 +147,19 @@ reportesPermisosExtController.printReport = async (req, res) => {
     try {
         doc.render(templateData);
         const buf = doc.getZip().generate({ type: "nodebuffer" });
-        const outputDir = path.resolve(__dirname, "../../docs/permisosExt");
+        const outputDir = path.resolve(__dirname, `../../docs/reportes/permisos_extraordinarios/empleado/`);
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
         const outputPath = path.join(
             outputDir,
-            `PERMISOS_EXT_${templateData.CURP}.docx`,
+            `CURP_${templateData.CURP}.docx`,
         );
         fs.writeFileSync(outputPath, buf);
 
         res.setHeader(
             "Content-Disposition",
-            `attachment; filename=PERMISOS_EXT_${templateData.CURP}.docx`,
+            `attachment; filename=CURP_${templateData.CURP}.docx`,
         );
         res.setHeader(
             "Content-Type",
@@ -265,19 +265,19 @@ reportesPermisosExtController.printReportType = async (req, res) => {
     try {
         doc.render(templateData);
         const buf = doc.getZip().generate({ type: "nodebuffer" });
-        const outputDir = path.resolve(__dirname, "../../docs/permisosExt");
+        const outputDir = path.resolve(__dirname, "../../docs/reportes/permisos_extraordinarios/tipo_permiso/");
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
         const outputPath = path.join(
             outputDir,
-            `PERMISOS_EXT_POR_${templateData.tipoPermiso}.docx`,
+            `${templateData.tipoPermiso}.docx`,
         );
         fs.writeFileSync(outputPath, buf);
 
         res.setHeader(
             "Content-Disposition",
-            `attachment; filename=PERMISOS_EXT_POR_${templateData.tipoPermiso}.docx`,
+            `attachment; filename=${templateData.tipoPermiso}.docx`,
         );
         res.setHeader(
             "Content-Type",
@@ -301,7 +301,7 @@ reportesPermisosExtController.printReportQuincena = async (req, res) => {
     const year = moment().year();
 
     console.log(quincena);
-    
+
 
     const q = Number(quincena);
     if (!q || q < 1 || q > 24) {
@@ -389,7 +389,7 @@ reportesPermisosExtController.printReportQuincena = async (req, res) => {
 
     const templateData = {
         fechaHoy: moment().format("DD/MM/YYYY"),
-       quincena: `DEL ${startDay} AL ${endDay} DE ${moment({ year, month: month - 1, day: 1 }).locale("es").format("MMMM").toUpperCase()} DE ${year}`,
+        quincena: `DEL ${startDay} AL ${endDay} DE ${moment({ year, month: month - 1, day: 1 }).locale("es").format("MMMM").toUpperCase()} DE ${year}`,
         DIAS_LENP: totalDaysLENP,
         DIAS_CUFA: totalDaysCUFA,
         DIAS_CUMA: totalDaysCUMA,
@@ -418,19 +418,19 @@ reportesPermisosExtController.printReportQuincena = async (req, res) => {
     try {
         doc.render(templateData);
         const buf = doc.getZip().generate({ type: "nodebuffer" });
-        const outputDir = path.resolve(__dirname, "../../docs/permisosExt");
+        const outputDir = path.resolve(__dirname, "../../docs/reportes/permisos_extraordinarios/quincena/");
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
         const outputPath = path.join(
             outputDir,
-            `PERMISOS_EXT_QUINCENA_${quincena}.docx`,
+            `QUINCENA_${quincena}.docx`,
         );
         fs.writeFileSync(outputPath, buf);
 
         res.setHeader(
             "Content-Disposition",
-            `attachment; filename=PERMISOS_EXT_QUINCENA_${quincena}.docx`,
+            `attachment; filename=QUINCENA_${quincena}.docx`,
         );
         res.setHeader(
             "Content-Type",
