@@ -20,34 +20,14 @@ router.post(
   reportesIncidenciasController.printIndividualEconomicDays,
 );
 router.get(
-  "/printIncidenciasCentral/:quincena",
+  "/printIncidencias/:area/:quin",
   verifyToken,
-  reportesIncidenciasController.printIncidenciasCentral,
+  reportesIncidenciasController.printIncidencias,
 );
-
-// Auditoria Reportes
 router.get(
-  "/printIncidenciasAuditoria/:quincena",
+  "/printInasistencias/:area/:quin",
   verifyToken,
-  reportesIncidenciasController.printIncidenciasAuditoria,
-);
-router.get(
-  "/printInasistenciasAuditoria/:quincena",
-  verifyToken,
-  reportesIncidenciasController.printInasistenciasAuditoria,
-);
-router.get(
-  "/printInasistenciasCentral/:quincena",
-  verifyToken,
-  reportesIncidenciasController.printInasistenciasCentral,
-);
-router.get(
-  "/printIncidenciasPlaneacion/:quincena",
-  reportesIncidenciasController.printIncidenciasPlaneacion,
-);
-router.get(
-  "/printInasistenciasPlaneacion/:quincena",
-  reportesIncidenciasController.printInasistenciasPlaneacion,
+  reportesIncidenciasController.printInasistencias,
 );
 router.post(
   "/printRetardosDbf",

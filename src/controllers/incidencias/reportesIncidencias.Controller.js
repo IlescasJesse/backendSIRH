@@ -631,12 +631,12 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
     res.status(500).json({ message: "Error al generar el reporte." });
   }
 };
-reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
-  const quin = req.query.quincena || req.params.quincena;
+reportesIncidenciasController.printIncidencias = async (req, res) => {
+  const { area, quin } = req.params;
 
   const incidencias_central = await query("INCIDENCIAS", {
     QUINCENA: parseInt(quin, 10),
-    AREA_RESP: "CTRAL",
+    AREA_RESP: area,
   });
 
   const plantillaCentral = await query("PLANTILLA", {});
@@ -659,9 +659,11 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     });
   }
 
+  let folder = area === "CTRAL" ? "central" : area === "AUD" ? "auditoria" : "planeacion";
+
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias/central/archivos_pdf/incidencias/QUINCENA_${quin}.pdf`,
+    `../../docs/reportes/incidencias/${folder}/archivos_pdf/incidencias/QUINCENA_${quin}.pdf`,
   );
 
   try {
@@ -742,7 +744,11 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
       doc.text("DIRECCIÓN DE RECURSOS HUMANOS", { align: "center" });
       doc.text("DEPARTAMENTO DE REGISTROS DE PERSONAL", { align: "center" });
       doc.text(`PÁGINA ${pageNumber}`, { align: "center" });
-      doc.text("REPORTE DE: INCIDENCIAS CENTRAL", { align: "center" });
+      let areaName = "";
+      if (area === "CTRAL") areaName = "CENTRAL";
+      else if (area === "AUD") areaName = "AUDITORÍA";
+      else if (area === "PLAN") areaName = "PLANEACIÓN";
+      doc.text(`REPORTE DE: INCIDENCIAS ${areaName}`, { align: "center" });
       doc.text(periodo, { align: "center" });
       doc.moveDown(0.5); // Reducir espacio entre encabezado y filas
     };
@@ -754,7 +760,6 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
     addHeaderAndFooter();
 
     // Agregar contenido al documento
-
     doc.moveDown();
 
     // Determinar días del periodo
@@ -839,287 +844,23 @@ reportesIncidenciasController.printIncidenciasCentral = async (req, res) => {
       y += rowHeight;
 
       const { NUMTARJETA, HORARIO, NOMBRE, TIPONOM, INCIDENCIAS } = incidencia;
-      const replaceIncidenciasValue = (value) => {
-        // Reemplazar el valor de la incidencia según sea necesario
+      const normalizeIncidenciasValue = (value) => {
         const replacements = {
           A: "F",
           B: "FR",
           E: tieneTurnoVesp ? "RV" : "RM",
           V: "MD",
+          W: "MD",
           // Agregar más reemplazos según sea necesario
         };
-        return replacements[value] || value;
-      };
 
-      const replaceTiponomValue = (value) => {
-        const replacements = {
-          M51: "BASE",
-          F51: "BASE",
-          FCT: "CONTRATO CONFIANZA",
-          CCT: "CONTRATO CONFIANZA",
-          FCO: "NOMBRAMIENTO CONFIANZA",
-          511: "NOMBRAMIENTO CONFIANZA",
-          F53: "CONTRATO",
-          M53: "CONTRATO",
-          MMS: "MANDOS MEDIOS",
-          FMM: "MANDOS MEDIOS",
-        };
-        return replacements[value] || value;
-      };
+        const mapValue = (item) => replacements[item] || item;
 
-      const rowData = [
-        NUMTARJETA,
-        `${NOMBRE.length > 26 ? NOMBRE.substring(0, 26) : NOMBRE}\n${replaceTiponomValue(TIPONOM)}`,
-        HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
-        ...daysInPeriod.map((day) =>
-          INCIDENCIAS && INCIDENCIAS[day]
-            ? replaceIncidenciasValue(INCIDENCIAS[day])
-            : "",
-        ),
-      ];
-
-      rowData.forEach((data, index) => {
-        doc.rect(x, y, columnWidths[index] * scaleFactor, rowHeight).stroke();
-        doc.text(data, x + 5, y + 5, {
-          width: columnWidths[index] * scaleFactor,
-          align: index === 0 ? "left" : "",
-        });
-        x += columnWidths[index] * scaleFactor;
-      });
-
-      rowCount++;
-    });
-    doc.moveDown(2);
-    doc.text("ACOTACIONES:", 30, y + rowHeight + 10);
-    doc.text("F = FALTA", 30, y + rowHeight + 25);
-    doc.text("FR = FALTA POR RETARDO", 125, y + rowHeight + 25);
-    doc.text("RM = RETARDO MATUTINO", 270, y + rowHeight + 25);
-    doc.text("RV = RETARDO VESPERTINO", 413, y + rowHeight + 25);
-    doc.text("MD = MEDIA DÍA", 30, y + rowHeight + 37);
-
-    doc.end();
-  } catch (error) {
-    console.error("Error al crear el archivo:", error.message);
-    res.status(500).json({ message: "Error al generar el reporte." });
-  }
-};
-reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
-  const quin = req.query.quincena || req.params.quincena;
-
-  const incidencias_auditoria = await query("INCIDENCIAS", {
-    QUINCENA: parseInt(quin, 10),
-    AREA_RESP: "AUD",
-  });
-
-  const plantillaCentral = await query("PLANTILLA", {});
-  const plantillaForanea = await query("PLANTILLA_FORANEA", {});
-  const plantillaMap = new Map(
-    [...plantillaCentral, ...plantillaForanea].map((p) => [
-      String(p.ID_CTRL_ASIST),
-      p,
-    ]),
-  );
-
-  // Filtrar resultados para incluir solo los proyectos especificados
-  const filteredIncidencias = incidencias_auditoria;
-  const doc = new PDFDocument();
-
-  if (filteredIncidencias.length === 0) {
-    return res.status(404).json({
-      message: "No se encontraron datos para la quincena especificada.",
-    });
-  }
-
-  const filePath = path.join(
-    __dirname,
-    `../../docs/reportes/incidencias/auditoria/archivos_pdf/incidencias/QUINCENA_${quin}.pdf`,
-  );
-
-  try {
-    const stream = fs.createWriteStream(filePath);
-
-    stream.on("error", (err) => {
-      console.error("Error al escribir el archivo:", err.message);
-      res.status(500).json({ message: "Error al generar el reporte." });
-      doc.end();
-    });
-
-    stream.on("finish", () => {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=QUINCENA_${quin}.pdf`,
-      );
-      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
-        if (err) {
-          console.error("Error al descargar el archivo:", err.message);
-          res.status(500).json({ message: "Error al descargar el archivo." });
+        if (Array.isArray(value)) {
+          return value.map(mapValue).join("\n");
         }
-      });
-    });
 
-    doc.pipe(stream);
-
-    // Registrar fuente personalizada
-    doc.registerFont("Consolas", fontPath);
-    doc.font("Consolas").fontSize(10);
-
-    const currentDate = new Date().toLocaleDateString("es-MX");
-
-    const getPeriodoFromQuincena = (quincena) => {
-      const monthNames = [
-        "ENERO",
-        "FEBRERO",
-        "MARZO",
-        "ABRIL",
-        "MAYO",
-        "JUNIO",
-        "JULIO",
-        "AGOSTO",
-        "SEPTIEMBRE",
-        "OCTUBRE",
-        "NOVIEMBRE",
-        "DICIEMBRE",
-      ];
-      const year = new Date().getFullYear();
-      const month = Math.ceil(quincena / 2);
-      const isFirstHalf = quincena % 2 !== 0;
-
-      const startDay = isFirstHalf ? "01" : "16";
-      const endDay = isFirstHalf
-        ? "15"
-        : month === 2
-          ? new Date(year, 1, 29).getDate() === 29
-            ? "29"
-            : "28"
-          : new Date(year, month, 0).getDate();
-
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
-    };
-
-    const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
-    // Agregar encabezado y pie de página dinámico
-    let pageNumber = 0;
-    const addHeaderAndFooter = () => {
-      pageNumber++;
-      doc.fontSize(10).text(`Página ${pageNumber}`, 60, 20, {
-        align: "right",
-        width: 612, // Ancho de una hoja tamaño carta en puntos (8.5 pulgadas * 72 puntos por pulgada)
-      });
-      doc.text(currentDate, { align: "right" });
-      doc.text("GOBIERNO DEL ESTADO DE OAXACA", { align: "center" });
-      doc.text("SECRETARÍA DE ADMINISTRACIÓN", { align: "center" });
-      doc.text("DIRECCIÓN DE RECURSOS HUMANOS", { align: "center" });
-      doc.text("DEPARTAMENTO DE REGISTROS DE PERSONAL", { align: "center" });
-      doc.text(`PÁGINA ${pageNumber}`, { align: "center" });
-      doc.text("REPORTE DE: INCIDENCIAS AUDITORÍA", { align: "center" });
-      doc.text(periodo, { align: "center" });
-      doc.moveDown(0.5); // Reducir espacio entre encabezado y filas
-    };
-
-    doc.on("pageAdded", addHeaderAndFooter);
-
-    // Primera página
-    doc.margins = { top: 72, bottom: 72, left: 60, right: 40 };
-    addHeaderAndFooter();
-
-    // Agregar contenido al documento
-
-    doc.moveDown();
-
-    // Determinar días del periodo
-    const isFirstHalf = periodo.includes("01 DE");
-    const daysInPeriod = isFirstHalf
-      ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
-      : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
-
-    // Encabezado de la tabla
-    const tableHeaders = [
-      "TAR.",
-      "N O M B R E\nTIPO DE RELACIÓN LABORAL",
-      "HORARIO",
-      ...daysInPeriod,
-    ];
-    const columnWidths = [40, 160, 60, ...Array(daysInPeriod.length).fill(20)];
-    const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
-    const headerHeight = 30;
-    const rowHeight = headerHeight * 1;
-    const maxTableWidth = 550;
-    const scaleFactor =
-      tableWidth > maxTableWidth ? maxTableWidth / tableWidth : 1;
-
-    // Dibujar encabezados sin bordes
-    let x = 30;
-    let y = doc.y;
-    tableHeaders.forEach((header, index) => {
-      doc.text(header, x + 5, y + 5, {
-        width: columnWidths[index] * scaleFactor,
-        align: "left",
-      });
-      x += columnWidths[index] * scaleFactor;
-    });
-
-    // Ordenar por número de tarjeta de menor a mayor
-    filteredIncidencias.sort((a, b) => {
-      const numA = parseInt(a.NUMTARJETA, 10);
-      const numB = parseInt(b.NUMTARJETA, 10);
-      return numA - numB;
-    });
-
-    // Dibujar filas con datos, limitando a 17 filas por página
-    let rowCount = 0;
-    filteredIncidencias.forEach((incidencia) => {
-      const ctrl = String(incidencia.ID_CTRL_ASIST || "");
-      const { TURNOMAT = "", TURNOVES = "" } = plantillaMap.get(ctrl) || {};
-
-      const tieneTurnoVesp = Boolean(
-        TURNOVES && String(TURNOVES).trim() !== "",
-      );
-
-      if (rowCount === 17) {
-        doc.addPage();
-
-        y = doc.y;
-        rowCount = 0;
-
-        // Dibujar encabezados nuevamente en la nueva página
-        x = 30;
-        tableHeaders.forEach((header, index) => {
-          doc.text(header, x + 5, y + 5, {
-            width: columnWidths[index] * scaleFactor,
-            align: "left",
-          });
-          x += columnWidths[index] * scaleFactor;
-        });
-      }
-
-      x = 30;
-      y += rowHeight;
-
-      const { NUMTARJETA, HORARIO, NOMBRE, TIPONOM, INCIDENCIAS } = incidencia;
-      const replaceIncidenciasValue = (value) => {
-        // Reemplazar el valor de la incidencia según sea necesario
-        const replacements = {
-          A: "F",
-          B: "FR",
-          E: tieneTurnoVesp ? "RV" : "RM",
-          V: "MD",
-          // Agregar más reemplazos según sea necesario
-        };
-        return replacements[value] || value;
+        return mapValue(value);
       };
 
       const replaceTiponomValue = (value) => {
@@ -1142,11 +883,10 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
         NUMTARJETA,
         `${NOMBRE.length > 26 ? NOMBRE.substring(0, 26) : NOMBRE}\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
-        ...daysInPeriod.map((day) =>
-          INCIDENCIAS && INCIDENCIAS[day]
-            ? replaceIncidenciasValue(INCIDENCIAS[day])
-            : "",
-        ),
+        ...daysInPeriod.map((day) => {
+          const dayValue = INCIDENCIAS && INCIDENCIAS[day];
+          return dayValue ? normalizeIncidenciasValue(dayValue) : "";
+        }),
       ];
 
       rowData.forEach((data, index) => {
@@ -1174,285 +914,17 @@ reportesIncidenciasController.printIncidenciasAuditoria = async (req, res) => {
     res.status(500).json({ message: "Error al generar el reporte." });
   }
 };
-reportesIncidenciasController.printIncidenciasPlaneacion = async (req, res) => {
-  const quin = req.query.quincena || req.params.quincena;
 
-  const incidencias_planeacion = await query("INCIDENCIAS", {
-    QUINCENA: parseInt(quin, 10),
-    AREA_RESP: "PLAN",
-  });
+reportesIncidenciasController.printInasistencias = async (req, res) => {
+  const { area, quin } = req.params;
 
-  const plantillaCentral = await query("PLANTILLA", {});
-  const plantillaForanea = await query("PLANTILLA_FORANEA", {});
-  const plantillaMap = new Map(
-    [...plantillaCentral, ...plantillaForanea].map((p) => [
-      String(p.ID_CTRL_ASIST),
-      p,
-    ]),
-  );
-
-  // Filtrar resultados para incluir solo los proyectos especificados
-  const filteredIncidencias = incidencias_planeacion;
-  const doc = new PDFDocument();
-
-  if (filteredIncidencias.length === 0) {
-    return res.status(404).json({
-      message: "No se encontraron datos para la quincena especificada.",
-    });
-  }
-
-  const filePath = path.join(
-    __dirname,
-    `../../docs/reportes/incidencias/planeacion/archivos_pdf/incidencias/QUINCENA_${quin}.pdf`,
-  );
-
-  try {
-    const stream = fs.createWriteStream(filePath);
-
-    stream.on("error", (err) => {
-      console.error("Error al escribir el archivo:", err.message);
-      res.status(500).json({ message: "Error al generar el reporte." });
-      doc.end();
-    });
-
-    stream.on("finish", () => {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=QUINCENA_${quin}.pdf`,
-      );
-      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
-        if (err) {
-          console.error("Error al descargar el archivo:", err.message);
-          res.status(500).json({ message: "Error al descargar el archivo." });
-        }
-      });
-    });
-
-    doc.pipe(stream);
-
-    // Registrar fuente personalizada
-    doc.registerFont("Consolas", fontPath);
-    doc.font("Consolas").fontSize(10);
-
-    const currentDate = new Date().toLocaleDateString("es-MX");
-
-    const getPeriodoFromQuincena = (quincena) => {
-      const monthNames = [
-        "ENERO",
-        "FEBRERO",
-        "MARZO",
-        "ABRIL",
-        "MAYO",
-        "JUNIO",
-        "JULIO",
-        "AGOSTO",
-        "SEPTIEMBRE",
-        "OCTUBRE",
-        "NOVIEMBRE",
-        "DICIEMBRE",
-      ];
-      const year = new Date().getFullYear();
-      const month = Math.ceil(quincena / 2);
-      const isFirstHalf = quincena % 2 !== 0;
-
-      const startDay = isFirstHalf ? "01" : "16";
-      const endDay = isFirstHalf
-        ? "15"
-        : month === 2
-          ? new Date(year, 1, 29).getDate() === 29
-            ? "29"
-            : "28"
-          : new Date(year, month, 0).getDate();
-
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
-    };
-
-    const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
-    // Agregar encabezado y pie de página dinámico
-    let pageNumber = 0;
-    const addHeaderAndFooter = () => {
-      pageNumber++;
-      doc.fontSize(10).text(`Página ${pageNumber}`, 60, 20, {
-        align: "right",
-        width: 612, // Ancho de una hoja tamaño carta en puntos (8.5 pulgadas * 72 puntos por pulgada)
-      });
-      doc.text(currentDate, { align: "right" });
-      doc.text("GOBIERNO DEL ESTADO DE OAXACA", { align: "center" });
-      doc.text("SECRETARÍA DE ADMINISTRACIÓN", { align: "center" });
-      doc.text("DIRECCIÓN DE RECURSOS HUMANOS", { align: "center" });
-      doc.text("DEPARTAMENTO DE REGISTROS DE PERSONAL", { align: "center" });
-      doc.text(`PÁGINA ${pageNumber}`, { align: "center" });
-      doc.text("REPORTE DE: INCIDENCIAS PLANEACIÓN", { align: "center" });
-      doc.text(periodo, { align: "center" });
-      doc.moveDown(0.5); // Reducir espacio entre encabezado y filas
-    };
-
-    doc.on("pageAdded", addHeaderAndFooter);
-
-    // Primera página
-    doc.margins = { top: 72, bottom: 72, left: 60, right: 40 };
-    addHeaderAndFooter();
-
-    // Agregar contenido al documento
-
-    doc.moveDown();
-
-    // Determinar días del periodo
-    const isFirstHalf = periodo.includes("01 DE");
-    const daysInPeriod = isFirstHalf
-      ? Array.from({ length: 15 }, (_, i) =>
-        (i + 1).toString().padStart(2, "0"),
-      )
-      : Array.from(
-        {
-          length:
-            new Date(
-              new Date().getFullYear(),
-              parseInt(quin / 2),
-              0,
-            ).getDate() - 15,
-        },
-        (_, i) => (i + 16).toString().padStart(2, "0"),
-      );
-
-    // Encabezado de la tabla
-    const tableHeaders = [
-      "TAR.",
-      "N O M B R E\nTIPO DE RELACIÓN LABORAL",
-      "HORARIO",
-      ...daysInPeriod,
-    ];
-    const columnWidths = [40, 160, 60, ...Array(daysInPeriod.length).fill(20)];
-    const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
-    const headerHeight = 30;
-    const rowHeight = headerHeight * 1;
-    const maxTableWidth = 550;
-    const scaleFactor =
-      tableWidth > maxTableWidth ? maxTableWidth / tableWidth : 1;
-
-    // Dibujar encabezados sin bordes
-    let x = 30;
-    let y = doc.y;
-    tableHeaders.forEach((header, index) => {
-      doc.text(header, x + 5, y + 5, {
-        width: columnWidths[index] * scaleFactor,
-        align: "left",
-      });
-      x += columnWidths[index] * scaleFactor;
-    });
-
-    // Ordenar por número de tarjeta de menor a mayor
-    filteredIncidencias.sort((a, b) => {
-      const numA = parseInt(a.NUMTARJETA, 10);
-      const numB = parseInt(b.NUMTARJETA, 10);
-      return numA - numB;
-    });
-
-    // Dibujar filas con datos, limitando a 17 filas por página
-    let rowCount = 0;
-    filteredIncidencias.forEach((incidencia) => {
-      const ctrl = String(incidencia.ID_CTRL_ASIST || "");
-      const { TURNOMAT = "", TURNOVES = "" } = plantillaMap.get(ctrl) || {};
-
-      const tieneTurnoVesp = Boolean(
-        TURNOVES && String(TURNOVES).trim() !== "",
-      );
-      if (rowCount === 17) {
-        doc.addPage();
-
-        y = doc.y;
-        rowCount = 0;
-
-        // Dibujar encabezados nuevamente en la nueva página
-        x = 30;
-        tableHeaders.forEach((header, index) => {
-          doc.text(header, x + 5, y + 5, {
-            width: columnWidths[index] * scaleFactor,
-            align: "left",
-          });
-          x += columnWidths[index] * scaleFactor;
-        });
-      }
-
-      x = 30;
-      y += rowHeight;
-
-      const { NUMTARJETA, HORARIO, NOMBRE, TIPONOM, INCIDENCIAS } = incidencia;
-      const replaceIncidenciasValue = (value) => {
-        // Reemplazar el valor de la incidencia según sea necesario
-        const replacements = {
-          A: "F",
-          B: "FR",
-          E: tieneTurnoVesp ? "RV" : "RM",
-          V: "MD",
-          // Agregar más reemplazos según sea necesario
-        };
-        return replacements[value] || value;
-      };
-
-      const replaceTiponomValue = (value) => {
-        const replacements = {
-          M51: "BASE",
-          F51: "BASE",
-          FCT: "CONTRATO CONFIANZA",
-          CCT: "CONTRATO CONFIANZA",
-          FCO: "NOMBRAMIENTO CONFIANZA",
-          511: "NOMBRAMIENTO CONFIANZA",
-          F53: "CONTRATO",
-          M53: "CONTRATO",
-          MMS: "MANDOS MEDIOS",
-          FMM: "MANDOS MEDIOS",
-        };
-        return replacements[value] || value;
-      };
-
-      const rowData = [
-        NUMTARJETA,
-        `${NOMBRE.length > 26 ? NOMBRE.substring(0, 26) : NOMBRE}\n${replaceTiponomValue(TIPONOM)}`,
-        HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
-        ...daysInPeriod.map((day) =>
-          INCIDENCIAS && INCIDENCIAS[day]
-            ? replaceIncidenciasValue(INCIDENCIAS[day])
-            : "",
-        ),
-      ];
-
-      rowData.forEach((data, index) => {
-        doc.rect(x, y, columnWidths[index] * scaleFactor, rowHeight).stroke();
-        doc.text(data, x + 5, y + 5, {
-          width: columnWidths[index] * scaleFactor,
-          align: index === 0 ? "left" : "",
-        });
-        x += columnWidths[index] * scaleFactor;
-      });
-
-      rowCount++;
-    });
-    doc.moveDown(2);
-    doc.text("ACOTACIONES:", 30, y + rowHeight + 10);
-    doc.text("F = FALTA", 30, y + rowHeight + 25);
-    doc.text("FR = FALTA POR RETARDO", 125, y + rowHeight + 25);
-    doc.text("RM = RETARDO MATUTINO", 270, y + rowHeight + 25);
-    doc.text("RV = RETARDO VESPERTINO", 413, y + rowHeight + 25);
-    doc.text("MD = MEDIA DÍA", 30, y + rowHeight + 37);
-
-    doc.end();
-  } catch (error) {
-    console.error("Error al crear el archivo:", error.message);
-    res.status(500).json({ message: "Error al generar el reporte." });
-  }
-};
-reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
-  const quin = req.query.quincena || req.params.quincena;
   const unidades_responsables = await querysql(
     "SELECT * FROM unidad_responsable",
   );
 
   const inasistencias_central = await query("INCIDENCIAS", {
     QUINCENA: parseInt(quin, 10),
-    AREA_RESP: "CTRAL",
+    AREA_RESP: area,
   });
 
   // Filtrar resultados para excluir los proyectos especificados
@@ -1520,10 +992,12 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
 
   const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
 
+  let folder = area === "CTRAL" ? "central" : area === "AUD" ? "auditoria" : "planeacion";
+
   const doc = new PDFDocument();
   const filePath = path.join(
     __dirname,
-    `../../docs/reportes/incidencias/central/archivos_pdf/retardos_e_inasistencias/QUINCENA_${quin}.pdf`,
+    `../../docs/reportes/incidencias/${folder}/archivos_pdf/retardos_e_inasistencias/QUINCENA_${quin}.pdf`,
   );
 
   const stream = fs.createWriteStream(filePath);
@@ -1668,465 +1142,11 @@ reportesIncidenciasController.printInasistenciasCentral = async (req, res) => {
 
   doc.end();
 };
-reportesIncidenciasController.printInasistenciasAuditoria = async (
-  req,
-  res,
-) => {
-  const quin = req.query.quincena || req.params.quincena;
-  const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable",
-  );
 
-  const inasistencias_auditoria = await query("INCIDENCIAS", {
-    QUINCENA: parseInt(quin, 10),
-    AREA_RESP: "AUD",
-  });
-
-  // Filtrar resultados para incluir solo los proyectos especificados
-  const filteredInasistencias = inasistencias_auditoria;
-
-  if (filteredInasistencias.length === 0) {
-    return res.status(404).json({
-      message: "No se encontraron datos para la quincena especificada.",
-    });
-  }
-
-  // Filtrar por TIPONOM y crear sus respectivos arrays
-  const tiponomGroups = {
-    F51: { label: "BASE FORÁNEA", data: [] },
-    M51: { label: "BASE CENTRAL", data: [] },
-    FCT: { label: "CONTRATO CONFIANZA FORÁNEO", data: [] },
-    CCT: { label: "CONTRATO CONFIANZA CENTRAL", data: [] },
-    FCO: { label: "NOMBRAMIENTO CONFIANZA FORÁNEO", data: [] },
-    511: { label: "NOMBRAMIENTO CONFIANZA CENTRAL", data: [] },
-    F53: { label: "CONTRATO FORÁNEO", data: [] },
-    M53: { label: "CONTRATO CENTRAL", data: [] },
-    FMM: { label: "MANDOS MEDIOS FORÁNEOS", data: [] },
-    MMS: { label: "MANDOS MEDIOS CENTRAL", data: [] },
-  };
-
-  filteredInasistencias.forEach((inasistencia) => {
-    if (tiponomGroups[inasistencia.TIPONOM]) {
-      tiponomGroups[inasistencia.TIPONOM].data.push(inasistencia);
-    }
-  });
-
-  const currentDate = new Date().toLocaleDateString("es-MX");
-
-  const getPeriodoFromQuincena = (quincena) => {
-    const monthNames = [
-      "ENERO",
-      "FEBRERO",
-      "MARZO",
-      "ABRIL",
-      "MAYO",
-      "JUNIO",
-      "JULIO",
-      "AGOSTO",
-      "SEPTIEMBRE",
-      "OCTUBRE",
-      "NOVIEMBRE",
-      "DICIEMBRE",
-    ];
-    const year = new Date().getFullYear();
-    const month = Math.ceil(quincena / 2);
-    const isFirstHalf = quincena % 2 !== 0;
-
-    const startDay = isFirstHalf ? "01" : "16";
-    const endDay = isFirstHalf
-      ? "15"
-      : month === 2
-        ? new Date(year, 1, 29).getDate() === 29
-          ? "29"
-          : "28"
-        : new Date(year, month, 0).getDate();
-
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
-  };
-
-  const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
-
-  const doc = new PDFDocument();
-  const filePath = path.join(
-    __dirname,
-    `../../docs/reportes/incidencias/auditoria/archivos_pdf/retardos_e_inasistencias/QUINCENA_${quin}.pdf`,
-  );
-
-  const stream = fs.createWriteStream(filePath);
-
-  stream.on("error", (err) => {
-    console.error("Error al escribir el archivo:", err.message);
-    doc.end();
-  });
-
-  stream.on("finish", () => {
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=INASISTENCIAS_AUDITORIA_${quin}.pdf`,
-    );
-    res.download(filePath, `INASISTENCIAS_AUDITORIA_${quin}.pdf`, (err) => {
-      if (err) {
-        console.error("Error al descargar el archivo:", err.message);
-        res.status(500).json({ message: "Error al descargar el archivo." });
-      }
-    });
-  });
-
-  doc.pipe(stream);
-
-  // Registrar fuente personalizada
-  doc.registerFont("Consolas", fontPath);
-  doc.font("Consolas").fontSize(10);
-
-  // Agregar encabezado y pie de página dinámico
-  let pageNumber = 0;
-
-  const addHeaderAndFooter = (groupName) => {
-    doc.fontSize(10).text(`Página ${pageNumber}`, 60, 20, {
-      align: "right",
-      width: 612,
-    });
-    pageNumber++;
-    doc.text(currentDate, { align: "right" });
-    doc.text("GOBIERNO DEL ESTADO DE OAXACA", { align: "center" });
-    doc.text("SECRETARÍA DE ADMINISTRACIÓN", { align: "center" });
-    doc.text("DIRECCIÓN DE RECURSOS HUMANOS", { align: "center" });
-    doc.text("DEPARTAMENTO DE REGISTROS DE PERSONAL", { align: "center" });
-    doc.text(`PÁGINA ${pageNumber}`, { align: "center" });
-    doc.text("REPORTE DE RETARDOS E INASISTENCIAS  ", {
-      align: "center",
-    });
-    doc.text(periodo, { align: "center" });
-    doc.moveDown(2);
-  };
-
-  // Primera página
-  doc.margins = { top: 72, bottom: 72, left: 60, right: 40 };
-
-  // Agregar contenido por cada grupo
-  Object.entries(tiponomGroups).forEach(([tiponom, group]) => {
-    if (group.data.length > 0) {
-      if (pageNumber > 0) doc.addPage(); // Agregar nueva página si no es la primera
-      addHeaderAndFooter(group.label);
-      doc.text(`NÓMINA: ${group.label} (${tiponom})`, { align: "left" });
-      doc.text(
-        "---------------------------------------------------------------------------------------",
-        { align: "center" },
-      );
-      doc.text(
-        "R.F.C           N O M B R E                          RETARDOS            INASISTENCIAS",
-        { align: "left" },
-      );
-      doc.text(
-        "---------------------------------------------------------------------------------------",
-        { align: "center" },
-      );
-      doc.moveDown(0.5);
-
-      // Agrupar por PROYECTO dentro del grupo actual
-      const proyectosAgrupados = group.data.reduce((acc, inasistencia) => {
-        const { PROYECTO } = inasistencia;
-        if (!acc[PROYECTO]) {
-          acc[PROYECTO] = [];
-        }
-        acc[PROYECTO].push(inasistencia);
-        return acc;
-      }, {});
-
-      // Generar tablas por cada proyecto
-      Object.keys(proyectosAgrupados).forEach((proyecto) => {
-        const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto,
-        );
-        const unidadResponsableNombre = unidadResponsable
-          ? ` - ${unidadResponsable.OBRA_ACTIVIDAD}`
-          : "";
-        doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
-          align: "left",
-        });
-        doc.moveDown(0.5);
-        proyectosAgrupados[proyecto].forEach((inasistencia) => {
-          const { RFC, NOMBRE, CONTADORES_REPORTE } = inasistencia;
-          const truncatedName =
-            NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
-          let RETARDOS = CONTADORES_REPORTE?.RETARDOS || 0;
-          let INASISTENCIAS = CONTADORES_REPORTE?.INASISTENCIAS || 0;
-
-          // Convert to string and add .0 if it's an integer
-          RETARDOS = Number.isInteger(RETARDOS)
-            ? `${RETARDOS}.0`
-            : RETARDOS.toString();
-          INASISTENCIAS = Number.isInteger(INASISTENCIAS)
-            ? `${INASISTENCIAS}.0`
-            : INASISTENCIAS.toString();
-
-          const retardosText = RETARDOS === "0.0" ? "" : RETARDOS;
-          const inasistenciasText =
-            INASISTENCIAS === "0.0" ? "" : INASISTENCIAS;
-
-          doc.text(
-            `${RFC.padEnd(14)} ${truncatedName.padEnd(
-              30,
-            )}     ${retardosText.padStart(
-              10,
-            )}     ${inasistenciasText.padStart(15)}`,
-            { align: "left" },
-          );
-        });
-        doc.text(
-          "---------------------------------------------------------------------------------------",
-          { align: "center" },
-        );
-
-        doc.moveDown();
-      });
-      doc.text(`TOTAL EMPLEADOS: ${group.data.length}`, { align: "left" });
-
-      // Agregar firma al final de cada grupo
-      doc.moveDown(6);
-      doc.text("L.A. LAURA CONCEPCIÓN MARTÍNEZ GUTIERREZ", {
-        align: "center",
-      });
-      doc.text("JEFA DEL DEPTO DE RECURSOS HUMANOS", { align: "center" });
-    }
-  });
-
-  doc.end();
-};
-reportesIncidenciasController.printInasistenciasPlaneacion = async (
-  req,
-  res,
-) => {
-  const quin = req.query.quincena || req.params.quincena;
-  const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable",
-  );
-
-  const inasistencias_planeacion = await query("INCIDENCIAS", {
-    QUINCENA: parseInt(quin, 10),
-    AREA_RESP: "PLAN",
-  });
-
-  // Filtrar resultados para incluir solo los proyectos especificados
-  const filteredInasistencias = inasistencias_planeacion;
-
-  if (filteredInasistencias.length === 0) {
-    return res.status(404).json({
-      message: "No se encontraron datos para la quincena especificada.",
-    });
-  }
-
-  // Filtrar por TIPONOM y crear sus respectivos arrays
-  const tiponomGroups = {
-    F51: { label: "BASE FORÁNEA", data: [] },
-    M51: { label: "BASE CENTRAL", data: [] },
-    FCT: { label: "CONTRATO CONFIANZA FORÁNEO", data: [] },
-    CCT: { label: "CONTRATO CONFIANZA CENTRAL", data: [] },
-    FCO: { label: "NOMBRAMIENTO CONFIANZA FORÁNEO", data: [] },
-    511: { label: "NOMBRAMIENTO CONFIANZA CENTRAL", data: [] },
-    F53: { label: "CONTRATO FORÁNEO", data: [] },
-    M53: { label: "CONTRATO CENTRAL", data: [] },
-    FMM: { label: "MANDOS MEDIOS FORÁNEOS", data: [] },
-    MMS: { label: "MANDOS MEDIOS CENTRAL", data: [] },
-  };
-
-  filteredInasistencias.forEach((inasistencia) => {
-    if (tiponomGroups[inasistencia.TIPONOM]) {
-      tiponomGroups[inasistencia.TIPONOM].data.push(inasistencia);
-    }
-  });
-
-  const currentDate = new Date().toLocaleDateString("es-MX");
-
-  const getPeriodoFromQuincena = (quincena) => {
-    const monthNames = [
-      "ENERO",
-      "FEBRERO",
-      "MARZO",
-      "ABRIL",
-      "MAYO",
-      "JUNIO",
-      "JULIO",
-      "AGOSTO",
-      "SEPTIEMBRE",
-      "OCTUBRE",
-      "NOVIEMBRE",
-      "DICIEMBRE",
-    ];
-    const year = new Date().getFullYear();
-    const month = Math.ceil(quincena / 2);
-    const isFirstHalf = quincena % 2 !== 0;
-
-    const startDay = isFirstHalf ? "01" : "16";
-    const endDay = isFirstHalf
-      ? "15"
-      : month === 2
-        ? new Date(year, 1, 29).getDate() === 29
-          ? "29"
-          : "28"
-        : new Date(year, month, 0).getDate();
-
-    return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-      } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
-  };
-
-  const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
-
-  const doc = new PDFDocument();
-  const filePath = path.join(
-    __dirname,
-    `../../docs/reportes/incidencias/planeacion/archivos_pdf/retardos_e_inasistencias/QUINCENA_${quin}.pdf`,
-  );
-
-  const stream = fs.createWriteStream(filePath);
-
-  stream.on("error", (err) => {
-    console.error("Error al escribir el archivo:", err.message);
-    doc.end();
-  });
-
-  stream.on("finish", () => {
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=QUINCENA_${quin}.pdf`,
-    );
-    res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
-      if (err) {
-        console.error("Error al descargar el archivo:", err.message);
-        res.status(500).json({ message: "Error al descargar el archivo." });
-      }
-    });
-  });
-
-  doc.pipe(stream);
-
-  // Registrar fuente personalizada
-  doc.registerFont("Consolas", fontPath);
-  doc.font("Consolas").fontSize(10);
-
-  // Agregar encabezado y pie de página dinámico
-  let pageNumber = 0;
-
-  const addHeaderAndFooter = (groupName) => {
-    doc.fontSize(10).text(`Página ${pageNumber}`, 60, 20, {
-      align: "right",
-      width: 612,
-    });
-    pageNumber++;
-    doc.text(currentDate, { align: "right" });
-    doc.text("GOBIERNO DEL ESTADO DE OAXACA", { align: "center" });
-    doc.text("SECRETARÍA DE ADMINISTRACIÓN", { align: "center" });
-    doc.text("DIRECCIÓN DE RECURSOS HUMANOS", { align: "center" });
-    doc.text("DEPARTAMENTO DE REGISTROS DE PERSONAL", { align: "center" });
-    doc.text(`PÁGINA ${pageNumber}`, { align: "center" });
-    doc.text("REPORTE DE RETARDOS E INASISTENCIAS  ", {
-      align: "center",
-    });
-    doc.text(periodo, { align: "center" });
-    doc.moveDown(2);
-  };
-
-  // Primera página
-  doc.margins = { top: 72, bottom: 72, left: 60, right: 40 };
-
-  // Agregar contenido por cada grupo
-  Object.entries(tiponomGroups).forEach(([tiponom, group]) => {
-    if (group.data.length > 0) {
-      if (pageNumber > 0) doc.addPage(); // Agregar nueva página si no es la primera
-      addHeaderAndFooter(group.label);
-      doc.text(`NÓMINA: ${group.label} (${tiponom})`, { align: "left" });
-      doc.text(
-        "---------------------------------------------------------------------------------------",
-        { align: "center" },
-      );
-      doc.text(
-        "R.F.C           N O M B R E                          RETARDOS            INASISTENCIAS",
-        { align: "left" },
-      );
-      doc.text(
-        "---------------------------------------------------------------------------------------",
-        { align: "center" },
-      );
-      doc.moveDown(0.5);
-
-      // Agrupar por PROYECTO dentro del grupo actual
-      const proyectosAgrupados = group.data.reduce((acc, inasistencia) => {
-        const { PROYECTO } = inasistencia;
-        if (!acc[PROYECTO]) {
-          acc[PROYECTO] = [];
-        }
-        acc[PROYECTO].push(inasistencia);
-        return acc;
-      }, {});
-
-      // Generar tablas por cada proyecto
-      Object.keys(proyectosAgrupados).forEach((proyecto) => {
-        const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto,
-        );
-        const unidadResponsableNombre = unidadResponsable
-          ? ` - ${unidadResponsable.OBRA_ACTIVIDAD}`
-          : "";
-        doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
-          align: "left",
-        });
-        doc.moveDown(0.5);
-        proyectosAgrupados[proyecto].forEach((inasistencia) => {
-          const { RFC, NOMBRE, CONTADORES_REPORTE } = inasistencia;
-          const truncatedName =
-            NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
-          let RETARDOS = CONTADORES_REPORTE?.RETARDOS || 0;
-          let INASISTENCIAS = CONTADORES_REPORTE?.INASISTENCIAS || 0;
-
-          // Convert to string and add .0 if it's an integer
-          RETARDOS = Number.isInteger(RETARDOS)
-            ? `${RETARDOS}.0`
-            : RETARDOS.toString();
-          INASISTENCIAS = Number.isInteger(INASISTENCIAS)
-            ? `${INASISTENCIAS}.0`
-            : INASISTENCIAS.toString();
-
-          const retardosText = RETARDOS === "0.0" ? "" : RETARDOS;
-          const inasistenciasText =
-            INASISTENCIAS === "0.0" ? "" : INASISTENCIAS;
-
-          doc.text(
-            `${RFC.padEnd(14)} ${truncatedName.padEnd(
-              30,
-            )}     ${retardosText.padStart(
-              10,
-            )}     ${inasistenciasText.padStart(15)}`,
-            { align: "left" },
-          );
-        });
-        doc.text(
-          "---------------------------------------------------------------------------------------",
-          { align: "center" },
-        );
-
-        doc.moveDown();
-      });
-      doc.text(`TOTAL EMPLEADOS: ${group.data.length}`, { align: "left" });
-
-      // Agregar firma al final de cada grupo
-      doc.moveDown(6);
-      doc.text("L.A. LAURA CONCEPCIÓN MARTÍNEZ GUTIERREZ", {
-        align: "center",
-      });
-      doc.text("JEFA DEL DEPTO DE RECURSOS HUMANOS", { align: "center" });
-    }
-  });
-
-  doc.end();
-};
 reportesIncidenciasController.printRetardosDbf = async (req, res) => {
   try {
     const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
-    const areaResp =
-      req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
+    const areaResp = req.query.AREA_RESP || req.params.AREA_RESP || req.body.AREA_RESP;
 
     const filtro = { QUINCENA: parseInt(quin, 10) };
     if (areaResp)
