@@ -26,6 +26,7 @@ router.post(
 //     verifyToken,
 //     incidenciasController.getEmployee
 //   );
+router.put("/updateArea", verifyToken, employeeController.updateArea);
 router.put("/updateProyect", verifyToken, employeeController.updateProyect);
 router.put(
   "/recategorizeEmployee",

@@ -246,6 +246,9 @@ incidenciasController.getProfile = async (req, res) => {
   const maxAccumulatedDays = 6;
 
   try {
+    const hsy_areas = await query("HSY_AREAS", {
+      id_employee: new ObjectId(id),
+    });
     const hsy_proyectos = await query("HSY_PROYECTOS", {
       id_employee: new ObjectId(id),
     });
@@ -261,6 +264,7 @@ incidenciasController.getProfile = async (req, res) => {
 
     historial = {
       hsy_licencias,
+      hsy_areas,
       hsy_proyectos,
       hsy_recategorizaciones,
       hsy_status,

@@ -26,6 +26,9 @@ employeeController.getProfileData = async (req, res) => {
   });
 
   try {
+    const hsy_areas = await query("HSY_AREAS", {
+      id_employee: new ObjectId(id),
+    });
     const hsy_proyectos = await query("HSY_PROYECTOS", {
       id_employee: new ObjectId(id),
     });
@@ -41,6 +44,7 @@ employeeController.getProfileData = async (req, res) => {
 
     historial = {
       hsy_licencias,
+      hsy_areas,
       hsy_proyectos,
       hsy_recategorizaciones,
       hsy_status,
@@ -531,6 +535,57 @@ employeeController.getEmployee = async (req, res) => {
     res.status(500).json({ message: "Error al recuperar los datos" });
   }
 };
+employeeController.updateArea = async (req, res) => {
+  const { _id, ADSCRIPCION, AREA_RESP, CLAVE } = req.body;
+  const { user } = req;
+  const currentDateTime = new Date().toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+  });
+
+  try {
+    // Verificar si el empleado existe
+    const employee = await query("PLANTILLA", { _id: new ObjectId(_id) });
+    if (!employee || employee.length === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
+    if (CLAVE === employee[0].CLAVE) {
+      return res.status(409).json({ message: "Sin cambios" });
+    }
+
+    const fullName = `${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}`;
+    const hsy_data = {
+      ...req.body,
+      currentDateTime,
+      last_adscripcion: employee[0].ADSCRIPCION,
+      last_clave: employee[0].CLAVE,
+      id_employee: new ObjectId(_id),
+    };
+    delete hsy_data._id;
+
+    // Actualizar la adscripción del empleado
+    const result = await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(_id) },
+      { $set: { ADSCRIPCION, AREA_RESP, CLAVE } },
+    );
+    await insertOne("HSY_AREAS", hsy_data);
+
+    // Registrar la acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "PSL-CE",
+      action: `MODIFICÓ LA ADSCRIPCIÓN A DEL EMPLEADO: "${fullName}"`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
+    res.status(200).json({ message: "Empleado actualizado correctamente", _id });
+  } catch (error) {
+    console.error("Error al actualizar el empleado:", error);
+    res.status(500).json({ message: "Error al actualizar el empleado", error });
+  }
+};
 employeeController.updateProyect = async (req, res) => {
   const { _id, PROYECTO, ADSCRIPCION, AREA_RESP, CLAVE } = req.body;
   const { user } = req;
@@ -543,6 +598,10 @@ employeeController.updateProyect = async (req, res) => {
     const employee = await query("PLANTILLA", { _id: new ObjectId(_id) });
     if (!employee || employee.length === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
+    if (PROYECTO === employee[0].PROYECTO) {
+      return res.status(409).json({ message: "Sin cambios" });
     }
 
     const fullName = `${employee[0].NOMBRES} ${employee[0].APE_PAT} ${employee[0].APE_MAT}`;
@@ -562,21 +621,11 @@ employeeController.updateProyect = async (req, res) => {
     );
     await insertOne("HSY_PROYECTOS", hsy_data);
 
-    if (!result || result.matchedCount === 0) {
-      return res.status(404).json({ message: "Empleado no encontrado" });
-    }
-
-    if (result.modifiedCount === 0) {
-      return res
-        .status(404)
-        .json({ message: "Empleado no encontrado o sin cambios" });
-    }
-
     // Registrar la acción del usuario
     const userAction = {
       username: user.username,
       module: "PSL-CE",
-      action: `MODIFICÓ EL PROYECTO Y/O ADSCRIPCIÓN A "${PROYECTO} - ${ADSCRIPCION}" DEL EMPLEADO: "${fullName}"`,
+      action: `MODIFICÓ EL PROYECTO A DEL EMPLEADO: "${fullName}"`,
       timestamp: currentDateTime,
     };
     await insertOne("USER_ACTIONS", userAction);
