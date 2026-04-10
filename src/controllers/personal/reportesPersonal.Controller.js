@@ -1508,43 +1508,105 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     };
 
     if (ADSCRIPCION !== 'TODAS') {
-      if (SUBNIVELES === true) {
-        const adscripciones = await querysql(
-          `WITH RECURSIVE jerarquia AS ( SELECT id_adscripcion, nombre, clave, parent_id FROM adscripciones WHERE clave = ${CLAVE} UNION ALL SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id FROM adscripciones a INNER JOIN jerarquia j ON a.parent_id = j.id_adscripcion ) SELECT * FROM jerarquia;`
+
+      const adscripciones = await querysql(
+        `WITH RECURSIVE jerarquia AS ( SELECT id_adscripcion, nombre, clave, parent_id FROM adscripciones WHERE clave = ${CLAVE} UNION ALL SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id FROM adscripciones a INNER JOIN jerarquia j ON a.parent_id = j.id_adscripcion ) SELECT * FROM jerarquia;`
+      );
+      claves = adscripciones.map(a => a.clave);
+
+      // Buscar el padre del CLAVE actual
+      const adscripcionActual = await querysql(
+        `SELECT parent_id, nombre FROM adscripciones WHERE clave = '${CLAVE}' LIMIT 1`
+      );
+
+      if (adscripcionActual && adscripcionActual[0]?.parent_id) {
+        // Obtener el padre (nivel 2 si CLAVE es nivel 3)
+        const adscripcionPadre = await querysql(
+          `SELECT nombre FROM adscripciones WHERE id_adscripcion = ${adscripcionActual[0].parent_id} LIMIT 1`
         );
-        claves = adscripciones.map(a => a.clave);
 
-        // Buscar el padre del CLAVE actual
-        const adscripcionActual = await querysql(
-          `SELECT parent_id, nombre FROM adscripciones WHERE clave = '${CLAVE}' LIMIT 1`
-        );
-
-        if (adscripcionActual && adscripcionActual[0]?.parent_id) {
-          // Obtener el padre (nivel 2 si CLAVE es nivel 3)
-          const adscripcionPadre = await querysql(
-            `SELECT nombre FROM adscripciones WHERE id_adscripcion = ${adscripcionActual[0].parent_id} LIMIT 1`
-          );
-
-          if (adscripcionPadre && adscripcionPadre[0]?.nombre) {
-            adscripcionDisplay = adscripcionPadre[0].nombre;
-          }
+        if (adscripcionPadre && adscripcionPadre[0]?.nombre) {
+          adscripcionDisplay = adscripcionPadre[0].nombre;
         }
-      } else {
-        claves = [CLAVE];
-        adscripcionDisplay = ADSCRIPCION;
       }
+
     } else {
       const adscripciones = await querysql(`SELECT clave FROM adscripciones;`);
       claves = adscripciones.map(a => a.clave);
     }
 
-    const employees = await query("PLANTILLA", { CLAVE: { $in: claves } });
+    const employees = await query("PLANTILLA");
 
     if (!employees || employees.length === 0) {
       return res
         .status(202)
         .json({ message: "No hay empleados con los filtros especificados" });
     }
+
+    let empleadosFiltrados = employees;
+
+    if (CLAVE) {
+      const claveArray = SUBNIVELES
+        ? claves.map(c => Number(c)) // 🔥 usa toda la jerarquía
+        : (Array.isArray(CLAVE) ? CLAVE : [CLAVE]).map(c => Number(c));
+
+      empleadosFiltrados = employees.filter((emp) => {
+
+        // 🔍 claves donde está asignado (ASIG_LAB)
+        const clavesAsignadas = (emp.STATUS_EMPLEADO || [])
+          .filter(se => se.STATUS === "ASIG_LAB")
+          .map(se => Number(se.CLAVE))
+          .filter(c => !isNaN(c));
+
+        // 🔥 CASO 1: Tiene asignación → SOLO usar esas
+        if (clavesAsignadas.length > 0) {
+          return clavesAsignadas.some(c => claveArray.includes(c));
+        }
+
+        // 🔥 CASO 2: No tiene asignación → usar clave base
+        return claveArray.includes(Number(emp.CLAVE));
+      });
+
+      empleadosFiltrados = empleadosFiltrados.map((emp) => {
+
+        const asignaciones = (emp.STATUS_EMPLEADO || [])
+          .filter(se => se.STATUS === "ASIG_LAB");
+
+        const clavesAsignadas = asignaciones
+          .map(se => Number(se.CLAVE))
+          .filter(c => !isNaN(c));
+
+        // 🔥 Si tiene asignación válida
+        if (clavesAsignadas.length > 0) {
+
+          const asignacionValida = asignaciones.find(se =>
+            claveArray.includes(Number(se.CLAVE))
+          );
+
+          if (asignacionValida) {
+            return {
+              ...emp,
+
+              // ✅ CLAVE correcta
+              CLAVE: Number(asignacionValida.CLAVE),
+
+              // ✅ ADSCRIPCIÓN correcta (la asignada)
+              ADSCRIPCION: asignacionValida.LUGAR_COMISIONADO || emp.ADSCRIPCION
+            };
+          }
+        }
+
+        // 🔥 Si NO tiene asignación
+        return {
+          ...emp,
+          CLAVE: Number(emp.CLAVE),
+          ADSCRIPCION: emp.ADSCRIPCION
+        };
+      });
+    }
+
+    console.log(`Empleados después de filtrar por CLAVE (${CLAVE}):`, empleadosFiltrados.length);
+
 
     // Cargar licencias activas
     const licenciasActivas = await query("LICENCIAS", { status: 1 });
@@ -1561,6 +1623,29 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     const moment = require("moment");
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("PLANTILLA");
+    worksheet.pageSetup = {
+      orientation: "landscape",
+      paperSize: 1,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: {
+        left: 0.5,
+        right: 0.5,
+        top: 0.75,
+        bottom: 0.75,
+        header: 0.3,
+        footer: 0.3,
+      },
+      printTitlesRow: "1:18",
+    };
+
+    worksheet.headerFooter = {
+      oddHeader: '&RPágina &P de &N',
+      evenHeader: '&RPágina &P de &N',
+      oddFooter: '',
+      evenFooter: '',
+    };
 
     const path = require('path');
 
@@ -1620,7 +1705,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     worksheet.getCell('H6').font = { bold: true };
 
     worksheet.mergeCells('H7:I8');
-    worksheet.getCell('H7').value = 'Hoja: 3 de 3';
+    worksheet.getCell('H7').value = 'Hoja: 1 de 1';
     worksheet.getCell('H7').alignment = { horizontal: 'right', vertical: 'middle' };
     worksheet.getCell('H7').font = { bold: true };
 
@@ -1646,34 +1731,34 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     worksheet.getCell('B12').value = 'Secretaría de Finanzas del Poder Ejecutivo del Gobierno del Estado de Oaxaca';
     worksheet.getCell('B12').alignment = { horizontal: 'left', vertical: 'middle' };
 
-    worksheet.getCell('A13').value = 'Área Administrativa:';
-    worksheet.getCell('A13').alignment = { horizontal: 'left', vertical: 'middle' };
-    worksheet.getCell('A13').font = { bold: true };
+    worksheet.getCell('A14').value = 'Área Administrativa:';
+    worksheet.getCell('A14').alignment = { horizontal: 'left', vertical: 'middle' };
+    worksheet.getCell('A14').font = { bold: true };
 
-    worksheet.getCell('B13').value = toTitleCase(adscripcionDisplay);
-    worksheet.getCell('B13').alignment = { horizontal: 'left', vertical: 'middle' };
+    worksheet.getCell('B14').value = toTitleCase(adscripcionDisplay);
+    worksheet.getCell('B14').alignment = { horizontal: 'left', vertical: 'middle' };
 
-    worksheet.mergeCells('A15:A16');
-    worksheet.mergeCells('B15:B16');
-    worksheet.mergeCells('C15:D15');
-    worksheet.mergeCells('E15:E16');
-    worksheet.mergeCells('F15:F16');
-    worksheet.mergeCells('G15:G16');
-    worksheet.mergeCells('H15:H16');
-    worksheet.mergeCells('I15:I16');
+    worksheet.mergeCells('A16:A17');
+    worksheet.mergeCells('B16:B17');
+    worksheet.mergeCells('C16:D16');
+    worksheet.mergeCells('E16:E17');
+    worksheet.mergeCells('F16:F17');
+    worksheet.mergeCells('G16:G17');
+    worksheet.mergeCells('H16:H17');
+    worksheet.mergeCells('I16:I17');
 
-    worksheet.getCell('A15').value = 'Nombre';
-    worksheet.getCell('B15').value = 'Categoría';
-    worksheet.getCell('C15').value = 'Licencia, permiso, comisión o incapacidad';
-    worksheet.getCell('E15').value = 'Área a la que esta comisionado';
-    worksheet.getCell('F15').value = 'Periodo de Ausencia o Comisión';
-    worksheet.getCell('G15').value = 'Percepción mensual';
-    worksheet.getCell('H15').value = 'Sueldo Base';
-    worksheet.getCell('I15').value = 'Observaciones';
-    worksheet.getCell('C16').value = 'Si';
-    worksheet.getCell('D16').value = 'No';
+    worksheet.getCell('A16').value = 'Nombre';
+    worksheet.getCell('B16').value = 'Categoría';
+    worksheet.getCell('C16').value = 'Licencia, permiso, comisión o incapacidad';
+    worksheet.getCell('E16').value = 'Área a la que esta comisionado';
+    worksheet.getCell('F16').value = 'Periodo de Ausencia o Comisión';
+    worksheet.getCell('G16').value = 'Percepción mensual';
+    worksheet.getCell('H16').value = 'Sueldo Base';
+    worksheet.getCell('I16').value = 'Observaciones';
+    worksheet.getCell('C17').value = 'Si';
+    worksheet.getCell('D17').value = 'No';
 
-    if (ADSCRIPCION && ADSCRIPCION !== 'TODAS' && SUBNIVELES === true) {
+    if (ADSCRIPCION && ADSCRIPCION !== 'TODAS') {
       const adscripFriendly = toTitleCase(ADSCRIPCION);
       const infoRow = worksheet.addRow([`Área de Adscripción: ${adscripFriendly}`]);
       worksheet.mergeCells(`A${infoRow.number}:I${infoRow.number}`);
@@ -1707,7 +1792,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     worksheet.getRow(16).height = 17;
 
     const headerCells = [
-      'A15', 'B15', 'C15', 'E15', 'F15', 'G15', 'H15', 'I15', 'C16', 'D16',
+      'A16', 'B16', 'C16', 'E16', 'F16', 'G16', 'H16', 'I16', 'C17', 'D17',
     ];
     headerCells.forEach((cell) => {
       const c = worksheet.getCell(cell);
@@ -1724,38 +1809,35 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
     // Obtener jerarquía de adscripciones
     const jerarquia = await querysql(`
-WITH RECURSIVE jerarquia AS (
-  SELECT 
-    id_adscripcion,
-    nombre,
-    clave,
-    parent_id,
-    0 AS nivel,
-    LPAD(clave, 10, '0') AS path
-  FROM adscripciones
-  WHERE clave = ?
-
-  UNION ALL
-
-  SELECT 
-    a.id_adscripcion,
-    a.nombre,
-    a.clave,
-    a.parent_id,
-    j.nivel + 1,
-    CONCAT(j.path, '-', LPAD(a.clave, 10, '0'))
-  FROM adscripciones a
-  INNER JOIN jerarquia j 
-    ON a.parent_id = j.id_adscripcion
-)
-SELECT * FROM jerarquia
-ORDER BY path;
-`, [CLAVE]);
+  WITH RECURSIVE jerarquia AS (
+    SELECT 
+      id_adscripcion,
+      nombre,
+      clave,
+      parent_id,
+      CAST(LPAD(clave, 5, '0') AS CHAR(100)) AS path
+    FROM adscripciones
+    WHERE parent_id IS NULL
+    
+    UNION ALL
+    
+    SELECT 
+      a.id_adscripcion,
+      a.nombre,
+      a.clave,
+      a.parent_id,
+      CONCAT(j.path, '-', LPAD(a.clave, 5, '0'))
+    FROM adscripciones a
+    INNER JOIN jerarquia j 
+      ON a.parent_id = j.id_adscripcion
+  )
+  SELECT id_adscripcion, nombre, clave, parent_id, path FROM jerarquia ORDER BY path
+`);
 
     // Crear mapa de orden jerárquico
-    const ordenJerarquico = new Map();
-    jerarquia.forEach((item, index) => {
-      ordenJerarquico.set(Number(item.clave), index);
+    const pathMap = new Map();
+    jerarquia.forEach(item => {
+      pathMap.set(item.clave, item.path);  // ← Mapear por item.clave
     });
 
     // Agrupar empleados por condición laboral (Base / Contrato / Otros)
@@ -1763,29 +1845,44 @@ ORDER BY path;
       BASE: [],
       NOMBRAMIENTO: [],
       MANDOS_MEDIOS: [],
-      CONTRATO: [],
+      CONTRATO_CONFIANZA: [],
+      CONTRATO_CONTRATO: [],
     };
 
     const toCondition = (tipo) => {
       const code = String(tipo || '').toUpperCase();
       if (code === 'M51' || code === 'F51') return 'BASE';
       if (code === 'FCO' || code === '511') return 'NOMBRAMIENTO';
-      if (code === 'FCT' || code === 'CCT') return 'CONTRATO';
+      if (code === 'FCT' || code === 'CCT') return 'CONTRATO_CONFIANZA';
+      if (code === 'F53' || code === 'M53') return 'CONTRATO_CONTRATO';
       if (code === 'FMM' || code === 'MMS') return 'MANDOS_MEDIOS';
     };
 
-    for (const item of employees) {
+    for (const item of empleadosFiltrados) {
       const condition = toCondition(item.TIPONOM);
+      if (!condition) {
+        console.warn('TIPONOM no reconocido en getPlantillaReportArea:', item.TIPONOM, item.NUMPLA);
+        continue;
+      }
       groupedEmployees[condition].push(item);
     }
+
 
     const sections = [
       { key: 'BASE', title: 'Plaza por condición laboral: Base' },
       { key: 'NOMBRAMIENTO', title: 'Plaza por condición laboral: Nombramiento Confianza' },
-      { key: 'CONTRATO', title: 'Plaza por condición laboral: Contrato Contrato' },
+      { key: 'CONTRATO_CONFIANZA', title: 'Plaza por condición laboral: Contrato Confianza' },
+      { key: 'CONTRATO_CONTRATO', title: 'Plaza por condición laboral: Contrato Contrato' },
       { key: 'MANDOS_MEDIOS', title: 'Plaza por condición laboral: Mandos Medios y Superiores' },
     ];
 
+    Object.keys(groupedEmployees).forEach(key => {
+      groupedEmployees[key].sort((a, b) => {
+        const pathA = pathMap.get(a.CLAVE) || '';
+        const pathB = pathMap.get(b.CLAVE) || '';
+        return pathA.localeCompare(pathB);
+      });
+    });
     // ==========================
     // 🔹 1. CARGAR CATÁLOGOS
     // ==========================
@@ -1835,31 +1932,20 @@ ORDER BY path;
     const segVidaMap = new Map();
     segVida.forEach(x => segVidaMap.set(String(x.nivel), x));
 
-    // ==========================
-    // 🔹 3. FUNCIÓN ISR
-    // ==========================
-    function calcularISR(sueldo) {
-      const row = isrTable.find(r =>
-        sueldo > parseFloat(r.limite_inf) &&
-        sueldo < parseFloat(r.limite_sup)
-      );
-
-      if (!row) return 0;
-
-      return (
-        ((sueldo - parseFloat(row.limite_inf)) *
-          parseFloat(row.porcentajeliminf)) /
-        100 +
-        parseFloat(row.cuota_fija)
-      );
-    }
 
     // ==========================
     // 🔹 4. PROCESAR EMPLEADO
     // ==========================
-    function procesarNomina(employee) {
+    async function procesarNomina(employee) {
       let percepciones = {};
       let deducciones = {};
+
+      const cubreLicencia = await query("LICENCIAS", {
+        NUMPLA: employee.NUMPLA,
+        status: 1,
+      });
+
+      employee.CUBRIENDO_LICENCIA = cubreLicencia && cubreLicencia.length > 0;
 
       const nivel = String(employee.NIVEL);
       const tipo = employee.TIPONOM;
@@ -1872,67 +1958,234 @@ ORDER BY path;
         case "M51":
         case "F51":
 
-          percepciones = baseMap.get(nivel);
+          // ✅ CLONAR objeto para evitar mutación global
+          percepciones = { ...baseMap.get(nivel) };
           if (!percepciones) break;
+
+          // ✅ ELIMINAR cualquier quinquenio previo
+          Object.keys(percepciones).forEach(key => {
+            if (key.startsWith("QUINQUENIOS")) {
+              delete percepciones[key];
+            }
+          });
+
+          // ✅ AGREGAR SOLO EL QUINQUENIO CORRECTO
+          if (employee.NUMQUIN > 0) {
+            const quinquenio = await querysql(
+              `SELECT quin_${employee.NUMQUIN} FROM quin_base WHERE NIVEL = ?`,
+              [employee.NIVEL]
+            );
+
+            if (
+              quinquenio &&
+              quinquenio[0] &&
+              quinquenio[0][`quin_${employee.NUMQUIN}`] != null
+            ) {
+              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+                quinquenio[0][`quin_${employee.NUMQUIN}`];
+            }
+          }
 
           const sueldoBase = parseFloat(percepciones.sueldo_base);
 
-          deducciones.ISR = Number(calcularISR(sueldoBase).toFixed(2));
+          // Determinar si la quincena actual es de 16 días (segunda quincena de mes con 31 días) para aunmentar el día de ajuste
+          const now = new Date();
+          const day = now.getDate();
+          const month = now.getMonth() + 1;
+          const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
 
-          if (employee.FECHA_NOMBRAMIENTO) {
-            deducciones.FONDO_PENSIONES = Number((sueldoBase * 0.09).toFixed(2));
+          let sueldoGravableB;
+          if (isSegundaQuincena16Dias) {
+            const diaAjuste = percepciones.sueldo_base / 30;
+            percepciones.dia_ajuste = diaAjuste.toFixed(2);
+
+            sueldoGravableB = (
+              parseFloat(percepciones.sueldo_base) +
+              parseFloat(percepciones.dia_ajuste)
+            ).toFixed(2);
+          } else {
+            sueldoGravableB = parseFloat(percepciones.sueldo_base).toFixed(2);
           }
 
-          if (employee.DELEGACION) {
-            deducciones.CUOTA_SINDICAL = Number((sueldoBase * 0.01).toFixed(2));
+          const isrDataB = await querysql(
+            "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
+            [sueldoGravableB, sueldoGravableB]
+          );
+
+          const isrObjectB = isrDataB[0];
+
+          const isrBrutoB =
+            ((sueldoGravableB - parseFloat(isrObjectB.limite_inf)) *
+              parseFloat(isrObjectB.porcentajeliminf)) /
+            100 +
+            parseFloat(isrObjectB.cuota_fija);
+
+          const subsidioDataB = await querysql(
+            "SELECT subsidio FROM subsidio_isr WHERE ? > lim_inf AND ? < lim_sup",
+            [sueldoGravableB, sueldoGravableB]
+          );
+
+          const subsidioB =
+            subsidioDataB && subsidioDataB.length > 0
+              ? parseFloat(subsidioDataB[0].subsidio)
+              : 0;
+
+          let isrFinal = isrBrutoB - subsidioB;
+          if (isrFinal < 0) isrFinal = 0;
+
+          deducciones.ISR = isrFinal.toFixed(2);
+
+          if (!employee.CUBRIENDO_LICENCIA) {
+            deducciones.FONDO_PENSIONES = (sueldoBase * 0.09).toFixed(2);
+            deducciones.CUOTA_SINDICAL = (sueldoBase * 0.01).toFixed(2);
           }
 
-          deducciones.IMSS = Number((sueldoBase * 0.041219).toFixed(2));
-
-          if (employee.NUMQUIN > 0) {
-            const quin = quinBaseMap.get(nivel);
-            if (quin) {
-              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
-                quin[`quin_${employee.NUMQUIN}`];
-            }
-          }
+          deducciones.IMSS = (sueldoBase * 0.041219).toFixed(2);
 
           break;
 
         // ======================
         // 🔸 CONTRATO
         // ======================
-        case "F53":
-        case "M53":
         case "FCT":
         case "CCT":
+        case "F53":
+        case "M53":
+
+          percepciones = { ...contratoMap.get(nivel) };
+          if (!percepciones) break;
+
+          // ✅ ELIMINAR cualquier quinquenio previo
+          Object.keys(percepciones).forEach(key => {
+            if (key.startsWith("QUINQUENIOS")) {
+              delete percepciones[key];
+            }
+          });
+
+          // ✅ AGREGAR SOLO EL QUINQUENIO CORRECTO
+          if (employee.NUMQUIN > 0) {
+            const quinquenio = await querysql(
+              `SELECT quin_${employee.NUMQUIN} FROM quin_confianza WHERE NIVEL = ?`,
+              [employee.NIVEL]
+            );
+
+            if (
+              quinquenio &&
+              quinquenio[0] &&
+              quinquenio[0][`quin_${employee.NUMQUIN}`] != null
+            ) {
+              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+                quinquenio[0][`quin_${employee.NUMQUIN}`];
+            }
+          }
+
+          const sueldoCC = parseFloat(percepciones.sueldo_base);
+          const estimulo = parseFloat(percepciones.estimulo);
+
+          const sueldoGravableCC = sueldoCC + estimulo;
+
+          const isrDataCC = await querysql(
+            "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
+            [sueldoGravableCC, sueldoGravableCC]
+          );
+
+          const isrObjectCC = isrDataCC[0];
+
+          const isrBrutoCC =
+            ((sueldoGravableCC - parseFloat(isrObjectCC.limite_inf)) *
+              parseFloat(isrObjectCC.porcentajeliminf)) /
+            100 +
+            parseFloat(isrObjectCC.cuota_fija);
+
+          const subsidioDataCC = await querysql(
+            "SELECT subsidio FROM subsidio_isr WHERE ? > lim_inf AND ? < lim_sup",
+            [sueldoGravableCC, sueldoGravableCC]
+          );
+
+          const subsidioCC =
+            subsidioDataCC && subsidioDataCC.length > 0
+              ? parseFloat(subsidioDataCC[0].subsidio)
+              : 0;
+
+          let isrFinalCC = isrBrutoCC - subsidioCC;
+          if (isrFinalCC < 0) isrFinalCC = 0;
+
+          deducciones.ISR = isrFinalCC.toFixed(2);
+
+          deducciones.FONDO_PENSIONES = (sueldoCC * 0.09).toFixed(2);
+
+          deducciones.IMSS = (sueldoCC * 0.041219).toFixed(2);
+
+          break;
+
         case "FCO":
         case "511":
 
-          percepciones = contratoMap.get(nivel);
+          percepciones = { ...contratoMap.get(nivel) };
           if (!percepciones) break;
 
-          const sueldoB = parseFloat(percepciones.sueldo_base);
-          const estimulo = parseFloat(percepciones.estimulo);
+          // ✅ ELIMINAR cualquier quinquenio previo
+          Object.keys(percepciones).forEach(key => {
+            if (key.startsWith("QUINQUENIOS")) {
+              delete percepciones[key];
+            }
+          });
 
-          const sueldoGravable = sueldoB + estimulo;
+          // ✅ AGREGAR SOLO EL QUINQUENIO CORRECTO
+          if (employee.NUMQUIN > 0) {
+            const quinquenio = await querysql(
+              `SELECT quin_${employee.NUMQUIN} FROM quin_confianza WHERE NIVEL = ?`,
+              [employee.NIVEL]
+            );
 
-          let isr = calcularISR(sueldoGravable);
-
-          if (sueldoGravable < parseFloat(subsidioISR[0].lim_sup)) {
-            isr = Math.max(0, isr - parseFloat(subsidioISR[0].SUBSIDIO));
-          }
-
-          deducciones.ISR = Number(isr.toFixed(2));
-          deducciones.IMSS = Number((sueldoB * 0.041219).toFixed(2));
-
-          if (employee.NUMQUIN > 0 && tipo === "CN") {
-            const quin = quinConfianzaMap.get(nivel);
-            if (quin) {
+            if (
+              quinquenio &&
+              quinquenio[0] &&
+              quinquenio[0][`quin_${employee.NUMQUIN}`] != null
+            ) {
               percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
-                quin[`quin_${employee.NUMQUIN}`];
+                quinquenio[0][`quin_${employee.NUMQUIN}`];
             }
           }
+
+          const sueldoCN = parseFloat(percepciones.sueldo_base);
+          const estimuloCN = parseFloat(percepciones.estimulo);
+
+          const sueldoGravableCN = sueldoCN + estimuloCN;
+
+          const isrDataCN = await querysql(
+            "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
+            [sueldoGravableCN, sueldoGravableCN]
+          );
+
+          const isrObjectCN = isrDataCN[0];
+
+          const isrBrutoCN =
+            ((sueldoGravableCN - parseFloat(isrObjectCN.limite_inf)) *
+              parseFloat(isrObjectCN.porcentajeliminf)) /
+            100 +
+            parseFloat(isrObjectCN.cuota_fija);
+
+          const subsidioDataCN = await querysql(
+            "SELECT subsidio FROM subsidio_isr WHERE ? > lim_inf AND ? < lim_sup",
+            [sueldoGravableCN, sueldoGravableCN]
+          );
+
+          const subsidioCN =
+            subsidioDataCN && subsidioDataCN.length > 0
+              ? parseFloat(subsidioDataCN[0].subsidio)
+              : 0;
+
+          let isrFinalCN = isrBrutoCN - subsidioCN;
+          if (isrFinalCN < 0) isrFinalCN = 0;
+
+          deducciones.ISR = isrFinalCN.toFixed(2);
+
+          deducciones.FONDO_PENSIONES = (sueldoCN * 0.09).toFixed(2);
+
+          deducciones.CUOTA_SINDICAL = (sueldoCN * 0.01).toFixed(2);
+
+          deducciones.IMSS = (sueldoCN * 0.041219).toFixed(2);
 
           break;
 
@@ -1942,10 +2195,32 @@ ORDER BY path;
         case "FMM":
         case "MMS":
 
-          percepciones = mandosMap.get(nivel);
-          console.log(percepciones);
-
+          percepciones = { ...mandosMap.get(nivel) };
           if (!percepciones) break;
+
+          // ✅ ELIMINAR cualquier quinquenio previo
+          Object.keys(percepciones).forEach(key => {
+            if (key.startsWith("QUINQUENIOS")) {
+              delete percepciones[key];
+            }
+          });
+
+          // ✅ AGREGAR SOLO EL QUINQUENIO CORRECTO
+          if (employee.NUMQUIN > 0) {
+            const quinquenio = await querysql(
+              `SELECT quin_${employee.NUMQUIN} FROM quin_mandosmedios WHERE NIVEL = ?`,
+              [employee.NIVEL]
+            );
+
+            if (
+              quinquenio &&
+              quinquenio[0] &&
+              quinquenio[0][`quin_${employee.NUMQUIN}`] != null
+            ) {
+              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+                quinquenio[0][`quin_${employee.NUMQUIN}`];
+            }
+          }
 
           const sueldoMM = parseFloat(percepciones.sueldo_base);
           const rdl = parseFloat(percepciones.rdl);
@@ -1953,28 +2228,49 @@ ORDER BY path;
 
           const sueldoGravableMM = sueldoMM + rdl + comp;
 
-          let isrMM = calcularISR(sueldoGravableMM);
-          isrMM = isrMM - parseFloat(percepciones.isr_rdl);
+          const isrDataMM = await querysql(
+            "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
+            [sueldoGravableMM, sueldoGravableMM]
+          );
 
-          deducciones.ISR = Number(isrMM.toFixed(2));
+          const isrObjectMM = isrDataMM[0];
 
-          const seguro = segVidaMap.get(nivel);
-          if (seguro) {
-            deducciones.SEGURO_VIDA = Number(parseFloat(seguro.seg_vida).toFixed(2));
-          }
+          const isrBrutoMM =
+            ((sueldoGravableMM - parseFloat(isrObjectMM.limite_inf)) *
+              parseFloat(isrObjectMM.porcentajeliminf)) /
+            100 +
+            parseFloat(isrObjectMM.cuota_fija);
 
-          deducciones.FONDO_PEN = Number((sueldoMM * 0.09).toFixed(2));
+          const subsidioDataMM = await querysql(
+            "SELECT subsidio FROM subsidio_isr WHERE ? > lim_inf AND ? < lim_sup",
+            [sueldoGravableMM, sueldoGravableMM]
+          );
+
+          const subsidioMM =
+            subsidioDataMM && subsidioDataMM.length > 0
+              ? parseFloat(subsidioDataMM[0].subsidio)
+              : 0;
+
+          let isrFinalMM = isrBrutoMM - subsidioMM;
+          if (isrFinalMM < 0) isrFinalMM = 0;
+
+          deducciones.ISR = isrFinalMM.toFixed(2);
+
+          deducciones.IMSS = (sueldoMM * 0.041219).toFixed(2);
+
+          const CAT_SEGURO = await querysql(
+            "SELECT * FROM seg_vida WHERE nivel = ?",
+            [employee.NIVEL],
+          );
+
+          deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
+
+          deducciones.FONDO_PENSIONES = (sueldoMM * 0.09).toFixed(2);
+
+          deducciones.ISR = parseFloat(deducciones.ISR) - parseFloat(percepciones.isr_rdl);
 
           delete percepciones.isr_rdl;
           delete percepciones.rdl;
-
-          if (employee.NUMQUIN > 0 && tipo === "CN") {
-            const quin = quinMandosMap.get(nivel);
-            if (quin) {
-              percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
-                quin[`quin_${employee.NUMQUIN}`];
-            }
-          }
 
           break;
 
@@ -1987,7 +2283,6 @@ ORDER BY path;
 
     for (const section of sections) {
       const group = groupedEmployees[section.key];
-      if (!group || group.length === 0) continue;
 
       const rowHeader = worksheet.addRow([section.title]);
       worksheet.mergeCells(`A${rowHeader.number}:I${rowHeader.number}`);
@@ -2003,21 +2298,33 @@ ORDER BY path;
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
       });
 
-      // Ordenar por jerarquía de adscripción
-      const sortedGroup = group.sort((a, b) => {
-        const ordenA = ordenJerarquico.get(Number(a.CLAVE)) ?? 9999;
-        const ordenB = ordenJerarquico.get(Number(b.CLAVE)) ?? 9999;
+      // Si no hay empleados, agregar fila de "Sin personal"
+      if (!group || group.length === 0) {
+        const rowEmpty = worksheet.addRow(['Sin personal en esta modalidad']);
 
-        if (ordenA !== ordenB) {
-          return ordenA - ordenB;
+        // Aplicar bordes a cada celda de A a I
+        for (let col = 1; col <= 9; col++) {
+          const cell = rowEmpty.getCell(col);
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+          cell.alignment = { vertical: 'middle' };
         }
 
-        // Desempate por apellido
-        return (a.APE_PAT || '').localeCompare(b.APE_PAT || '');
-      });
+        // Mergear después de aplicar bordes
+        const emptyCell = worksheet.getCell(`A${rowEmpty.number}`);
+        emptyCell.font = { size: 10 };
+        emptyCell.alignment = { vertical: 'middle' };
 
-      for (const emp of sortedGroup) {
-        const { percepciones, deducciones } = procesarNomina(emp);
+        continue;
+      }
+
+      // Empleados de esta adscripción
+      for (const emp of group) {
+        const { percepciones, deducciones } = await procesarNomina(emp);
 
         const sumarPercepciones = (obj) => {
           return Object.entries(obj || {}).reduce((acc, [key, val]) => {
@@ -2036,8 +2343,8 @@ ORDER BY path;
 
         const totalPercepciones = sumarPercepciones(percepciones);
         const totalDeducciones = sumarDeducciones(deducciones);
-
         const percepcionNeta = totalPercepciones - totalDeducciones;
+
         const row = worksheet.addRow({
           NOMBRE:
             emp.status !== 1
@@ -2050,7 +2357,7 @@ ORDER BY path;
           PERIODO: '',
           PERCEPCION: parseFloat(percepcionNeta),
           SUELDO_BASE: parseFloat(percepciones?.sueldo_base || 0),
-          ADSCRIPCION: emp.ADSCRIPCION || ''
+          ADSCRIPCION: SUBNIVELES === true ? emp?.ADSCRIPCION : ''
         });
 
         row.getCell('PERCEPCION').numFmt = '#,##0.00';
@@ -2186,6 +2493,8 @@ ORDER BY path;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
 
+    const lastRow = worksheet.rowCount;
+    worksheet.pageSetup.printArea = `A1:I${lastRow}`;
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {

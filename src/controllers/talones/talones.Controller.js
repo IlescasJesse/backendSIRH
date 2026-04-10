@@ -258,6 +258,7 @@ talonesController.uploadTalonImage = async (req, res) => {
     const talonesDocs = await query("TALONES", {
       "TALONES._id": talonObjectId,
     });
+
     if (!talonesDocs || talonesDocs.length === 0) {
       return res.status(404).send({ error: "No se encontró el talón" });
     }
@@ -287,12 +288,12 @@ talonesController.uploadTalonImage = async (req, res) => {
     // Extraer región inferior (últimos 15% de la imagen) para buscar "PAGADOR"
     const bottomRegionHeight = Math.floor(height * 0.15);
     const bottomRegion = await img
-      .extract({
-        left: 0,
-        top: height - bottomRegionHeight,
-        width: width,
-        height: bottomRegionHeight,
-      })
+      .extract({ left: 0, top: height - bottomRegionHeight, width, height: bottomRegionHeight })
+      .grayscale()
+      .normalise()
+      .sharpen()
+      .threshold(150)
+      .resize({ width: Math.round(width * 1.5) })
       .toBuffer();
 
     // Realizar OCR en la región inferior completa con mejor configuración
@@ -306,14 +307,6 @@ talonesController.uploadTalonImage = async (req, res) => {
 
     console.log("Texto detectado en región inferior:", bottomText);
 
-    // Normalizar el texto para mejor comparación
-    const normalizedText = bottomText
-      .toUpperCase()
-      .replace(/[^A-ZÁÉÍÓÚ0-9\s]/g, "") // Eliminar caracteres especiales
-      .replace(/\s+/g, " ") // Normalizar espacios
-      .trim();
-
-    console.log("Texto normalizado:", normalizedText);
 
     // Validar que contenga "PAGADOR" con múltiples variaciones de OCR
     const pagadorPatterns = [
