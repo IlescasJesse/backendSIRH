@@ -139,36 +139,46 @@ offEmployeeController.saveDataOff = async (req, res) => {
       data.TIPONOM = data.TIPONOM;
     }
 
-    await insertOne(`BAJAS`, data);
-    console.log("[offEmployees.saveDataOff] Baja insertada en BAJAS", {
-      curp: data.CURP,
-      id_employee: data.id_employee,
-      numpla: data.NUMPLA,
-      PROCESADO_guardado: data.PROCESADO,
-      tipo_PROCESADO: typeof data.PROCESADO,
-    });
-    const plaza = await query(`PLAZAS`, { NUMPLA: data.NUMPLA });
-    if (plaza.length > 0) {
-      await updateOne(
-        `PLAZAS`,
-        { NUMPLA: data.NUMPLA },
-        {
-          $push: {
-            previousOcuppants: {
-              NOMBRE: data.NOMBRE,
-              FECHA: data.discharge_date,
-              FECHA_BAJA: data.discharge_date,
-              MOTIVO_BAJA: data.reason,
-              TIPONOM: data.TIPONOM,
-              TIEMPO: data.TIEMPO_BAJA ?? null,
-              OWNER: data.OWNER ?? null,
+    if (data.reason !== "L-PRRO") {
+      await insertOne(`BAJAS`, data);
+
+      const plaza = await query(`PLAZAS`, { NUMPLA: data.NUMPLA });
+      if (plaza.length > 0) {
+        await updateOne(
+          `PLAZAS`,
+          { NUMPLA: data.NUMPLA },
+          {
+            $push: {
+              previousOcuppants: {
+                NOMBRE: data.NOMBRE,
+                FECHA: data.discharge_date,
+                FECHA_BAJA: data.discharge_date,
+                MOTIVO_BAJA: data.reason,
+                TIPONOM: data.TIPONOM,
+                TIEMPO: data.TIEMPO_BAJA ?? null,
+                OWNER: data.OWNER ?? null,
+              },
             },
+          },
+        );
+      } else {
+        res.status(404).json({ message: "Plaza no encontrada" });
+        return;
+      }
+    }
+    if (data.reason === "L-PRRO") {
+      await updateOne(
+        "PLAZAS",
+        {
+          NUMPLA: data.NUMPLA,
+          "previousOcuppants.NOMBRE": data.NOMBRE,
+        },
+        {
+          $set: {
+            "previousOcuppants.$.TIEMPO": data.time ?? null,
           },
         },
       );
-    } else {
-      res.status(404).json({ message: "Plaza no encontrada" });
-      return;
     }
     const employee = await query("PLANTILLA", {
       _id: new ObjectId(data.id_employee),
@@ -243,7 +253,9 @@ offEmployeeController.saveDataOff = async (req, res) => {
   }
 
   let DOMICILIO1, DOMICILIO2;
-  const domicilioParts = data.DOMICLIO_COMPLETO.split(",");
+
+  const domicilioCompleto = data.DOMICLIO_COMPLETO || "";
+  const domicilioParts = domicilioCompleto.split(",");
   if (domicilioParts[0].split(" ").length < 3) {
     DOMICILIO1 = domicilioParts.slice(0, 2).join(",");
     DOMICILIO2 = domicilioParts.slice(2).join(",");
@@ -351,11 +363,23 @@ offEmployeeController.saveDataOff = async (req, res) => {
   try {
     doc.render(templateData);
     const buf = doc.getZip().generate({ type: "nodebuffer" });
-    const outputDir = path.resolve(__dirname, "../../docs/bajas");
+    let outputDir;
+    if (L_PRRO) {
+      outputDir = path.resolve(__dirname, "../../docs/prorrogas");
+    } else {
+      outputDir = path.resolve(__dirname, "../../docs/bajas");
+    }
+
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-    const outputPath = path.join(outputDir, `BAJA_${data.CURP}.docx`);
+    let nameFile;
+    if (L_PRRO) {
+      nameFile = `PRORROGA_${data.CURP}.docx`;
+    } else {
+      nameFile = `BAJA_${data.CURP}.docx`;
+    }
+    const outputPath = path.join(outputDir, nameFile);
     fs.writeFileSync(outputPath, buf);
 
     res.setHeader(

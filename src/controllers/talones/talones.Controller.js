@@ -10,6 +10,32 @@ const moment = require("moment");
 const sharp = require("sharp");
 const Tesseract = require("tesseract.js");
 
+const normalizeText = (text = "") =>
+  text
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // elimina acentos
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const containsPattern = (text, regex) => {
+  if (!text) return false;
+  return regex.test(text);
+};
+
+const talonContainsPagador = (text) =>
+  containsPattern(text, /P\s*A\s*G\s*A\s*D\s*O\s*R/);
+
+const talonContainsFirmaRecibido = (text) =>
+  containsPattern(text, /F\s*I\s*R\s*M\s*A[\s\S]{0,30}R\s*E\s*C\s*I\s*B\s*I\s*D\s*O/) ||
+  containsPattern(text, /R\s*E\s*C\s*I\s*B\s*I\s*D\s*O[\s\S]{0,30}F\s*I\s*R\s*M\s*A/);
+
+const talonContainsEmpleado = (text) =>
+  containsPattern(text, /E\s*M\s*P\s*L\s*E\s*A\s*D\s*O/);
+
+const talonNormalize = (text) => normalizeText(text);
+
 const talonesController = {};
 
 // Obtener perfil del empleado y calcular días restantes
@@ -273,72 +299,66 @@ talonesController.uploadTalonImage = async (req, res) => {
         .send({ error: "No se encontró el talón en el documento" });
     }
 
-    // --- Validaciones de imagen desactivadas temporalmente ---
-    // El reconocimiento OCR no es confiable, se comenta todo el código de validación
-
     // Convertir base64 a buffer
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
     const imageBuffer = Buffer.from(base64Data, "base64");
 
     // Procesar imagen con sharp para obtener dimensiones y extraer regiones
-    const img = sharp(imageBuffer);
-    const metadata = await img.metadata();
+    const metadata = await sharp(imageBuffer).metadata();
     const { width, height } = metadata;
 
-    // Extraer región inferior (últimos 15% de la imagen) para buscar "PAGADOR"
-    const bottomRegionHeight = Math.floor(height * 0.15);
-    const bottomRegion = await img
+    // Extraer región inferior (últimos 18% de la imagen) para buscar "PAGADOR"
+    const bottomRegionHeight = Math.max(Math.floor(height * 0.18), 80);
+    const bottomRegion = await sharp(imageBuffer)
       .extract({ left: 0, top: height - bottomRegionHeight, width, height: bottomRegionHeight })
       .grayscale()
-      .normalise()
+      .median(1)
+      .normalize()
       .sharpen()
-      .threshold(150)
+      .threshold(140)
       .resize({ width: Math.round(width * 1.5) })
       .toBuffer();
 
-    // Realizar OCR en la región inferior completa con mejor configuración
-    const {
-      data: { text: bottomText },
-    } = await Tesseract.recognize(bottomRegion, "spa", {
-      logger: (m) => console.log(m),
-      tessedit_char_whitelist:
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚ abcdefghijklmnopqrstuvwxyzáéíóú0123456789",
-    });
+    // Extraer una región más amplia para verificar "FIRMA DE RECIBIDO"
+    const firmaRegionHeight = Math.max(Math.floor(height * 0.30), bottomRegionHeight);
+    const firmaTextRegion = await sharp(imageBuffer)
+      .extract({ left: 0, top: height - firmaRegionHeight, width, height: firmaRegionHeight })
+      .grayscale()
+      .median(1)
+      .normalize()
+      .sharpen()
+      .threshold(140)
+      .resize({ width: Math.round(width * 1.5) })
+      .toBuffer();
 
-    console.log("Texto detectado en región inferior:", bottomText);
+    const [bottomResult, firmaResult] = await Promise.all([
+      Tesseract.recognize(bottomRegion, "spa", {
+        logger: (m) => console.log(m),
+        tessedit_pageseg_mode: "6",
+      }),
+      Tesseract.recognize(firmaTextRegion, "spa", {
+        logger: (m) => console.log(m),
+        tessedit_pageseg_mode: "6",
+      }),
+    ]);
 
+    const bottomText = bottomResult?.data?.text || "";
+    const firmaText = firmaResult?.data?.text || "";
+    const normalizedBottomText = talonNormalize(bottomText);
+    const normalizedFirmaText = talonNormalize(firmaText);
 
-    // Validar que contenga "PAGADOR" con múltiples variaciones de OCR
-    const pagadorPatterns = [
-      "PAAGADOR",
-      "PASADOR",
-      "PACADOR",
-      "PacaDOR",
-      "PAGADOR",
-      "PAG ADOR",
-      "PAGAD0R",
-      "PAGAD0R",
-      "P AGADOR",
-      "PAGAD OR",
-      "PAGAD0 R",
-      "7OBIERNO", // Si detecta 7OBIERNO significa que está cerca de GOBIERNO y PAGADOR
-    ];
+    console.log("Texto detectado en región inferior:", normalizedBottomText);
+    console.log("Texto detectado en región de firma:", normalizedFirmaText);
 
-    const contienePagador = pagadorPatterns.some((pattern) =>
-      normalizedText.includes(pattern)
-    );
-
-    // Validar que NO contenga "EMPLEADO" (debe ser PAGADOR, no EMPLEADO)
-    const empleadoPatterns = ["EMPLEADO", "EMPLE ADO", "EMPLE AD0", "EMPLEAD0"];
-
-    const contieneEmpleado = empleadoPatterns.some((pattern) =>
-      normalizedText.includes(pattern)
-    );
+    const contienePagador = talonContainsPagador(normalizedBottomText);
+    const contieneEmpleado = talonContainsEmpleado(normalizedBottomText);
+    const contieneFirmaRecibido = talonContainsFirmaRecibido(normalizedFirmaText);
 
     if (contieneEmpleado) {
       return res.status(402).send({
         error: 'La imagen contiene "EMPLEADO" en vez de "PAGADOR".',
         textoDetectado: bottomText,
+        textoNormalizado: normalizedBottomText,
       });
     }
 
@@ -346,86 +366,22 @@ talonesController.uploadTalonImage = async (req, res) => {
       return res.status(403).send({
         error: 'La imagen no contiene "PAGADOR" en la parte inferior.',
         textoDetectado: bottomText,
+        textoNormalizado: normalizedBottomText,
       });
     }
-
-    // Validar que contenga "FIRMA DE RECIBIDO" o similar (con variaciones extensas de OCR)
-    const firmaPatterns = [
-      "FIRMA",
-      "F IRMA",
-      "FI RMA",
-      "FlRMA",
-      "FIRNA",
-      "FJRMA",
-      "FIHMA",
-      "FlRNA",
-      "F1RMA",
-      "FIR MA",
-      "FIFMA",
-      "FIRVA",
-      "ORE", // Variación de OCR muy común
-      "FIRE",
-      "FIMA",
-      "FIRA",
-    ];
-
-    const recibidoPatterns = [
-      "RECIBIDO",
-      "RECIBID0",
-      "RECI BIDO",
-      "RECIIDO",
-      "RECIBI DO",
-      "RECIBID O",
-      "RECI BID0",
-      "RECIB1DO",
-      "RECIB IDO",
-      "REC1BIDO",
-      "RECIEIDO",
-      "RECIBLDO",
-      "RECIBLD0",
-      "RECIBI D0",
-      "RECLBIDO",
-      "RECIBICO",
-      "RECIBUO",
-      "RECIBIDD",
-      "RECIBIPO",
-      "RECIBLIDO",
-      "DOUE", // Variaciones extremas detectadas por OCR
-      "DDUE",
-      "DDULE",
-      "RECIB",
-    ];
-
-    const dePatterns = ["DE", "D E", "0E", "DE", "DF", "UE", "OE"];
-
-    const contieneFirma = firmaPatterns.some((pattern) =>
-      normalizedText.includes(pattern)
-    );
-
-    const contieneRecibido = recibidoPatterns.some((pattern) =>
-      normalizedText.includes(pattern)
-    );
-
-    const contieneDe = dePatterns.some((pattern) =>
-      normalizedText.includes(pattern)
-    );
-
-    // Validar con lógica más flexible
-    const contieneFirmaRecibido =
-      (contieneFirma || normalizedText.includes("FIRMA")) &&
-      (contieneRecibido || normalizedText.includes("RECIB"));
 
     if (!contieneFirmaRecibido) {
       return res.status(404).send({
         error: 'La imagen no contiene el texto "FIRMA DE RECIBIDO".',
         textoDetectado: bottomText,
+        textoNormalizado: normalizedBottomText,
       });
     }
 
     // Extraer región derecha inferior (últimos 30% width y 20% height) para buscar firma azul
     const firmaWidth = Math.floor(width * 0.3);
     const firmaHeight = Math.floor(height * 0.2);
-    const firmaRegion = await img
+    const firmaRegion = await sharp(imageBuffer)
       .extract({
         left: width - firmaWidth,
         top: height - firmaHeight,
@@ -494,7 +450,11 @@ talonesController.uploadTalonImage = async (req, res) => {
     res.status(200).send({ message: "Imagen guardada correctamente en el talón.", _id: talonesDoc._idEmployee });
   } catch (error) {
     console.error("Error al subir imagen al talón:", error);
-    res.status(500).send({ error: "Ocurrió un error al guardar la imagen." });
+    const response = { error: "Ocurrió un error al guardar la imagen." };
+    if (process.env.NODE_ENV !== "production") {
+      response.details = error.message;
+    }
+    res.status(500).send(response);
   }
 };
 module.exports = talonesController;

@@ -972,6 +972,162 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
 };
 
 reportesPersonalController.getPlantillaXLSX = async (req, res) => {
+  const [
+    catalogoBase,
+    catalogoContrato,
+    catalogoMandos,
+    isrTable,
+    quinBase,
+    quinConfianza,
+    quinMandos,
+    segVida,
+    subsidioISR
+  ] = await Promise.all([
+    querysql(`SELECT * FROM catalogo_base`),
+    querysql(`SELECT * FROM catalogo_contrato`),
+    querysql(`SELECT * FROM catalogo_mandosmedios`),
+    querysql(`SELECT * FROM catalogo_isr`),
+    querysql(`SELECT * FROM quin_base`),
+    querysql(`SELECT * FROM quin_confianza`),
+    querysql(`SELECT * FROM quin_mandosmedios`),
+    querysql(`SELECT * FROM seg_vida`),
+    querysql(`SELECT * FROM subsidio_isr WHERE id = 1`)
+  ]);
+
+  const baseMap = new Map();
+  catalogoBase.forEach(x => baseMap.set(String(x.nivel), x));
+
+  const contratoMap = new Map();
+  catalogoContrato.forEach(x => contratoMap.set(String(x.nivel), x));
+
+  const mandosMap = new Map();
+  catalogoMandos.forEach(x => mandosMap.set(String(x.nivel), x));
+
+  const quinBaseMap = new Map();
+  quinBase.forEach(x => quinBaseMap.set(String(x.nivel), x));
+
+  const quinConfianzaMap = new Map();
+  quinConfianza.forEach(x => quinConfianzaMap.set(String(x.nivel), x));
+
+  const quinMandosMap = new Map();
+  quinMandos.forEach(x => quinMandosMap.set(String(x.nivel), x));
+
+  const segVidaMap = new Map();
+  segVida.forEach(x => segVidaMap.set(String(x.nivel), x));
+
+  // Funciones auxiliares para reducir duplicidad
+  async function calcularISR(sueldoGravable) {
+    const isrData = await querysql(
+      "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
+      [sueldoGravable, sueldoGravable]
+    );
+    const isrObject = isrData[0];
+    const isrBruto = ((sueldoGravable - parseFloat(isrObject.limite_inf)) * parseFloat(isrObject.porcentajeliminf)) / 100 + parseFloat(isrObject.cuota_fija);
+    const subsidioData = await querysql(
+      "SELECT subsidio FROM subsidio_isr WHERE ? > lim_inf AND ? < lim_sup",
+      [sueldoGravable, sueldoGravable]
+    );
+    const subsidio = subsidioData && subsidioData.length > 0 ? parseFloat(subsidioData[0].subsidio) : 0;
+    let isrFinal = isrBruto - subsidio;
+    return Math.max(isrFinal, 0).toFixed(2);
+  }
+
+  function agregarQuinquenio(percepciones, employee, tablaQuin) {
+    Object.keys(percepciones).forEach(key => {
+      if (key.startsWith("QUINQUENIOS")) delete percepciones[key];
+    });
+    if (employee.NUMQUIN > 0) {
+      const quinMap = tablaQuin === "quin_base" ? quinBaseMap : tablaQuin === "quin_confianza" ? quinConfianzaMap : quinMandosMap;
+      const quinquenio = quinMap.get(String(employee.NIVEL));
+      if (quinquenio && quinquenio[`quin_${employee.NUMQUIN}`] != null) {
+        percepciones[`QUINQUENIOS`] = quinquenio[`quin_${employee.NUMQUIN}`];
+      }
+    }
+  }
+
+  // Configuración por tipo de nómina
+  const configNomina = {
+    "M51": { mapa: baseMap, tablaQuin: "quin_base", incluyeEstimulo: false, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "F51": { mapa: baseMap, tablaQuin: "quin_base", incluyeEstimulo: false, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "FCT": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "CCT": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "F53": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "M53": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "FCO": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "511": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
+    "FMM": { mapa: mandosMap, tablaQuin: "quin_mandosmedios", incluyeEstimulo: false, incluyeCuotaSindical: false, incluyeSeguroVida: true, ajustaISR_RDL: true },
+    "MMS": { mapa: mandosMap, tablaQuin: "quin_mandosmedios", incluyeEstimulo: false, incluyeCuotaSindical: false, incluyeSeguroVida: true, ajustaISR_RDL: true },
+  };
+
+  async function procesarNomina(employee) {
+    let percepciones = {};
+    let deducciones = {};
+
+    const cubreLicencia = await query("LICENCIAS", {
+      NUMPLA: employee.NUMPLA,
+      status: 1,
+    });
+
+    employee.CUBRIENDO_LICENCIA = cubreLicencia && cubreLicencia.length > 0;
+
+    const nivel = String(employee.NIVEL);
+    const tipo = employee.TIPONOM;
+    const config = configNomina[tipo];
+
+    if (!config) throw new Error("Tipo de nómina no reconocido");
+
+    percepciones = { ...config.mapa.get(nivel) };
+    if (!percepciones) return { percepciones: {}, deducciones: {} };
+
+    agregarQuinquenio(percepciones, employee, config.tablaQuin);
+
+    let sueldoGravable = parseFloat(percepciones.sueldo_base);
+    if (config.incluyeEstimulo) sueldoGravable += parseFloat(percepciones.estimulo || 0);
+
+    if (tipo === "M51" || tipo === "F51") {
+      const now = new Date();
+      const day = now.getDate();
+      const month = now.getMonth() + 1;
+      const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
+      if (isSegundaQuincena16Dias) {
+        const diaAjuste = percepciones.sueldo_base / 30;
+        percepciones.dia_ajuste = diaAjuste.toFixed(2);
+        sueldoGravable += diaAjuste;
+      }
+    }
+
+    if (config.incluyeSeguroVida) {
+      sueldoGravable += parseFloat(percepciones.rdl || 0) + parseFloat(percepciones.comp_fija_garan || 0);
+    }
+
+    deducciones.ISR = await calcularISR(sueldoGravable);
+
+    const sueldoBase = parseFloat(percepciones.sueldo_base);
+    if (!employee.CUBRIENDO_LICENCIA) {
+      deducciones.FONDO_PENSIONES = (sueldoBase * 0.09).toFixed(2);
+    }
+    deducciones.IMSS = (sueldoBase * 0.041219).toFixed(2);
+
+    if (config.incluyeCuotaSindical && !employee.CUBRIENDO_LICENCIA) {
+      deducciones.CUOTA_SINDICAL = (sueldoBase * 0.01).toFixed(2);
+    }
+
+    if (config.incluyeSeguroVida) {
+      const CAT_SEGURO = await querysql(
+        "SELECT * FROM seg_vida WHERE nivel = ?",
+        [employee.NIVEL],
+      );
+      deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
+      if (config.ajustaISR_RDL) {
+        deducciones.ISR = (parseFloat(deducciones.ISR) - parseFloat(percepciones.isr_rdl || 0)).toFixed(2);
+        delete percepciones.isr_rdl;
+        delete percepciones.rdl;
+      }
+    }
+
+    return { percepciones, deducciones };
+  }
+
   try {
     // Obtener el parámetro status de los params de la ruta y convertirlo a entero
     const statusParam = req.params.status ? parseInt(req.params.status, 10) : 1;
@@ -1011,6 +1167,31 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       { header: "NIVEL", key: "NIVEL" },
       { header: "INGRESO", key: "FECHA_INGRESO" },
       { header: "NOMBRAMIENTO", key: "FECHA_NOMBRAMIENTO" },
+      { header: "NUMQUIN", key: "NUMQUIN" },
+
+      { header: "SUELDO", key: "SUELDO" },
+      { header: "QUINENIO", key: "QUINQUENIO" },
+      { header: "PSM", key: "PSM" },
+
+      { header: "DESPENSA", key: "DESPENSA" },
+      { header: "ACT_CUL_DEP", key: "ACT_CUL_DEP" },
+      { header: "DIA_AJUSTE", key: "DIA_AJUSTE" },
+
+      { header: "CANASTA", key: "CANASTA" },
+      { header: "ESTIMULO", key: "ESTIMULO" },
+
+      { header: "COMP_FIJA_GARAN", key: "COMP_FIJA_GARAN" },
+
+      { header: "PERCEPCIONES", key: "TOTAL_PERCEPCIONES" },
+
+      { header: "ISR", key: "ISR" },
+      { header: "FONDODEP", key: "FONDODEP" },
+      { header: "IMSS", key: "IMSS" },
+      { header: "CUOTASIN", key: "CUOTA_SINDICAL" },
+      { header: "SEGURO_VIDA", key: "SEGURO_VIDA" },
+      { header: "DEDUCCIONES", key: "TOTAL_DEDUCCIONES" },
+
+      { header: "NETO", key: "NETO" },
 
       // Datos personales
       { header: "CURP", key: "CURP" },
@@ -1066,6 +1247,28 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
     worksheet.columns = columnas;
 
+    [
+      "SUELDO",
+      "QUINQUENIO",
+      "PSM",
+      "DESPENSA",
+      "ACT_CUL_DEP",
+      "DIA_AJUSTE",
+      "CANASTA",
+      "ESTIMULO",
+      "COMP_FIJA_GARAN",
+      "TOTAL_PERCEPCIONES",
+      "ISR",
+      "FONDODEP",
+      "IMSS",
+      "CUOTA_SINDICAL",
+      "SEGURO_VIDA",
+      "TOTAL_DEDUCCIONES",
+      "NETO",
+    ].forEach((key) => {
+      worksheet.getColumn(key).numFmt = "#,##0.00";
+    });
+
     const plazas = await query("PLAZAS", {});
 
     const mapaPlazas = new Map();
@@ -1095,6 +1298,25 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
     // Agrega los datos
     for (const item of plantilla) {
+      const { percepciones, deducciones } = await procesarNomina(item);
+      const sumarPercepciones = (obj) => {
+        return Object.entries(obj || {}).reduce((acc, [key, val]) => {
+          if (['nivel', 'id'].includes(key)) return acc;
+          const num = Number(val);
+          return acc + (isNaN(num) ? 0 : num);
+        }, 0);
+      };
+
+      const sumarDeducciones = (obj) => {
+        return Object.values(obj || {}).reduce((acc, val) => {
+          const num = parseFloat(val);
+          return acc + (isNaN(num) ? 0 : num);
+        }, 0);
+      };
+
+      const totalPercepciones = sumarPercepciones(percepciones);
+      const totalDeducciones = sumarDeducciones(deducciones);
+      const percepcionNeta = totalPercepciones - totalDeducciones;
 
       const plaza = mapaPlazas.get(item.NUMPLA) || {};
       const ocupanteReciente = (plaza.previousOcuppants || []).slice(-1)[0] || {};
@@ -1106,6 +1328,25 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
       const fila = {
         ...item,
+        SUELDO: Number(percepciones.sueldo_base) || 0.00,
+        QUINQUENIO: Number(percepciones.QUINQUENIOS) || 0.00,
+        PSM: Number(percepciones.psm) || 0.00,
+        DESPENSA: Number(percepciones.despensa) || 0.00,
+        ACT_CUL_DEP: Number(percepciones.act_cul_dep) || 0.00,
+        DIA_AJUSTE: Number(percepciones.dia_ajuste) || 0.00,
+        CANASTA: Number(percepciones.canasta_basica) || 0.00,
+        ESTIMULO: Number(percepciones.estimulo) || 0.00,
+        COMP_FIJA_GARAN: Number(percepciones.comp_fija_garan) || 0.00,
+        TOTAL_PERCEPCIONES: Number(totalPercepciones.toFixed(2)) || 0.00,
+
+        ISR: Number(deducciones.ISR) || 0.00,
+        FONDODEP: Number(deducciones.FONDO_PENSIONES) || 0.00,
+        IMSS: Number(deducciones.IMSS) || 0.00,
+        CUOTA_SINDICAL: Number(deducciones.CUOTA_SINDICAL) || 0.00,
+        SEGURO_VIDA: Number(deducciones.SEGURO_VIDA) || 0.00,
+        TOTAL_DEDUCCIONES: Number(totalDeducciones.toFixed(2)) || 0.00,
+        NETO: Number(percepcionNeta.toFixed(2)) || 0.00,
+
         NOMBRE_COMPLETO: `${item.APE_PAT || ""} ${item.APE_MAT || ""} ${item.NOMBRES || ""}`.trim(),
 
         CLAVE: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.CLAVE || item.CLAVE,
