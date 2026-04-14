@@ -9,7 +9,7 @@ router.get(
   verifyToken,
   incidenciasController.getEmployee
 );
-router.get("/getEmployees", employeeController.getEmployees);
+router.get("/getEmployees", verifyToken, employeeController.getEmployees);
 
 router.get(
   "/getEmployeeCount",

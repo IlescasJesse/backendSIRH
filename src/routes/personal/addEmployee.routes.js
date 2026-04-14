@@ -5,8 +5,7 @@ const verifyToken = require("../../middleware/authMiddleware");
 
 router.get("/getvacants", verifyToken, addEmployeeController.getVacants);
 router.get(
-  "/getinternalInformation",
-  addEmployeeController.internalInformation
+  "/getinternalInformation", verifyToken, addEmployeeController.internalInformation
 );
 router.post("/getMpios", addEmployeeController.getMpio);
 router.post("/getdataPlaza", addEmployeeController.dataPlaza);
