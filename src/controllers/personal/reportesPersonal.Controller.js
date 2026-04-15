@@ -1730,6 +1730,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     const { ADSCRIPCION, CLAVE, SUBNIVELES } = req.body;
     let claves = [];
     let adscripcionDisplay = "";
+    let nombreServidorSaliente = "";
     const toTitleCase = (text) => {
       if (!text || typeof text !== 'string') return '';
       return text
@@ -1868,8 +1869,30 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
         const nivelB = parseInt(String(b.NIVEL).match(/\d+/)?.[0] || 0);
         return nivelB - nivelA;
       })[0];
+
+      // Obtener el nombre del servidor saliente de la vacante de mayor nivel
+      if (vacanteMayorNivel) {
+        const bajasDelEmpleado = await query("BAJAS", {
+          id_employee: String(vacanteMayorNivel._id),
+        });
+
+        if (Array.isArray(bajasDelEmpleado) && bajasDelEmpleado.length > 0) {
+          const baja = bajasDelEmpleado[0];
+
+          nombreServidorSaliente = `${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
+        }
+      }
       empleadosFiltrados = [...activos, vacanteMayorNivel];
     } else if (vacantes.length === 1) {
+      const bajasDelEmpleado = await query("BAJAS", {
+        id_employee: String(vacantes[0]._id),
+      });
+
+      if (Array.isArray(bajasDelEmpleado) && bajasDelEmpleado.length > 0) {
+        const baja = bajasDelEmpleado[0];
+
+        nombreServidorSaliente = `${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
+      }
       empleadosFiltrados = [...activos, vacantes[0]];
     }
 
@@ -2711,7 +2734,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     const rowNombreFirma = worksheet.addRow([
       'L.A. LAURA CONCEPCION MARTÍNEZ GUTIÉRREZ', // A
       '',        // B
-      '', // C
+      `${nombreServidorSaliente}`, // C
       '',        // D
       '',        // E
       '',        // F
@@ -2720,18 +2743,26 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       '',  // I
     ]);
 
+    worksheet.mergeCells(
+      `C${rowNombreFirma.number}:E${rowNombreFirma.number}`
+    );
+
     // 2) fila de cierre / firmas
     const rowPuestoFirma = worksheet.addRow([
       'JEFA DEL DEPTO. DE RECURSOS HUMANOS', // A
       '',        // B
-      '', // C
+      'SERVIDOR PÚBLICO SALIENTE', // C
       '',        // D
       '',        // E
       '',        // F
       '',        // G
       '',        // H
-      '',  // I
+      'SERVIDOR PÚBLICO ENTRANTE',  // I
     ]);
+
+    worksheet.mergeCells(
+      `C${rowPuestoFirma.number}:E${rowPuestoFirma.number}`
+    );
 
     const imageIdBottom = workbook.addImage({
       filename: path.join(__dirname, '../../assets/img/footer_logo_secretaria_honestidad.png'),
