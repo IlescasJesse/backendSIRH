@@ -2079,7 +2079,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     }
 
     worksheet.getRow(15).height = 35;
-    worksheet.getRow(16).height = 17;
+    worksheet.getRow(16).height = 35;
 
     const headerCells = [
       'A16', 'B16', 'C16', 'E16', 'F16', 'G16', 'H16', 'I16', 'C17', 'D17',
