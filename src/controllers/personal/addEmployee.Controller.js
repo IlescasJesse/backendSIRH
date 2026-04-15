@@ -216,6 +216,10 @@ employeeController.dataPlaza = async (req, res) => {
     dataPlaza[0].PROYECTO = plantillaData[0].PROYECTO || "";
     dataPlaza[0].CLAVE = plantillaData[0].CLAVE || "";
     dataPlaza[0].TIPONOM = plantillaData[0].TIPONOM || "";
+
+    dataPlaza[0].previousOcuppants = (dataPlaza[0].previousOcuppants || []).filter(
+      (item) => item.OWNER === true,
+    );
     res.status(200).json(dataPlaza);
   } catch (err) {
     res.status(500).json({ message: "Error retrieving employees", error: err });

@@ -36,7 +36,7 @@ offEmployeeController.getDatatoOff = async (req, res) => {
     const proyecto = await querysql(`SELECT * FROM proyectos WHERE proyecto = '${empleados[0].PROYECTO}'`);
 
     const licenses = await query("LICENCIAS", {
-      NUMPLA: empleados[0].NUMPLA,
+      id_employee: new ObjectId(_id),
       status: 1,
     });
 
@@ -448,25 +448,24 @@ offEmployeeController.getDataLicenses = async (req, res) => {
       status: 1,
     });
 
-    const ocupante = await query("PLANTILLA", { NUMPLA: licenses[0].NUMPLA });
-
-    if (licenses.length > 0) {
-      if (ocupante.length > 0 && ocupante[0].CURP) {
-        let OCUPANTE = {
-          NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${ocupante[0]?.APE_MAT || ""
-            } ${ocupante[0]?.NOMBRES || ""}`.trim(),
-        };
-        res
-          .status(404)
-          .json({ message: "La plaza cuenta con un ocupante", OCUPANTE });
-      } else {
-        res.status(200).json(licenses);
-      }
-    } else {
-      res.status(201).json({
-        message: "No se encontraron licencias con este ID",
+    if (licenses.length === 0) {
+      return res.status(404).json({
+        message: "No se encontro la licencia con este ID",
       });
     }
+
+    const ocupante = await query("PLANTILLA", { _id: new ObjectId(licenses[0].id_employee) });
+
+    if (ocupante.length > 0 && ocupante[0].CURP) {
+      let OCUPANTE = {
+        NOMBRE: `${ocupante[0]?.APE_PAT || ""} ${ocupante[0]?.APE_MAT || ""
+          } ${ocupante[0]?.NOMBRES || ""}`.trim(),
+      };
+      res.status(409).json({ message: "La plaza cuenta con un ocupante", OCUPANTE });
+    } else {
+      res.status(200).json(licenses);
+    }
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al recuperar las licencias" });
@@ -482,10 +481,10 @@ offEmployeeController.getLicenses = async (req, res) => {
     const enhanced = await Promise.all(
       licenses.map(async (lic) => {
         try {
-          const numpla = lic.NUMPLA ?? lic.NUMPLA;
+          const numpla = lic.id_employee;
           let plantilla = [];
           if (numpla !== undefined && numpla !== null && numpla !== "") {
-            plantilla = await query("PLANTILLA", { NUMPLA: numpla });
+            plantilla = await query("PLANTILLA", { _id: numpla });
           }
           const OCUPANTE_ACTIVO = Boolean(
             plantilla && plantilla[0] && plantilla[0].CURP,

@@ -89,7 +89,7 @@ employeeController.getProfileData = async (req, res) => {
 
     // Validamos si el empleado esta cubriendo una licencia, para no descontarle fondo de pensiones ni cuota sindical
     const cubreLicencia = await query("LICENCIAS", {
-      NUMPLA: employee[0].NUMPLA,
+      id_employee: new ObjectId(id),
       status: 1,
     });
 

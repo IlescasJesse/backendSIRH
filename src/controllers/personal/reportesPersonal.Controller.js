@@ -1908,13 +1908,6 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       printTitlesRow: "1:18",
     };
 
-    worksheet.headerFooter = {
-      oddHeader: '&RPágina &P de &N',
-      evenHeader: '&RPágina &P de &N',
-      oddFooter: '',
-      evenFooter: '',
-    };
-
     const path = require('path');
 
     // Imagen izquierda
@@ -2048,6 +2041,12 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           { text: prefix, font: { bold: true, italic: false, name: 'Arial', size: 10 } },
           { text: value, font: { bold: false, italic: true, name: 'Arial', size: 10 } },
         ],
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
       };
 
       // fallback si no soporta richText:
