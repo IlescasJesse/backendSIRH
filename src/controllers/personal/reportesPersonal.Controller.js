@@ -1755,21 +1755,28 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       );
       claves = adscripciones.map(a => a.clave);
 
-      // Buscar el padre del CLAVE actual
-      const adscripcionActual = await querysql(
-        `SELECT parent_id, nombre FROM adscripciones WHERE clave = '${CLAVE}' LIMIT 1`
+      const ancestros = await querysql(
+        `
+    WITH RECURSIVE padres AS (
+      SELECT id_adscripcion, nombre, clave, parent_id, 0 AS nivel
+      FROM adscripciones
+      WHERE clave = ?
+      UNION ALL
+      SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id, padres.nivel + 1
+      FROM adscripciones a
+      JOIN padres ON padres.parent_id = a.id_adscripcion
+    )
+    SELECT * FROM padres ORDER BY nivel DESC;
+    `,
+        [CLAVE]
       );
 
-      if (adscripcionActual && adscripcionActual[0]?.parent_id) {
-        // Obtener el padre (nivel 2 si CLAVE es nivel 3)
-        const adscripcionPadre = await querysql(
-          `SELECT nombre FROM adscripciones WHERE id_adscripcion = ${adscripcionActual[0].parent_id} LIMIT 1`
-        );
+      const nombres = ancestros
+        .filter(item => String(item.clave) !== String(CLAVE))
+        .filter(item => item.parent_id !== null)
+        .map(item => item.nombre);
 
-        if (adscripcionPadre && adscripcionPadre[0]?.nombre) {
-          adscripcionDisplay = adscripcionPadre[0].nombre;
-        }
-      }
+      adscripcionDisplay = nombres.join('. ');
 
     } else {
       const adscripciones = await querysql(`SELECT clave FROM adscripciones;`);
@@ -1846,6 +1853,26 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       });
     }
 
+    // Filter to include all active employees (status 1) plus only mandos medios vacancies (status !=1 and TIPONOM in ['FMM', 'MMS'])
+    empleadosFiltrados = empleadosFiltrados.filter(emp =>
+      emp.status === 1 || (emp.status !== 1 && ['FMM', 'MMS'].includes(emp.TIPONOM))
+    );
+
+    // Entre vacantes de FMM/MMS, mantener solo la de mayor nivel
+    const activos = empleadosFiltrados.filter(emp => emp.status === 1);
+    const vacantes = empleadosFiltrados.filter(emp => emp.status !== 1);
+
+    if (vacantes.length > 1) {
+      const vacanteMayorNivel = vacantes.sort((a, b) => {
+        const nivelA = parseInt(String(a.NIVEL).match(/\d+/)?.[0] || 0);
+        const nivelB = parseInt(String(b.NIVEL).match(/\d+/)?.[0] || 0);
+        return nivelB - nivelA;
+      })[0];
+      empleadosFiltrados = [...activos, vacanteMayorNivel];
+    } else if (vacantes.length === 1) {
+      empleadosFiltrados = [...activos, vacantes[0]];
+    }
+
     console.log(`Empleados después de filtrar por CLAVE (${CLAVE}):`, empleadosFiltrados.length);
 
 
@@ -1898,7 +1925,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
     worksheet.addImage(imageId1, {
       tl: { col: 0, row: 0 },
-      ext: { width: 270, height: 50 }
+      ext: { width: 400, height: 65 }
     });
 
     // Imagen derecha
