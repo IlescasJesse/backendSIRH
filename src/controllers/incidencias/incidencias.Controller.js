@@ -379,12 +379,6 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
-  const userAction = {
-    username: user.username,
-    module: "AEI-EE",
-    action: `CAMBIO DE STATUS DEL EMPLEADO "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
-    timestamp: currentDateTime,
-  };
   try {
     // Buscar en PLANTILLA y PLANTILLA_FORANEA
     const [resultPlantilla = [], resultForanea = []] = await Promise.all([
@@ -400,6 +394,7 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     if (!result || result.length === 0) {
       return res.status(404).send({ error: "Employee not found" });
     }
+
 
     // Determinar colección a actualizar
     const targetCollection = resultPlantilla.length
@@ -431,6 +426,26 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     if (data.AREA_RESP !== undefined && data.AREA_RESP !== null) {
       updateFields.AREA_RESP = data.AREA_RESP;
     }
+
+    let statusChangeDescription = "";
+    if (STATUS_EMPLEADO.some(s => s.STATUS === null)) {
+      statusChangeDescription = "AHORA NO TIENE NINGUN STATUS";
+    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "COM_SDCL")) {
+      statusChangeDescription = "AHORA CUENTA CON COMISIÓN AL SINDICATO";
+    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "COM_LAB")) {
+      statusChangeDescription = "AHORA CUENTA CON COMISIÓN LABORAL";
+    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "ASIG_LAB")) {
+      statusChangeDescription = "AHORA CUENTA CON ASIGNACIÓN LABORAL";
+    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "EXIMA")) {
+      statusChangeDescription = "AHORA CUENTA CON EXIMA";
+    }
+
+    const userAction = {
+      username: user.username,
+      module: "AEI-EE",
+      action: `CAMBIO DE STATUS DEL EMPLEADO "${result[0].APE_PAT} ${result[0].APE_MAT} ${result[0].NOMBRES}" ${statusChangeDescription}`,
+      timestamp: currentDateTime,
+    };
 
     await updateOne(
       targetCollection,

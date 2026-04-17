@@ -771,7 +771,7 @@ employeeController.updateEmployee = async (req, res) => {
     const userAction = {
       username: user.username,
       module: "PSL-UPDATE",
-      action: `MODIFICÓ INFORMACION DEL EMPLEADO "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+      action: `MODIFICÓ INFORMACION DEL EMPLEADO "${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} ${updatedEmployee.NOMBRES} "`,
       timestamp: currentDateTime,
     };
     await insertOne("USER_ACTIONS", userAction);
@@ -779,7 +779,7 @@ employeeController.updateEmployee = async (req, res) => {
     await createNotification(io, {
       title: "Empleado actualizado",
       username: user.username,
-      message: `MÓDIFICO LA INFORMACIÓN DEL EMPLEADO "${data.APE_PAT} ${data.APE_MAT} ${data.NOMBRES}"`,
+      message: `MÓDIFICO LA INFORMACIÓN DEL EMPLEADO "${updatedEmployee.NOMBRES} ${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} "`,
       module: "PSL",
       rol: ["ADMINISTRADOR", "USUARIO"],
       permissions: ["PSL-EI", "*"],
