@@ -1733,20 +1733,35 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     let nombreServidorSaliente = "";
     const toTitleCase = (text) => {
       if (!text || typeof text !== 'string') return '';
-      return text
-        .toLowerCase()
-        .split(' ')
-        .map((word, idx) => {
-          if (!word) return '';
-          // opcional: mantener algunas palabras en minúscula (de, y, e, la, el, etc.)
-          const smallWords = ['de', 'la', 'las', 'el', 'los', 'y', 'e', 'en', 'a', 'por', 'para', 'con', 'del', 'al'];
-          if (idx > 0 && smallWords.includes(word)) {
-            return word;
+
+      // Separar texto respetando lo que esté entre comillas
+      const parts = text.split(/(".*?")/);
+
+      return parts
+        .map((part) => {
+          // Si está entre comillas, no modificar
+          if (part.startsWith('"') && part.endsWith('"')) {
+            return part;
           }
-          // mantener acentos con toLower/toUpper
-          return word.charAt(0).toUpperCase() + word.slice(1);
+
+          // Procesar normalmente
+          return part
+            .toLowerCase()
+            .split(' ')
+            .map((word, idx) => {
+              if (!word) return '';
+
+              const smallWords = ['de', 'la', 'las', 'el', 'los', 'y', 'e', 'en', 'a', 'por', 'para', 'con', 'del', 'al'];
+
+              if (idx > 0 && smallWords.includes(word)) {
+                return word;
+              }
+
+              return word.charAt(0).toUpperCase() + word.slice(1);
+            })
+            .join(' ');
         })
-        .join(' ');
+        .join('');
     };
 
     if (ADSCRIPCION !== 'TODAS') {
@@ -1879,7 +1894,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
         if (Array.isArray(bajasDelEmpleado) && bajasDelEmpleado.length > 0) {
           const baja = bajasDelEmpleado[0];
 
-          nombreServidorSaliente = `${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
+          nombreServidorSaliente = `C. ${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
         }
       }
       empleadosFiltrados = [...activos, vacanteMayorNivel];
@@ -1891,7 +1906,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       if (Array.isArray(bajasDelEmpleado) && bajasDelEmpleado.length > 0) {
         const baja = bajasDelEmpleado[0];
 
-        nombreServidorSaliente = `${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
+        nombreServidorSaliente = `C. ${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
       }
       empleadosFiltrados = [...activos, vacantes[0]];
     }
@@ -1952,7 +1967,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
     worksheet.addImage(imageId2, {
       tl: { col: 8, row: 0 },
-      ext: { width: 450, height: 20 }
+      ext: { width: 479, height: 20 }
     });
 
     worksheet.columns = [
@@ -2773,7 +2788,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     const bottomRow = rowLineaFirma.number + 3; // 2 filas de separación
     worksheet.addImage(imageIdBottom, {
       tl: { col: 8, row: bottomRow },
-      ext: { width: 470, height: 20 }
+      ext: { width: 478, height: 20 }
     });
 
     worksheet.eachRow({ includeEmpty: true }, (row) => {
