@@ -178,23 +178,64 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
           { align: "center" },
         );
 
+        // proyectosAgrupados[proyecto].forEach((permiso) => {
+        //   const { RFC, NOMBRE, CLAVECAT, DESDE, HASTA, NUM_DIAS } = permiso;
+        //   const truncatedName =
+        //     NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
+        //   const formatFecha = (fecha) => {
+        //     const [year, month, day] = fecha.split("-");
+        //     return `${day}-${month}-${year}`;
+        //   };
+
+        //   (doc.text(
+        //     `${RFC.padEnd(14)} ${truncatedName.padEnd(30)}      ${CLAVECAT.padEnd(
+        //       10,
+        //     )} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(
+        //       10,
+        //     )}  ${NUM_DIAS.toString().padStart(2)}`,
+        //   ),
+        //     { align: "rigth" });
+        // });
+
         proyectosAgrupados[proyecto].forEach((permiso) => {
           const { RFC, NOMBRE, CLAVECAT, DESDE, HASTA, NUM_DIAS } = permiso;
-          const truncatedName =
-            NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
+
           const formatFecha = (fecha) => {
             const [year, month, day] = fecha.split("-");
             return `${day}-${month}-${year}`;
           };
 
-          (doc.text(
-            `${RFC.padEnd(14)} ${truncatedName.padEnd(30)}      ${CLAVECAT.padEnd(
-              10,
-            )} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(
-              10,
-            )}  ${NUM_DIAS.toString().padStart(2)}`,
-          ),
-            { align: "rigth" });
+          if (NOMBRE.length <= 30) {
+            // Nombre corto: una sola línea
+            doc.text(
+              `${RFC.padEnd(14)} ${NOMBRE.padEnd(30)}      ${CLAVECAT.padEnd(10)} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(10)}  ${NUM_DIAS.toString().padStart(2)}`,
+              { align: "left", width: 550 }
+            );
+          } else {
+            // Nombre largo: dividir en la última palabra completa que quepa en 30 caracteres
+            const lastSpaceIndex = NOMBRE.lastIndexOf(' ', 30);
+            let firstPart, restPart;
+            if (lastSpaceIndex > 0) {
+              firstPart = NOMBRE.substring(0, lastSpaceIndex);
+              restPart = NOMBRE.substring(lastSpaceIndex + 1);
+            } else {
+              // No hay espacio antes de 30, cortar directamente
+              firstPart = NOMBRE.substring(0, 30);
+              restPart = NOMBRE.substring(30);
+            }
+
+            // Primera línea: RFC, primera parte del nombre (rellenada a 30) + campos
+            doc.text(
+              `${RFC.padEnd(14)} ${firstPart.padEnd(30)}      ${CLAVECAT.padEnd(10)} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(10)}  ${NUM_DIAS.toString().padStart(2)}`,
+              { align: "left", width: 550 }
+            );
+
+            // Segunda línea: resto del nombre, alineado bajo la columna del nombre (15 espacios para RFC + espacio)
+            doc.text(
+              `${''.padEnd(14)} ${restPart}`,
+              { align: "left", width: 550 }
+            );
+          }
         });
 
         const totalDias = proyectosAgrupados[proyecto].reduce(
@@ -562,23 +603,64 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
           { align: "center" },
         );
 
+        // proyectosAgrupados[proyecto].forEach((permiso) => {
+        //   const { RFC, NOMBRE, CLAVECAT, DESDE, HASTA, NUM_DIAS } = permiso;
+        //   const truncatedName =
+        //     NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
+        //   const formatFecha = (fecha) => {
+        //     const [year, month, day] = fecha.split("-");
+        //     return `${day}-${month}-${year}`;
+        //   };
+
+        //   (doc.text(
+        //     `${RFC.padEnd(14)} ${truncatedName.padEnd(30)}      ${CLAVECAT.padEnd(
+        //       10,
+        //     )} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(
+        //       10,
+        //     )}  ${NUM_DIAS.toString().padStart(2)}`,
+        //   ),
+        //     { align: "rigth" });
+        // });
+
         proyectosAgrupados[proyecto].forEach((permiso) => {
           const { RFC, NOMBRE, CLAVECAT, DESDE, HASTA, NUM_DIAS } = permiso;
-          const truncatedName =
-            NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
+
           const formatFecha = (fecha) => {
             const [year, month, day] = fecha.split("-");
             return `${day}-${month}-${year}`;
           };
 
-          (doc.text(
-            `${RFC.padEnd(14)} ${truncatedName.padEnd(30)}      ${CLAVECAT.padEnd(
-              10,
-            )} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(
-              10,
-            )}  ${NUM_DIAS.toString().padStart(2)}`,
-          ),
-            { align: "rigth" });
+          if (NOMBRE.length <= 30) {
+            // Nombre corto: una sola línea
+            doc.text(
+              `${RFC.padEnd(14)} ${NOMBRE.padEnd(30)}      ${CLAVECAT.padEnd(10)} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(10)}  ${NUM_DIAS.toString().padStart(2)}`,
+              { align: "left", width: 550 }
+            );
+          } else {
+            // Nombre largo: dividir en la última palabra completa que quepa en 30 caracteres
+            const lastSpaceIndex = NOMBRE.lastIndexOf(' ', 30);
+            let firstPart, restPart;
+            if (lastSpaceIndex > 0) {
+              firstPart = NOMBRE.substring(0, lastSpaceIndex);
+              restPart = NOMBRE.substring(lastSpaceIndex + 1);
+            } else {
+              // No hay espacio antes de 30, cortar directamente
+              firstPart = NOMBRE.substring(0, 30);
+              restPart = NOMBRE.substring(30);
+            }
+
+            // Primera línea: RFC, primera parte del nombre (rellenada a 30) + campos
+            doc.text(
+              `${RFC.padEnd(14)} ${firstPart.padEnd(30)}      ${CLAVECAT.padEnd(10)} ${formatFecha(DESDE).padEnd(10)} ${formatFecha(HASTA).padEnd(10)}  ${NUM_DIAS.toString().padStart(2)}`,
+              { align: "left", width: 550 }
+            );
+
+            // Segunda línea: resto del nombre, alineado bajo la columna del nombre (15 espacios para RFC + espacio)
+            doc.text(
+              `${''.padEnd(14)} ${restPart}`,
+              { align: "left", width: 550 }
+            );
+          }
         });
 
         const totalDias = proyectosAgrupados[proyecto].reduce(
@@ -879,9 +961,26 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
         return replacements[value] || value;
       };
 
+      // Lógica para dividir el nombre si es largo (similar a printEconomicDays)
+      let nombreDisplay = NOMBRE;
+      let isNombreLargo = false;
+      if (NOMBRE.length > 26) {
+        isNombreLargo = true;
+        const lastSpaceIndex = NOMBRE.lastIndexOf(' ', 26);
+        let firstPart, restPart;
+        if (lastSpaceIndex > 0) {
+          firstPart = NOMBRE.substring(0, lastSpaceIndex);
+          restPart = NOMBRE.substring(lastSpaceIndex + 1);
+        } else {
+          firstPart = NOMBRE.substring(0, 26);
+          restPart = NOMBRE.substring(26);
+        }
+        nombreDisplay = `${firstPart}\n${restPart}`;
+      }
+
       const rowData = [
         NUMTARJETA,
-        `${NOMBRE.length > 26 ? NOMBRE.substring(0, 26) : NOMBRE}\n${replaceTiponomValue(TIPONOM)}`,
+        `${nombreDisplay}\n${replaceTiponomValue(TIPONOM)}`,
         HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
         ...daysInPeriod.map((day) => {
           const dayValue = INCIDENCIAS && INCIDENCIAS[day];
@@ -889,8 +988,17 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
         }),
       ];
 
+      // Calcular la altura dinámica basada en el texto del nombre
+      const nameText = rowData[1]; // El texto completo del nombre y TIPONOM
+      const nameWidth = columnWidths[1] * scaleFactor;
+      const nameHeight = doc.heightOfString(nameText, {
+        width: nameWidth,
+        fontSize: 10,
+      });
+      const currentRowHeight = Math.max(rowHeight, nameHeight + 5); // Mínimo rowHeight, más padding de 10
+
       rowData.forEach((data, index) => {
-        doc.rect(x, y, columnWidths[index] * scaleFactor, rowHeight).stroke();
+        doc.rect(x, y, columnWidths[index] * scaleFactor, currentRowHeight).stroke();
         doc.text(data, x + 5, y + 5, {
           width: columnWidths[index] * scaleFactor,
           align: index === 0 ? "left" : "",
@@ -898,6 +1006,7 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
         x += columnWidths[index] * scaleFactor;
       });
 
+      y += currentRowHeight - rowHeight; // Ajustar y para la siguiente fila
       rowCount++;
     });
     doc.moveDown(2);
@@ -1094,10 +1203,51 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
           align: "left",
         });
         doc.moveDown(0.5);
+        // proyectosAgrupados[proyecto].forEach((inasistencia) => {
+        //   const { RFC, NOMBRE, CONTADORES_REPORTE } = inasistencia;
+        //   const truncatedName =
+        //     NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
+        //   let RETARDOS = CONTADORES_REPORTE?.RETARDOS || 0;
+        //   let INASISTENCIAS = CONTADORES_REPORTE?.INASISTENCIAS || 0;
+
+        //   // Convert to string and add .0 if it's an integer
+        //   RETARDOS = Number.isInteger(RETARDOS)
+        //     ? `${RETARDOS}.0`
+        //     : RETARDOS.toString();
+        //   INASISTENCIAS = Number.isInteger(INASISTENCIAS)
+        //     ? `${INASISTENCIAS}.0`
+        //     : INASISTENCIAS.toString();
+
+        //   const retardosText = RETARDOS === "0.0" ? "" : RETARDOS;
+        //   const inasistenciasText =
+        //     INASISTENCIAS === "0.0" ? "" : INASISTENCIAS;
+
+        //   doc.text(
+        //     `${RFC.padEnd(14)} ${truncatedName.padEnd(
+        //       30,
+        //     )}     ${retardosText.padStart(
+        //       10,
+        //     )}     ${inasistenciasText.padStart(15)}`,
+        //     { align: "left" },
+        //   );
+        // });
         proyectosAgrupados[proyecto].forEach((inasistencia) => {
           const { RFC, NOMBRE, CONTADORES_REPORTE } = inasistencia;
-          const truncatedName =
-            NOMBRE.length > 30 ? NOMBRE.substring(0, 30) : NOMBRE;
+
+          // Lógica para dividir el nombre si es largo (similar a printEconomicDays y printIncidencias)
+          let firstPart = NOMBRE;
+          let restPart = "";
+          if (NOMBRE.length > 30) {
+            const lastSpaceIndex = NOMBRE.lastIndexOf(' ', 30);
+            if (lastSpaceIndex > 0) {
+              firstPart = NOMBRE.substring(0, lastSpaceIndex);
+              restPart = NOMBRE.substring(lastSpaceIndex + 1);
+            } else {
+              firstPart = NOMBRE.substring(0, 30);
+              restPart = NOMBRE.substring(30);
+            }
+          }
+
           let RETARDOS = CONTADORES_REPORTE?.RETARDOS || 0;
           let INASISTENCIAS = CONTADORES_REPORTE?.INASISTENCIAS || 0;
 
@@ -1113,14 +1263,16 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
           const inasistenciasText =
             INASISTENCIAS === "0.0" ? "" : INASISTENCIAS;
 
+          // Primera línea: RFC, primera parte del nombre, retardos, inasistencias
           doc.text(
-            `${RFC.padEnd(14)} ${truncatedName.padEnd(
-              30,
-            )}     ${retardosText.padStart(
-              10,
-            )}     ${inasistenciasText.padStart(15)}`,
+            `${RFC.padEnd(14)} ${firstPart.padEnd(30)}     ${retardosText.padStart(8)}     ${inasistenciasText.padStart(17)}`,
             { align: "left" },
           );
+
+          // Segunda línea: resto del nombre, alineado bajo la columna del nombre (indentado 14 espacios)
+          if (restPart) {
+            doc.text(`${''.padEnd(14)} ${restPart}`, { align: "left" });
+          }
         });
         doc.text(
           "---------------------------------------------------------------------------------------",
