@@ -730,9 +730,7 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
     ]),
   );
 
-  // Filtrar resultados para excluir los proyectos especificados
   const filteredIncidencias = incidencias_central;
-
   const doc = new PDFDocument();
 
   if (filteredIncidencias.length === 0) {
@@ -741,7 +739,12 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
     });
   }
 
-  let folder = area === "CTRAL" ? "central" : area === "AUD" ? "auditoria" : "planeacion";
+  let folder =
+    area === "CTRAL"
+      ? "central"
+      : area === "AUD"
+        ? "auditoria"
+        : "planeacion";
 
   const filePath = path.join(
     __dirname,
@@ -751,29 +754,12 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
   try {
     const stream = fs.createWriteStream(filePath);
 
-    stream.on("error", (err) => {
-      console.error("Error al escribir el archivo:", err.message);
-      res.status(500).json({ message: "Error al generar el reporte." });
-      doc.end();
-    });
-
     stream.on("finish", () => {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename=QUINCENA_${quin}.pdf`,
-      );
-      res.download(filePath, `QUINCENA_${quin}.pdf`, (err) => {
-        if (err) {
-          console.error("Error al descargar el archivo:", err.message);
-          res.status(500).json({ message: "Error al descargar el archivo." });
-        }
-      });
+      res.download(filePath);
     });
 
     doc.pipe(stream);
 
-    // Registrar fuente personalizada
     doc.registerFont("Consolas", fontPath);
     doc.font("Consolas").fontSize(10);
 
@@ -781,18 +767,8 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
 
     const getPeriodoFromQuincena = (quincena) => {
       const monthNames = [
-        "ENERO",
-        "FEBRERO",
-        "MARZO",
-        "ABRIL",
-        "MAYO",
-        "JUNIO",
-        "JULIO",
-        "AGOSTO",
-        "SEPTIEMBRE",
-        "OCTUBRE",
-        "NOVIEMBRE",
-        "DICIEMBRE",
+        "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+        "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
       ];
       const year = new Date().getFullYear();
       const month = Math.ceil(quincena / 2);
@@ -801,50 +777,41 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
       const startDay = isFirstHalf ? "01" : "16";
       const endDay = isFirstHalf
         ? "15"
-        : month === 2
-          ? new Date(year, 1, 29).getDate() === 29
-            ? "29"
-            : "28"
-          : new Date(year, month, 0).getDate();
+        : new Date(year, month, 0).getDate();
 
-      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]
-        } AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
+      return `CORRESPONDIENTE AL PERIODO DEL ${startDay} DE ${monthNames[month - 1]} AL ${endDay} DE ${monthNames[month - 1]} DE ${year}`;
     };
 
     const periodo = getPeriodoFromQuincena(parseInt(quin, 10));
-    // Agregar encabezado y pie de página dinámico
+
     let pageNumber = 0;
     const addHeaderAndFooter = () => {
       pageNumber++;
-      doc.fontSize(10).text(`Página ${pageNumber}`, 60, 20, {
-        align: "right",
-        width: 612, // Ancho de una hoja tamaño carta en puntos (8.5 pulgadas * 72 puntos por pulgada)
-      });
+      doc.text(`Página ${pageNumber}`, 60, 20, { align: "right", width: 612 });
       doc.text(currentDate, { align: "right" });
       doc.text("GOBIERNO DEL ESTADO DE OAXACA", { align: "center" });
       doc.text("SECRETARÍA DE ADMINISTRACIÓN", { align: "center" });
       doc.text("DIRECCIÓN DE RECURSOS HUMANOS", { align: "center" });
       doc.text("DEPARTAMENTO DE REGISTROS DE PERSONAL", { align: "center" });
       doc.text(`PÁGINA ${pageNumber}`, { align: "center" });
+
       let areaName = "";
       if (area === "CTRAL") areaName = "CENTRAL";
       else if (area === "AUD") areaName = "AUDITORÍA";
       else if (area === "PLAN") areaName = "PLANEACIÓN";
+
       doc.text(`REPORTE DE: INCIDENCIAS ${areaName}`, { align: "center" });
       doc.text(periodo, { align: "center" });
-      doc.moveDown(0.5); // Reducir espacio entre encabezado y filas
+      doc.moveDown(0.5);
     };
 
     doc.on("pageAdded", addHeaderAndFooter);
 
-    // Primera página
     doc.margins = { top: 72, bottom: 72, left: 60, right: 40 };
     addHeaderAndFooter();
 
-    // Agregar contenido al documento
     doc.moveDown();
 
-    // Determinar días del periodo
     const isFirstHalf = periodo.includes("01 DE");
     const daysInPeriod = isFirstHalf
       ? Array.from({ length: 15 }, (_, i) =>
@@ -862,53 +829,47 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
         (_, i) => (i + 16).toString().padStart(2, "0"),
       );
 
-    // Encabezado de la tabla
     const tableHeaders = [
       "TAR.",
       "N O M B R E\nTIPO DE RELACIÓN LABORAL",
       "HORARIO",
       ...daysInPeriod,
     ];
+
     const columnWidths = [40, 160, 60, ...Array(daysInPeriod.length).fill(20)];
-    const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+    const tableWidth = columnWidths.reduce((sum, w) => sum + w, 0);
     const headerHeight = 30;
-    const rowHeight = headerHeight * 1;
+    const rowHeight = headerHeight;
     const maxTableWidth = 550;
     const scaleFactor =
       tableWidth > maxTableWidth ? maxTableWidth / tableWidth : 1;
 
-    // Dibujar encabezados sin bordes
     let x = 30;
     let y = doc.y;
-    tableHeaders.forEach((header, index) => {
-      doc.text(header, x + 5, y + 5, {
-        width: columnWidths[index] * scaleFactor,
-        align: "left",
-      });
-      x += columnWidths[index] * scaleFactor;
-    });
 
-    // Ordenar por número de tarjeta de menor a mayor
-    filteredIncidencias.sort((a, b) => {
-      const numA = parseInt(a.NUMTARJETA, 10);
-      const numB = parseInt(b.NUMTARJETA, 10);
-      return numA - numB;
-    });
-
-    // Dibujar filas con datos, limitando por espacio disponible en la página
-    const pageBottom = doc.page.height - doc.page.margins.bottom;
     const drawTableHeaders = () => {
       x = 30;
-      y = doc.y;
+      let headerY = doc.y;
+
       tableHeaders.forEach((header, index) => {
-        doc.text(header, x + 5, y + 5, {
+        doc.text(header, x + 5, headerY + 5, {
           width: columnWidths[index] * scaleFactor,
           align: "left",
         });
         x += columnWidths[index] * scaleFactor;
       });
-      y += rowHeight;
+
+      doc.moveDown();
+      y = doc.y;
     };
+
+    drawTableHeaders();
+
+    const pageBottom = doc.page.height - doc.page.margins.bottom;
+
+    filteredIncidencias.sort((a, b) => {
+      return parseInt(a.NUMTARJETA) - parseInt(b.NUMTARJETA);
+    });
 
     filteredIncidencias.forEach((incidencia) => {
       const ctrl = String(incidencia.ID_CTRL_ASIST || "");
@@ -918,10 +879,9 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
         TURNOVES && String(TURNOVES).trim() !== "",
       );
 
-      x = 30;
-      y += rowHeight;
+      const { NUMTARJETA, HORARIO, NOMBRE, TIPONOM, INCIDENCIAS } =
+        incidencia;
 
-      const { NUMTARJETA, HORARIO, NOMBRE, TIPONOM, INCIDENCIAS } = incidencia;
       const normalizeIncidenciasValue = (value) => {
         const replacements = {
           A: "F",
@@ -929,7 +889,6 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
           E: tieneTurnoVesp ? "RV" : "RM",
           V: "MD",
           W: "MD",
-          // Agregar más reemplazos según sea necesario
         };
 
         const mapValue = (item) => replacements[item] || item;
@@ -957,13 +916,11 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
         return replacements[value] || value;
       };
 
-      // Lógica para dividir el nombre si es largo (similar a printEconomicDays)
       let nombreDisplay = NOMBRE;
-      let isNombreLargo = false;
       if (NOMBRE.length > 26) {
-        isNombreLargo = true;
-        const lastSpaceIndex = NOMBRE.lastIndexOf(' ', 26);
+        const lastSpaceIndex = NOMBRE.lastIndexOf(" ", 26);
         let firstPart, restPart;
+
         if (lastSpaceIndex > 0) {
           firstPart = NOMBRE.substring(0, lastSpaceIndex);
           restPart = NOMBRE.substring(lastSpaceIndex + 1);
@@ -971,55 +928,65 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
           firstPart = NOMBRE.substring(0, 26);
           restPart = NOMBRE.substring(26);
         }
+
         nombreDisplay = `${firstPart}\n${restPart}`;
       }
 
       const rowData = [
         NUMTARJETA,
         `${nombreDisplay}\n${replaceTiponomValue(TIPONOM)}`,
-        HORARIO ? HORARIO.split(".")[0] : "", // Si HORARIO es null, usar ""
+        HORARIO ? HORARIO.split(".")[0] : "",
         ...daysInPeriod.map((day) => {
-          const dayValue = INCIDENCIAS && INCIDENCIAS[day];
-          return dayValue ? normalizeIncidenciasValue(dayValue) : "";
+          const val = INCIDENCIAS && INCIDENCIAS[day];
+          return val ? normalizeIncidenciasValue(val) : "";
         }),
       ];
 
-      // Calcular la altura dinámica basada en el texto del nombre
-      const nameText = rowData[1]; // El texto completo del nombre y TIPONOM
-      const nameWidth = columnWidths[1] * scaleFactor;
-      const nameHeight = doc.heightOfString(nameText, {
-        width: nameWidth,
-        fontSize: 10,
+      const nameHeight = doc.heightOfString(rowData[1], {
+        width: columnWidths[1] * scaleFactor,
       });
-      const currentRowHeight = Math.max(rowHeight, nameHeight + 5); // Mínimo rowHeight, más padding de 10
+
+      const currentRowHeight = Math.max(rowHeight, nameHeight + 5);
 
       if (y + currentRowHeight > pageBottom) {
         doc.addPage();
         drawTableHeaders();
       }
 
+      x = 30;
+
       rowData.forEach((data, index) => {
         doc.rect(x, y, columnWidths[index] * scaleFactor, currentRowHeight).stroke();
         doc.text(data, x + 5, y + 5, {
           width: columnWidths[index] * scaleFactor,
-          align: index === 0 ? "left" : "",
         });
         x += columnWidths[index] * scaleFactor;
       });
 
-      y += currentRowHeight - rowHeight; // Ajustar y para la siguiente fila
+      y += currentRowHeight;
     });
-    doc.moveDown(2);
-    doc.text("ACOTACIONES:", 30, y + rowHeight + 10);
-    doc.text("F = FALTA", 30, y + rowHeight + 25);
-    doc.text("FR = FALTA POR RETARDO", 125, y + rowHeight + 25);
-    doc.text("RM = RETARDO MATUTINO", 270, y + rowHeight + 25);
-    doc.text("RV = RETARDO VESPERTINO", 413, y + rowHeight + 25);
-    doc.text("MD = MEDIA DÍA", 30, y + rowHeight + 37);
+
+
+    const acotacionesHeight = 60;
+
+    if (y + acotacionesHeight > pageBottom) {
+      doc.addPage();
+      addHeaderAndFooter();
+      y = doc.y;
+    }
+
+    doc.moveDown(1);
+
+    doc.text("ACOTACIONES:", 30, y + 10);
+    doc.text("F = FALTA", 30, y + 25);
+    doc.text("FR = FALTA POR RETARDO", 125, y + 25);
+    doc.text("RM = RETARDO MATUTINO", 270, y + 25);
+    doc.text("RV = RETARDO VESPERTINO", 413, y + 25);
+    doc.text("MD = MEDIA DÍA", 30, y + 40);
 
     doc.end();
   } catch (error) {
-    console.error("Error al crear el archivo:", error.message);
+    console.error(error);
     res.status(500).json({ message: "Error al generar el reporte." });
   }
 };
