@@ -895,8 +895,21 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
       return numA - numB;
     });
 
-    // Dibujar filas con datos, limitando a 17 filas por página
-    let rowCount = 0;
+    // Dibujar filas con datos, limitando por espacio disponible en la página
+    const pageBottom = doc.page.height - doc.page.margins.bottom;
+    const drawTableHeaders = () => {
+      x = 30;
+      y = doc.y;
+      tableHeaders.forEach((header, index) => {
+        doc.text(header, x + 5, y + 5, {
+          width: columnWidths[index] * scaleFactor,
+          align: "left",
+        });
+        x += columnWidths[index] * scaleFactor;
+      });
+      y += rowHeight;
+    };
+
     filteredIncidencias.forEach((incidencia) => {
       const ctrl = String(incidencia.ID_CTRL_ASIST || "");
       const { TURNOMAT = "", TURNOVES = "" } = plantillaMap.get(ctrl) || {};
@@ -904,23 +917,6 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
       const tieneTurnoVesp = Boolean(
         TURNOVES && String(TURNOVES).trim() !== "",
       );
-
-      if (rowCount === 17) {
-        doc.addPage();
-
-        y = doc.y;
-        rowCount = 0;
-
-        // Dibujar encabezados nuevamente en la nueva página
-        x = 30;
-        tableHeaders.forEach((header, index) => {
-          doc.text(header, x + 5, y + 5, {
-            width: columnWidths[index] * scaleFactor,
-            align: "left",
-          });
-          x += columnWidths[index] * scaleFactor;
-        });
-      }
 
       x = 30;
       y += rowHeight;
@@ -997,6 +993,11 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
       });
       const currentRowHeight = Math.max(rowHeight, nameHeight + 5); // Mínimo rowHeight, más padding de 10
 
+      if (y + currentRowHeight > pageBottom) {
+        doc.addPage();
+        drawTableHeaders();
+      }
+
       rowData.forEach((data, index) => {
         doc.rect(x, y, columnWidths[index] * scaleFactor, currentRowHeight).stroke();
         doc.text(data, x + 5, y + 5, {
@@ -1007,7 +1008,6 @@ reportesIncidenciasController.printIncidencias = async (req, res) => {
       });
 
       y += currentRowHeight - rowHeight; // Ajustar y para la siguiente fila
-      rowCount++;
     });
     doc.moveDown(2);
     doc.text("ACOTACIONES:", 30, y + rowHeight + 10);
