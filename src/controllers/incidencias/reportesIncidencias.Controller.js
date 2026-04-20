@@ -1201,17 +1201,20 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
         proyectosAgrupados[proyecto].forEach((inasistencia) => {
           const { RFC, NOMBRE, CONTADORES_REPORTE } = inasistencia;
 
+          const rfc = RFC || '';
+          const nombre = NOMBRE || ''
+
           // Lógica para dividir el nombre si es largo (similar a printEconomicDays y printIncidencias)
-          let firstPart = NOMBRE;
+          let firstPart = nombre;
           let restPart = "";
-          if (NOMBRE.length > 30) {
-            const lastSpaceIndex = NOMBRE.lastIndexOf(' ', 30);
+          if (nombre.length > 30) {
+            const lastSpaceIndex = nombre.lastIndexOf(' ', 30);
             if (lastSpaceIndex > 0) {
-              firstPart = NOMBRE.substring(0, lastSpaceIndex);
-              restPart = NOMBRE.substring(lastSpaceIndex + 1);
+              firstPart = nombre.substring(0, lastSpaceIndex);
+              restPart = nombre.substring(lastSpaceIndex + 1);
             } else {
-              firstPart = NOMBRE.substring(0, 30);
-              restPart = NOMBRE.substring(30);
+              firstPart = nombre.substring(0, 30);
+              restPart = nombre.substring(30);
             }
           }
 
@@ -1232,7 +1235,7 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
 
           // Primera línea: RFC, primera parte del nombre, retardos, inasistencias
           doc.text(
-            `${RFC.padEnd(14)} ${firstPart.padEnd(30)}     ${retardosText.padStart(8)}     ${inasistenciasText.padStart(17)}`,
+            `${rfc.padEnd(14)} ${firstPart.padEnd(30)}     ${retardosText.padStart(8)}     ${inasistenciasText.padStart(17)}`,
             { align: "left" },
           );
 
