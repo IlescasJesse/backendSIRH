@@ -1282,8 +1282,12 @@ reportesIncidenciasController.printRetardosDbf = async (req, res) => {
     }
 
     const plantilla = await query("PLANTILLA", {});
+    const plantillaForanea = await query("PLANTILLA_FORANEA", {});
     const plantillaMap = new Map(
-      plantilla.map((u) => [String(u.ID_CTRL_ASIST), u]),
+      [...plantilla, ...plantillaForanea].map((p) => [
+        String(p.ID_CTRL_ASIST),
+        p,
+      ]),
     );
     incidencias.forEach((i) => {
       const p = plantillaMap.get(String(i.ID_CTRL_ASIST));
