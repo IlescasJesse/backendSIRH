@@ -57,11 +57,13 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       NOMBRES: emp.NOMBRES,
       NUMEMP: emp.NUMEMP,
       NUMPLA: emp.NUMPLA,
-      DOMICILIO: emp.DOMICILIO
-        ? emp.DOMICILIO
-        : emp.DIRECCION?.DOMICILIO ||
-        `${emp.DIRECCION?.NUM_EXT || ""} ${emp.DIRECCION?.COLONIA || ""}, ${emp.DIRECCION?.MUNICIPIO || ""
-        }, ${emp.DIRECCION?.ESTADO || ""}`,
+      DIRECCION_COMPLETA: emp.DIRECCION ? [
+        `${emp.DIRECCION.DOMICILIO} ${emp.DIRECCION.NUM_EXT}`,
+        emp.DIRECCION.COLONIA,
+        emp.DIRECCION.LOCALIDAD,
+        emp.DIRECCION.MUNICIPIO,
+        emp.DIRECCION.ESTADO,
+      ].filter(Boolean).join(', ') + '.' : emp.DOMICILIO,
 
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,

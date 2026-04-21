@@ -8,6 +8,7 @@ router.get(
   "/getinternalInformation", verifyToken, addEmployeeController.internalInformation
 );
 router.post("/getMpios", addEmployeeController.getMpio);
+router.post("/saveColonia", addEmployeeController.saveColonia);
 router.post("/getdataPlaza", addEmployeeController.dataPlaza);
 router.post("/makeProposal", verifyToken, addEmployeeController.makeProposal);
 router.post(

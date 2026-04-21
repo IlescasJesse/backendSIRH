@@ -48,26 +48,63 @@ employeeController.getMpio = async (req, res) => {
       "SELECT d_codigo, d_asenta, d_tipo_asenta, D_mnpio, d_estado, d_ciudad FROM cp_2025 WHERE d_codigo = ?",
       [zipCode],
     );
-    const formattedMpios = mpios.map((mpio) => ({
-      municipio: mpio.D_mnpio.toUpperCase(),
+    const formattedMpios = mpios.map((mpio) => {
+      const tipo = mpio.d_tipo_asenta || '';
+      const asentamiento = mpio.d_asenta || '';
+      const municipio = mpio.D_mnpio || '';
+      const estado = mpio.d_estado || '';
+      const ciudad = mpio.d_ciudad || '';
 
-      estado: mpio.d_estado.toUpperCase(),
+      return {
+        municipio: municipio.toUpperCase(),
+        estado: estado.toUpperCase(),
 
-      asentamiento: `${mpio.d_tipo_asenta.toUpperCase()} ${mpio.d_asenta.toUpperCase()}`,
+        asentamiento: `${tipo.toUpperCase()} ${asentamiento.toUpperCase()}`.trim(),
 
-      ciudad: mpio.d_ciudad.toUpperCase(),
+        ciudad: ciudad.toUpperCase(),
 
-      complete: `${mpio.d_tipo_asenta.toUpperCase()} ${mpio.d_asenta.toUpperCase()}, ${mpio.D_mnpio.toUpperCase()}, ${mpio.d_estado.toUpperCase()}`,
-
-      ciudad: mpio.d_ciudad,
-      complete: `${mpio.d_tipo_asenta} ${mpio.d_asenta}, ${mpio.D_mnpio}, ${mpio.d_estado}`,
-    }));
+        complete: `${tipo} ${asentamiento}, ${municipio}, ${estado}`
+      };
+    });
     res.status(200).json(formattedMpios);
   } catch (error) {
     console.error("Error ejecutando la consulta SQL:", error);
     res.status(500).json({ message: "Error executing SQL query", error });
   }
 };
+
+employeeController.saveColonia = async (req, res) => {
+  const { codigo_postal, asentamiento, municipio, estado, ciudad } = req.body;
+
+  try {
+    if (!asentamiento) {
+      return res.status(400).json({ message: 'Asentamiento requerido' });
+    }
+
+    // validar si ya existe
+    const existe = await querysql(
+      `SELECT * FROM cp_2025 WHERE d_codigo = ? AND CONCAT(d_tipo_asenta,' ',d_asenta) = ?`,
+      [codigo_postal, asentamiento]
+    );
+
+    if (existe.length > 0) {
+      return res.status(409).json({ message: 'La colonia ya existe' });
+    }
+
+    await querysql(
+      `INSERT INTO cp_2025 (d_codigo, d_asenta, D_mnpio, d_estado, d_ciudad)
+       VALUES (?, ?, ?, ?, ?)`,
+      [codigo_postal, asentamiento, municipio, estado, ciudad]
+    );
+
+    res.json({ message: 'Colonia agregada correctamente' });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error del servidor' });
+  }
+
+}
 
 // Función para obtener información interna incluyendo unidad ejecutora, categorías y adscripciones
 employeeController.internalInformation = async (req, res) => {
@@ -332,8 +369,7 @@ employeeController.makeProposal = async (req, res) => {
   const FECHA_INGRESO = data.FECHA_INGRESO ? new Date(data.FECHA_INGRESO) : null;
   const AFILIACI = data.AFILIACI ? data.AFILIACI : "";
   const CP = data?.DIRECCION.CP || "";
-  const DIRECCION_COMPLETA = `${data?.DIRECCION.DOMICILIO || ""} ${data?.DIRECCION.NUM_EXT || ""} ${data?.DIRECCION.COLONIA || ""
-    } ${data?.DIRECCION.MUNICIPIO || ""} ${data?.DIRECCION.ESTADO || ""}`;
+  const DIRECCION_COMPLETA = data?.DIRECCION_COMPLETA || "";
   const DIRECCION = data?.DIRECCION || {};
   const COLONIA = data?.DIRECCION.COLONIA || "";
   const DOMICILIO = data?.DIRECCION.DOMICILIO || "";

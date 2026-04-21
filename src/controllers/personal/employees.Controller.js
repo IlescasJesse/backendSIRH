@@ -110,8 +110,14 @@ employeeController.getProfileData = async (req, res) => {
     }
 
     if (employee[0].DIRECCION) {
-      employee[0].DIRECCION_COMPLETA = `${employee[0].DIRECCION.DOMICILIO} ${employee[0].DIRECCION.NUM_EXT}, ${employee[0].DIRECCION.COLONIA}, ${employee[0].DIRECCION.MUNICIPIO} ${employee[0].DIRECCION.ESTADO}.`;
-      employee[0].CP = employee[0].DIRECCION.CP;
+      employee[0].DIRECCION_COMPLETA = [
+        `${employee[0].DIRECCION.DOMICILIO} ${employee[0].DIRECCION.NUM_EXT}`,
+        employee[0].DIRECCION.COLONIA,
+        employee[0].DIRECCION.LOCALIDAD,
+        employee[0].DIRECCION.MUNICIPIO,
+        employee[0].DIRECCION.ESTADO,
+      ].filter(Boolean).join(', ') + '.',
+        employee[0].CP = employee[0].DIRECCION.CP;
     } else {
       employee[0].DIRECCION_COMPLETA = employee[0].DOMICILIO;
     }

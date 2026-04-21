@@ -51,6 +51,19 @@ gafetesController.getProfile = async (req, res) => {
 
     const emp = employee[0];
 
+    if (emp.DIRECCION) {
+      emp.DIRECCION_COMPLETA = [
+        `${emp.DIRECCION.DOMICILIO} ${emp.DIRECCION.NUM_EXT}`,
+        emp.DIRECCION.COLONIA,
+        emp.DIRECCION.LOCALIDAD,
+        emp.DIRECCION.MUNICIPIO,
+        emp.DIRECCION.ESTADO,
+      ].filter(Boolean).join(', ') + '.',
+        emp.CP = emp.DIRECCION.CP;
+    } else {
+      emp.DIRECCION_COMPLETA = emp.DOMICILIO;
+    }
+
     // Obtener la bitácora del empleado
     const bitacora = await query("BITACORA", {
       id_plantilla: emp._id,
@@ -197,10 +210,10 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result
         ? rgb(
-            parseInt(result[1], 16) / 255,
-            parseInt(result[2], 16) / 255,
-            parseInt(result[3], 16) / 255,
-          )
+          parseInt(result[1], 16) / 255,
+          parseInt(result[2], 16) / 255,
+          parseInt(result[3], 16) / 255,
+        )
         : rgb(0, 0, 0);
     };
 
@@ -272,9 +285,8 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       );
 
       // Procesar APELLIDOS (APE_PAT + A|PE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${
-        employee.APE_MAT || ""
-      }`.trim();
+      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
+        }`.trim();
       const apellidosLines = splitTextByWidth(
         apellidosText,
         fontMedium,
@@ -677,10 +689,10 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result
         ? rgb(
-            parseInt(result[1], 16) / 255,
-            parseInt(result[2], 16) / 255,
-            parseInt(result[3], 16) / 255,
-          )
+          parseInt(result[1], 16) / 255,
+          parseInt(result[2], 16) / 255,
+          parseInt(result[3], 16) / 255,
+        )
         : rgb(0, 0, 0);
     };
 
@@ -760,9 +772,8 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${
-        employee.APE_MAT || ""
-      }`.trim();
+      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
+        }`.trim();
       const apellidosLines = splitTextByWidth(
         apellidosText,
         fontMedium,
@@ -1141,10 +1152,10 @@ gafetesController.printCredentialsServicios = async (req, res) => {
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       return result
         ? rgb(
-            parseInt(result[1], 16) / 255,
-            parseInt(result[2], 16) / 255,
-            parseInt(result[3], 16) / 255,
-          )
+          parseInt(result[1], 16) / 255,
+          parseInt(result[2], 16) / 255,
+          parseInt(result[3], 16) / 255,
+        )
         : rgb(0, 0, 0);
     };
 
@@ -1216,9 +1227,8 @@ gafetesController.printCredentialsServicios = async (req, res) => {
       );
 
       // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${
-        employee.APE_MAT || ""
-      }`.trim();
+      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
+        }`.trim();
       const apellidosLines = splitTextByWidth(
         apellidosText,
         fontMedium,
