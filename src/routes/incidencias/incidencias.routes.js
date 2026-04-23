@@ -24,6 +24,11 @@ router.get(
   verifyToken,
   incidenciasController.getEmployebyArea
 );
+router.post(
+  "/updateCardInformation",
+  verifyToken,
+  incidenciasController.updateCardInformation
+);
 router.put(
   "/updateStatusEmployee",
   verifyToken,

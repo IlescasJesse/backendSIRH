@@ -80,6 +80,7 @@ app.use("/api/personal", require("./routes/personal/register.routes"));
 app.use("/api/personal", require("./routes/personal/offEmpployees.routes"));
 app.use("/api/personal", require("./routes/personal/addEmployee.routes"));
 app.use("/api/personal", require("./routes/personal/reportes.routes"));
+app.use("/api/personal", require("./routes/personal/delegaciones.routes"));
 
 //rutas para incidencias
 app.use(

@@ -216,7 +216,7 @@ employeeController.getProfileData = async (req, res) => {
         deducciones.ISR = isrFinal.toFixed(2);
 
         // Si el empleado esta cubriendo una licencia, no se le descuenta el fondo de pensiones
-        if (employee[0].CUBRIENDO_LICENCIA === false || employee[0].LICENCIA_ACTIVA === true) {
+        if (employee[0].FECHA_NOMBRAMIENTO && (employee[0].CUBRIENDO_LICENCIA === false || employee[0].LICENCIA_ACTIVA === true)) {
           const FONDO_PENSIONES = (
             parseFloat(percepciones.sueldo_base) * 0.09
           ).toFixed(2);
@@ -224,7 +224,7 @@ employeeController.getProfileData = async (req, res) => {
         }
 
         // Si el empleado esta cubriendo una licencia, no se le descuenta la cuota sindical
-        if (employee[0].CUBRIENDO_LICENCIA === false || employee[0].LICENCIA_ACTIVA === true) {
+        if (employee[0]?.SINDICATO?.AFILIADO === true && (employee[0].CUBRIENDO_LICENCIA === false || employee[0].LICENCIA_ACTIVA === true)) {
           deducciones.CUOTA_SINDICAL = (
             parseFloat(percepciones.sueldo_base) * 0.01
           ).toFixed(2);
@@ -854,6 +854,57 @@ employeeController.getEmployeeCount = async (req, res) => {
       .json({ error: "An error occurred while counting employees" });
   }
 };
+
+employeeController.afiliarSindicato = async (req, res) => {
+  console.log(req.body);
+
+  const { _id, DELEGACION, DELEGADO, FECHA_AFILIACION } = req.body;
+  const { user } = req;
+  const currentDateTime = new Date().toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+  });
+
+  try {
+    // Verificar si el empleado existe
+    const employee = await query("PLANTILLA", { _id: new ObjectId(_id) });
+    if (!employee || employee.length === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
+    let fechaAfiliacionDate = FECHA_AFILIACION;
+
+    if (FECHA_AFILIACION) {
+      fechaAfiliacionDate = new Date(FECHA_AFILIACION);
+    }
+
+    const SINDICATO = {
+      AFILIADO: true,
+      DELEGACION,
+      DELEGADO,
+      FECHA_AFILIACION: fechaAfiliacionDate,
+    };
+
+    const result = await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(_id) },
+      { $set: { SINDICATO } },
+    );
+
+    // Registrar la acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "PSL-CE",
+      action: `AFILIÓ AL SINDICATO AL EMPLEADO: "${employee[0].APE_PAT || ''} ${employee[0].APE_MAT || ''} ${employee[0].NOMBRES || ''}"`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).json({ message: "Empleado actualizado correctamente", _id });
+
+  } catch (error) {
+    console.error("Error al actualizar el empleado:", error);
+    res.status(500).json({ message: "Error al actualizar el empleado", error });
+  }
+}
 
 // Exportamos el controlador de empleados
 module.exports = employeeController;

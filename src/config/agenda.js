@@ -644,6 +644,8 @@ agenda.define("gestionarPeriodoVacacional", async (job) => {
   }
 });
 
+
+
 // Función para iniciar Agenda
 async function startAgenda() {
   try {

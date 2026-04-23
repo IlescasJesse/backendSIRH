@@ -2340,8 +2340,10 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
           deducciones.ISR = isrFinal.toFixed(2);
 
-          if (!employee.CUBRIENDO_LICENCIA) {
+          if (!employee.CUBRIENDO_LICENCIA && employee.FECHA_NOMBRAMIENTO) {
             deducciones.FONDO_PENSIONES = (sueldoBase * 0.09).toFixed(2);
+          }
+          if (!employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.AFILIADO === true) {
             deducciones.CUOTA_SINDICAL = (sueldoBase * 0.01).toFixed(2);
           }
 

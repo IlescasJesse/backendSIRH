@@ -32,8 +32,18 @@ offEmployeeController.getDatatoOff = async (req, res) => {
 
     const empleados = [...empleadosPlantilla, ...empleadosForanea];
 
+    if (empleados.length === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
     const categoria = await querysql(`SELECT * FROM categorias_catalogo WHERE CLAVE_CATEGORIA = '${empleados[0].CLAVECAT}'`);
     const proyecto = await querysql(`SELECT * FROM proyectos WHERE proyecto = '${empleados[0].PROYECTO}'`);
+
+    if (categoria.length === 0 || proyecto.length === 0) {
+      return res.status(422).json({
+        message: "El empleado existe pero tiene información incompleta"
+      });
+    }
 
     const licenses = await query("LICENCIAS", {
       id_employee: new ObjectId(_id),
@@ -70,6 +80,9 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       CATEGORIA_DESCRIPCION: categoria[0]?.DESCRIPCION || "No encontrado",
       NIVEL: emp.NIVEL,
       PROYECTO: emp.PROYECTO,
+      FECHA_NAC: emp.FECHA_NAC,
+      FECHA_INGRESO: emp.FECHA_INGRESO,
+      FECHA_NOMBRAMIENTO: emp.FECHA_NOMBRAMIENTO,
       UNIDAD_RESPONSABLE: proyecto ? proyecto[0].unidad_responsable : "No encontrado",
       TIPONOM: emp.TIPONOM,
       SEXO: emp.SEXO,

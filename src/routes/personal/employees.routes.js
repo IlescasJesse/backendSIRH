@@ -40,5 +40,6 @@ router.get(
   employeeController.getUserActionsPersonal
 );
 router.post("/addCategory", verifyToken, employeeController.addCategory);
+router.post("/afiliarSindicato", verifyToken, employeeController.afiliarSindicato);
 
 module.exports = router;

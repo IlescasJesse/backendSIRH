@@ -777,20 +777,10 @@ employeeController.updateEmployee = async (req, res) => {
     timeZone: "America/Mexico_City",
   });
   try {
-    await updateOne(
-      "PLANTILLA",
-      { NUMPLA: data.NUMPLA },
-      { $set: { ...data } },
-    );
-    await updateOne(
-      "PLANTILLA",
-      { NUMPLA: data.NUMPLA },
-      { $unset: { templateData: "" } },
-    );
 
     const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
-      query("PLANTILLA", { NUMPLA: data.NUMPLA }),
-      query("PLANTILLA_FORANEA", { NUMPLA: data.NUMPLA }),
+      query("PLANTILLA", { _id: new ObjectId(data._id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(data._id) }),
     ]);
 
     const updatedEmployee = employeePlantilla.length
@@ -804,6 +794,27 @@ employeeController.updateEmployee = async (req, res) => {
         .status(404)
         .json({ message: "Employee not found after update" });
     }
+
+    // Eliminar _id de data para evitar conflictos en updateOne
+    const id = data._id;
+    delete data._id;
+
+    data.FECHA_NAC = data.FECHA_NAC ? new Date(data.FECHA_NAC) : null;
+    data.FECHA_INGRESO = data.FECHA_INGRESO ? new Date(data.FECHA_INGRESO) : null;
+    data.FECHA_NOMBRAMIENTO = data.FECHA_NOMBRAMIENTO ? new Date(data.FECHA_NOMBRAMIENTO) : null;
+
+
+    await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(id) },
+      { $set: { ...data } },
+    );
+    await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(id) },
+      { $unset: { templateData: "" } },
+    );
+
     const userAction = {
       username: user.username,
       module: "PSL-UPDATE",

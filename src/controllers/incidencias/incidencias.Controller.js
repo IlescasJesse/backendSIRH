@@ -19,6 +19,7 @@ const {
 } = require("date-fns");
 const { es } = require("date-fns/locale");
 const { querysql } = require("../../config/mysql");
+const { createNotification } = require("../../services/notification.service");
 const getCustomQuarter = (date) => {
   const month = moment(date, "YYYY-MM-DD").month() + 1;
   if (month >= 1 && month <= 4) return 1;
@@ -368,6 +369,68 @@ incidenciasController.getProfile = async (req, res) => {
   } catch (error) {
     console.error("Error fetching profile:", error);
     res.status(500).send({ error: "An error occurred while fetching data" });
+  }
+};
+
+incidenciasController.updateCardInformation = async (req, res) => {
+  const io = req.app.get("io");
+  const { data } = req.body;
+  const { user } = req;
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/Mexico_City",
+  });
+  try {
+
+    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(data._id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(data._id) }),
+    ]);
+
+    const updatedEmployee = employeePlantilla.length
+      ? employeePlantilla[0]
+      : employeeForanea.length
+        ? employeeForanea[0]
+        : null;
+
+    if (!updatedEmployee) {
+      return res
+        .status(404)
+        .json({ message: "Employee not found after update" });
+    }
+
+    // Eliminar _id de data para evitar conflictos en updateOne
+    const id = data._id;
+    delete data._id;
+
+    await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(id) },
+      { $set: { ...data } },
+    );
+
+    const userAction = {
+      username: user.username,
+      module: "AEI-UPDATE",
+      action: `MODIFICÓ INFORMACION DEL EMPLEADO "${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} ${updatedEmployee.NOMBRES} "`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+
+    await createNotification(io, {
+      title: "Empleado actualizado",
+      username: user.username,
+      message: `MÓDIFICO LA INFORMACIÓN DEL EMPLEADO "${updatedEmployee.NOMBRES} ${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} "`,
+      module: "AEI",
+      rol: ["ADMINISTRADOR", "USUARIO"],
+      permissions: ["AEI-EI", "*"],
+    });
+
+    res.status(200).json({
+      message: "Employee updated", _id: updatedEmployee._id,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Error updating employee", error });
   }
 };
 
