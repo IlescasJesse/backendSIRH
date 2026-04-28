@@ -89,7 +89,7 @@ employeeController.getProfileData = async (req, res) => {
 
     // Validamos si el empleado esta cubriendo una licencia, para no descontarle fondo de pensiones ni cuota sindical
     const cubreLicencia = await query("LICENCIAS", {
-      id_employee: new ObjectId(id),
+      id_employee: id,
       status: 1,
     });
 
@@ -286,10 +286,12 @@ employeeController.getProfileData = async (req, res) => {
 
         deducciones.ISR = isrFinalCC.toFixed(2);
 
-        const FONDO_PENSIONES_CC = (
-          parseFloat(percepciones.sueldo_base) * 0.09
-        ).toFixed(2);
-        deducciones.FONDO_PENSIONES = FONDO_PENSIONES_CC;
+        if (employee[0].FECHA_NOMBRAMIENTO) {
+          const FONDO_PENSIONES_CC = (
+            parseFloat(percepciones.sueldo_base) * 0.09
+          ).toFixed(2);
+          deducciones.FONDO_PENSIONES = FONDO_PENSIONES_CC;
+        }
 
         deducciones.IMSS = (
           parseFloat(percepciones.sueldo_base) * 0.041219
@@ -348,14 +350,18 @@ employeeController.getProfileData = async (req, res) => {
 
         deducciones.ISR = isrFinalCN.toFixed(2);
 
-        const FONDO_PENSIONES_CN = (
-          parseFloat(percepciones.sueldo_base) * 0.09
-        ).toFixed(2);
-        deducciones.FONDO_PENSIONES = FONDO_PENSIONES_CN;
+        if (employee[0].FECHA_NOMBRAMIENTO) {
+          const FONDO_PENSIONES_CN = (
+            parseFloat(percepciones.sueldo_base) * 0.09
+          ).toFixed(2);
+          deducciones.FONDO_PENSIONES = FONDO_PENSIONES_CN;
+        }
 
-        deducciones.CUOTA_SINDICAL = (
-          parseFloat(percepciones.sueldo_base) * 0.01
-        ).toFixed(2);
+        if (employee[0]?.SINDICATO?.AFILIADO === true) {
+          deducciones.CUOTA_SINDICAL = (
+            parseFloat(percepciones.sueldo_base) * 0.01
+          ).toFixed(2);
+        }
 
         deducciones.IMSS = (
           parseFloat(percepciones.sueldo_base) * 0.041219
@@ -424,9 +430,13 @@ employeeController.getProfileData = async (req, res) => {
         );
 
         deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
-        deducciones.FONDO_PENCIONES = (
-          parseFloat(percepciones.sueldo_base) * 0.09
-        ).toFixed(2);
+
+        if (employee[0].FECHA_NOMBRAMIENTO) {
+          deducciones.FONDO_PENCIONES = (
+            parseFloat(percepciones.sueldo_base) * 0.09
+          ).toFixed(2);
+        }
+
         deducciones.ISR =
           parseFloat(deducciones.ISR) - parseFloat(percepciones.isr_rdl);
 

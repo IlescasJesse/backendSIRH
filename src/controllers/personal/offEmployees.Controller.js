@@ -32,12 +32,14 @@ offEmployeeController.getDatatoOff = async (req, res) => {
 
     const empleados = [...empleadosPlantilla, ...empleadosForanea];
 
-    if (empleados.length === 0) {
+    const emp = empleados[0];
+
+    if (emp.length === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
-    const categoria = await querysql(`SELECT * FROM categorias_catalogo WHERE CLAVE_CATEGORIA = '${empleados[0].CLAVECAT}'`);
-    const proyecto = await querysql(`SELECT * FROM proyectos WHERE proyecto = '${empleados[0].PROYECTO}'`);
+    const categoria = await querysql(`SELECT * FROM categorias_catalogo WHERE CLAVE_CATEGORIA = '${emp.CLAVECAT}'`);
+    const proyecto = await querysql(`SELECT * FROM proyectos WHERE proyecto = '${emp.PROYECTO}'`);
 
     if (categoria.length === 0 || proyecto.length === 0) {
       return res.status(422).json({
@@ -46,7 +48,7 @@ offEmployeeController.getDatatoOff = async (req, res) => {
     }
 
     const licenses = await query("LICENCIAS", {
-      id_employee: new ObjectId(_id),
+      id_employee: _id,
       status: 1,
     });
 
@@ -58,7 +60,7 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       CUBRIENDO_LICENCIA = false;
     }
 
-    const formattedEmployees = empleados.map((emp) => ({
+    const data = {
       _id: emp._id,
       CURP: emp.CURP,
       RFC: emp.RFC,
@@ -89,9 +91,8 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       FECHA_INGRESO: emp.FECHA_INGRESO,
       DIRECCION: emp.DIRECCION,
       CUBRIENDO_LICENCIA,
-    }));
-
-    res.json(formattedEmployees);
+    }
+    res.json(data);
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error al recuperar los datos" });
@@ -124,7 +125,20 @@ offEmployeeController.saveDataOff = async (req, res) => {
   let RR = false;
   let DEF = false;
   try {
+
+    const plantilla = await query("PLANTILLA", {
+      _id: new ObjectId(data.id_employee),
+    });
+
+    if (plantilla.length === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
+    let emp = plantilla[0];
+
     delete data._id;
+    const { _id, ...empData } = emp;
+    Object.assign(data, empData);
 
     if (
       data.PROCESADO === undefined ||
@@ -496,10 +510,10 @@ offEmployeeController.getLicenses = async (req, res) => {
     const enhanced = await Promise.all(
       licenses.map(async (lic) => {
         try {
-          const numpla = lic.id_employee;
+          const id_employee = lic.id_employee;
           let plantilla = [];
-          if (numpla !== undefined && numpla !== null && numpla !== "") {
-            plantilla = await query("PLANTILLA", { _id: numpla });
+          if (id_employee !== undefined && id_employee !== null && id_employee !== "") {
+            plantilla = await query("PLANTILLA", { _id: new ObjectId(id_employee) });
           }
           const OCUPANTE_ACTIVO = Boolean(
             plantilla && plantilla[0] && plantilla[0].CURP,

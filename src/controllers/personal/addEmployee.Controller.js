@@ -1202,6 +1202,25 @@ employeeController.reinstallEmployee = async (req, res) => {
     if (dataToSave._id) delete dataToSave._id;
     if (dataToSave.id_employee) delete dataToSave.id_employee;
 
+    if (dataToSave.ID_CTRL_ASIST && typeof dataToSave.ID_CTRL_ASIST === 'string') {
+      dataToSave.ID_CTRL_ASIST = new ObjectId(dataToSave.ID_CTRL_ASIST);
+    }
+    if (dataToSave.ID_CTRL_ASSIST && typeof dataToSave.ID_CTRL_ASSIST === 'string') {
+      dataToSave.ID_CTRL_ASSIST = new ObjectId(dataToSave.ID_CTRL_ASSIST);
+    }
+    if (dataToSave.ID_CTRL_TALON && typeof dataToSave.ID_CTRL_TALON === 'string') {
+      dataToSave.ID_CTRL_TALON = new ObjectId(dataToSave.ID_CTRL_TALON);
+    }
+    if (dataToSave.ID_CTRL_NOM && typeof dataToSave.ID_CTRL_NOM === 'string') {
+      dataToSave.ID_CTRL_NOM = new ObjectId(dataToSave.ID_CTRL_NOM);
+    }
+    if (dataToSave.ID_CTRL_CAP && typeof dataToSave.ID_CTRL_CAP === 'string') {
+      dataToSave.ID_CTRL_CAP = new ObjectId(dataToSave.ID_CTRL_CAP);
+    }
+    if (dataToSave.ID_BITACORA && typeof dataToSave.ID_BITACORA === 'string') {
+      dataToSave.ID_BITACORA = new ObjectId(dataToSave.ID_BITACORA);
+    }
+
     const employee_old = await query("HSY_LICENCIAS", {
       id_licencia: new ObjectId(data.id_licencia),
     });
@@ -1215,7 +1234,7 @@ employeeController.reinstallEmployee = async (req, res) => {
       data.NomLastOcupant = employee_old?.[0]?.OCUPANTE?.NOMBRES || "";
     }
 
-    const employeeLevel_old = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
+    const employeeLevel_old = await query("PLANTILLA", { _id: new ObjectId(data.id_employee) });
     if (!employeeLevel_old || employeeLevel_old.length === 0) {
       data.ClaveCatLastOcupant = "";
       data.NomCateLastOcupant = "";
@@ -1272,7 +1291,7 @@ employeeController.reinstallEmployee = async (req, res) => {
 
       await updateOne(
         "PLANTILLA",
-        { NUMPLA: data.NUMPLA },
+        { _id: new ObjectId(data.id_employee) },
         { $set: { ...dataToSave } },
       );
       await updateOne(

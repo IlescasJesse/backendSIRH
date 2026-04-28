@@ -13,7 +13,7 @@ const agenda = new Agenda({
     address: `${process.env.MONGO_URI}/SIRH2026`,
     collection: "AGENDA_LOGS",
   },
-  processEvery: "1 minute", // Verificar trabajos cada minuto
+  processEvery: "5 seconds", // Verificar trabajos cada minuto
   maxConcurrency: 20,
 });
 
@@ -103,21 +103,28 @@ agenda.define("bajasExtemporaneas", async (job) => {
             TURNOVES: null,
             SABADO: null,
             SEXO: null,
-            FECHA_NAC: null,
+            ESTADO_CIVIL: null,
+            NACIONAL: null,
             LUGARNAC: null,
             CP: null,
             TEL_PERSONAL: null,
+            MADRE: null,
+            PADRE: null,
             ALERGIA: null,
             TIPOPAG: null,
             BANCO: null,
+            FOLNORTE: 0,
             CUENTA: null,
+            FORBANA: null,
             NOMINA: null,
             EMAIL: null,
             DOMICILIO: null,
             PROFES: null,
+            FECHA_NAC: null,
             APE_PAT: null,
             APE_MAT: "VACANTE",
             NOMBRES: null,
+            AREA_RESP: null,
             VACACIONES: {
               PERIODO: 0,
               FECHA_VACACIONES: null,
@@ -128,23 +135,44 @@ agenda.define("bajasExtemporaneas", async (job) => {
               },
             },
             status: 2,
-            AREA_RESP: null,
             STATUS_EMPLEADO: null,
-            GASCOM: 0,
-            GUARDE: 0,
-            SUELDO_GRV: 0,
+            DIRECCION: {
+              CP: 0,
+              ESTADO: null,
+              MUNICIPIO: null,
+              LOCALIDAD: null,
+              COLONIA: null,
+              DOMICILIO: null,
+              NUM_EXT: null,
+            },
             CONYUGE: null,
-            DIRECCION: null,
-            DIRECCION_FISCAL: null,
+            DIRECCION_FISCAL: {
+              CP: 0,
+              ESTADO: null,
+              MUNICIPIO: null,
+              LOCALIDAD: null,
+              BARRIO: null,
+              DOMICILIO: null,
+              NUM_EXT: null,
+            },
             EMAIL_INSTITUCIONAL: null,
             ESTADONAC: null,
-            ESTADO_CIVIL: null,
             ESTUDIOS: null,
+            FECHA_NOMBRAMIENTO: null,
+            SINDICATO: {
+              AFILIADO: false,
+              DELEGACION: null,
+              DELEGADO: null,
+              FECHA_AFILIACION: null,
+            },
             FECHA_ENTRADA_DEFINITIVA: null,
+            GASCOM: 0,
+            GUARDE: 0,
             NACIONALIDAD: null,
-            PARENTESCO: null,
-            TEL_CASA: null,
             NUMPLA_ORIGEN: null,
+            PARENTESCO: null,
+            SUELDO_GRV: 0,
+            TEL_CASA: null,
           };
 
           let plantillaResult = null;
@@ -644,7 +672,136 @@ agenda.define("gestionarPeriodoVacacional", async (job) => {
   }
 });
 
+// Tarea: Limpiar status de empleados - Se ejecuta cada 24 horas
+agenda.define("limpiarStatusEmpleado", async (job) => {
+  const inicioTarea = Date.now();
+  const nombreTarea = "limpiarStatusEmpleado";
+  const currentDateTime = new Date().toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+  });
 
+  console.log(
+    "Ejecutando tarea de limpieza de status del empleados:",
+    new Date().toISOString(),
+  );
+
+  await registrarActividadAgenda({
+    tarea: nombreTarea,
+    estado: "iniciado",
+    mensaje: "Iniciando limpieza de status de empleados",
+    detalles: { fechaEjecucion: new Date().toISOString() },
+  });
+
+  let registrosProcesados = 0;
+  let registrosExitosos = 0;
+  let registrosErrores = 0;
+
+  try {
+    const empleados = await query("PLANTILLA", {
+      status: 1,
+      STATUS_EMPLEADO: { $exists: true, $ne: [] },
+    });
+
+    console.log(
+      `Actualizando status de ${empleados.length} empleados`,
+    );
+
+    registrosProcesados = empleados.length;
+    const fechaActual = new Date().toISOString().slice(0, 10);
+
+    for (const empleado of empleados) {
+      try {
+        console.log(`Revisando status para empleado: ${empleado._id}`);
+
+        const statusEmpleado = empleado.STATUS_EMPLEADO || [];
+        const nuevosStatus = statusEmpleado.filter((item) => {
+          return !item.HASTA || item.HASTA >= fechaActual;
+        });
+
+        if (nuevosStatus.length !== statusEmpleado.length) {
+          // Identificar estados expirados (removidos)
+          const removedStatuses = statusEmpleado.filter((item) => item.HASTA && item.HASTA < fechaActual);
+
+          const remainingStatus = nuevosStatus[0] || null;
+
+          for (let i = 0; i < removedStatuses.length; i++) {
+            const removed = removedStatuses[i];
+
+            const hsy_data = {
+              STATUS: remainingStatus ? remainingStatus.STATUS : null,
+              LUGAR_COMISIONADO: remainingStatus ? remainingStatus.LUGAR_COMISIONADO : null,
+              DESDE: remainingStatus ? remainingStatus.DESDE : null,
+              HASTA: remainingStatus ? remainingStatus.HASTA : null,
+              PROYECTO: remainingStatus ? remainingStatus.PROYECTO : null,
+              CLAVE: remainingStatus ? remainingStatus.CLAVE : null,
+              FOLIO: remainingStatus ? remainingStatus.FOLIO : null,
+              currentDateTime,
+              last_status: removed.STATUS,
+              last_lugarComisionado: removed.LUGAR_COMISIONADO,
+              last_desde: removed.DESDE,
+              last_hasta: removed.HASTA,
+              last_proyecto: removed.PROYECTO,
+              last_clave: removed.CLAVE,
+              last_folio: removed.FOLIO,
+              id_employee: empleado._id,
+            };
+            delete hsy_data._id;
+            await insertOne("HSY_STATUS_EMPLEADO", hsy_data);
+          }
+
+          // Actualizar el STATUS_EMPLEADO con los nuevos (sin expirados)
+          await updateOne(
+            "PLANTILLA",
+            { _id: empleado._id },
+            { $set: { STATUS_EMPLEADO: nuevosStatus } },
+          );
+          console.log(`Status limpiado para empleado ${empleado._id}`);
+        }
+
+        registrosExitosos++;
+      } catch (errorStatus) {
+        registrosErrores++;
+        console.error(
+          `Error procesando status para empleado ${empleado._id}:`,
+          errorStatus,
+        );
+      }
+    }
+
+    const duracion = Date.now() - inicioTarea;
+
+    await registrarActividadAgenda({
+      tarea: nombreTarea,
+      estado: "completado",
+      mensaje: "Actualización de status completada exitosamente",
+      detalles: {
+        fechaEjecucion: new Date().toISOString(),
+      },
+      registrosProcesados,
+      registrosExitosos,
+      registrosErrores,
+      duracion,
+    });
+
+    console.log("Status de empleados actualizado correctamente");
+  } catch (error) {
+    const duracion = Date.now() - inicioTarea;
+
+    await registrarActividadAgenda({
+      tarea: nombreTarea,
+      estado: "error",
+      mensaje: "Error en actualización de status empleado",
+      detalles: { fechaEjecucion: new Date().toISOString() },
+      registrosProcesados,
+      registrosExitosos,
+      registrosErrores,
+      duracion,
+      error: error.message,
+    });
+
+    console.error("Error en tarea de gestión de status de empleados:", error);
+  }
+});
 
 // Función para iniciar Agenda
 async function startAgenda() {
@@ -711,6 +868,17 @@ async function startAgenda() {
       {},
       {
         skipImmediate: true,
+      },
+    );
+
+    // Limpiar status de empleados - Cada 24 horas
+    await agenda.every(
+      "0 0 * * *",
+      //"5 seconds",
+      "limpiarStatusEmpleado",
+      {},
+      {
+        timezone: "America/Mexico_City",
       },
     );
 

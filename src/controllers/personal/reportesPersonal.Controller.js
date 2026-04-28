@@ -1103,12 +1103,12 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     deducciones.ISR = await calcularISR(sueldoGravable);
 
     const sueldoBase = parseFloat(percepciones.sueldo_base);
-    if (!employee.CUBRIENDO_LICENCIA) {
+    if (!employee.CUBRIENDO_LICENCIA && employee.FECHA_NOMBRAMIENTO) {
       deducciones.FONDO_PENSIONES = (sueldoBase * 0.09).toFixed(2);
     }
     deducciones.IMSS = (sueldoBase * 0.041219).toFixed(2);
 
-    if (config.incluyeCuotaSindical && !employee.CUBRIENDO_LICENCIA) {
+    if (config.incluyeCuotaSindical && !employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.AFILIADO === true) {
       deducciones.CUOTA_SINDICAL = (sueldoBase * 0.01).toFixed(2);
     }
 
@@ -2246,7 +2246,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       let deducciones = {};
 
       const cubreLicencia = await query("LICENCIAS", {
-        NUMPLA: employee.NUMPLA,
+        id_employee: employee._id,
         status: 1,
       });
 
@@ -2419,7 +2419,9 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
           deducciones.ISR = isrFinalCC.toFixed(2);
 
-          deducciones.FONDO_PENSIONES = (sueldoCC * 0.09).toFixed(2);
+          if (employee.FECHA_NOMBRAMIENTO) {
+            deducciones.FONDO_PENSIONES = (sueldoCC * 0.09).toFixed(2);
+          }
 
           deducciones.IMSS = (sueldoCC * 0.041219).toFixed(2);
 
@@ -2488,9 +2490,13 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
           deducciones.ISR = isrFinalCN.toFixed(2);
 
-          deducciones.FONDO_PENSIONES = (sueldoCN * 0.09).toFixed(2);
+          if (employee.FECHA_NOMBRAMIENTO) {
+            deducciones.FONDO_PENSIONES = (sueldoCN * 0.09).toFixed(2);
+          }
 
-          deducciones.CUOTA_SINDICAL = (sueldoCN * 0.01).toFixed(2);
+          if (employee.SINDICATO?.AFILIADO === true) {
+            deducciones.CUOTA_SINDICAL = (sueldoCN * 0.01).toFixed(2);
+          }
 
           deducciones.IMSS = (sueldoCN * 0.041219).toFixed(2);
 
@@ -2572,7 +2578,9 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
           deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
 
-          deducciones.FONDO_PENSIONES = (sueldoMM * 0.09).toFixed(2);
+          if (employee.FECHA_NOMBRAMIENTO) {
+            deducciones.FONDO_PENSIONES = (sueldoMM * 0.09).toFixed(2);
+          }
 
           deducciones.ISR = parseFloat(deducciones.ISR) - parseFloat(percepciones.isr_rdl);
 
