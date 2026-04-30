@@ -11,6 +11,10 @@ const { querysql } = require("../../config/mysql");
 const { insertOne } = require("../../config/mongo");
 const { off } = require("process");
 const { last } = require("pdf-lib");
+const moment = require('moment');
+require('moment/locale/es');
+moment.locale('es');
+
 offEmployeeController.getVacants = async (req, res) => {
   try {
     const vacants = await query("PLANTILLA", { status: 2 });
@@ -137,8 +141,11 @@ offEmployeeController.saveDataOff = async (req, res) => {
     let emp = plantilla[0];
 
     delete data._id;
-    const { _id, ...empData } = emp;
-    Object.assign(data, empData);
+
+    if (data.reason !== "L-PRRO") {
+      const { _id, ...empData } = emp;
+      Object.assign(data, empData);
+    }
 
     if (
       data.PROCESADO === undefined ||
@@ -183,8 +190,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
                 FECHA: data.discharge_date,
                 FECHA_BAJA: data.discharge_date,
                 MOTIVO_BAJA: data.reason,
+                FECHA_TERMINO: data.end_date || null,
                 TIPONOM: data.TIPONOM,
-                TIEMPO: data.TIEMPO_BAJA ?? null,
                 OWNER: data.OWNER ?? null,
               },
             },
@@ -195,20 +202,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
         return;
       }
     }
-    if (data.reason === "L-PRRO") {
-      await updateOne(
-        "PLAZAS",
-        {
-          NUMPLA: data.NUMPLA,
-          "previousOcuppants.NOMBRE": data.NOMBRE,
-        },
-        {
-          $set: {
-            "previousOcuppants.$.TIEMPO": data.time ?? null,
-          },
-        },
-      );
-    }
+
     const employee = await query("PLANTILLA", {
       _id: new ObjectId(data.id_employee),
     });
@@ -219,9 +213,9 @@ offEmployeeController.saveDataOff = async (req, res) => {
     employee_old[0].TIPONOM = data.TIPONOM;
     const licenseData = {
       ...employee_old[0],
-      time: data.time || null,
       discharge_date: data.discharge_date,
       reason: data.reason,
+      end_date: data.end_date || null,
       TIPONOM: data.TIPONOM,
       id_employee: data.id_employee,
       id_licencia: data.id_licencia || null,
@@ -240,9 +234,9 @@ offEmployeeController.saveDataOff = async (req, res) => {
           null;
 
         await insertOne("HSY_LICENCIAS", {
-          time: data.time || null,
           discharge_date: data.discharge_date,
           reason: data.reason,
+          end_date: data.end_date || null,
           TIPONOM: data.TIPONOM,
           id_employee: new ObjectId(data.id_employee),
           id_licencia: newLicenseId ? new ObjectId(newLicenseId) : null,
@@ -261,16 +255,90 @@ offEmployeeController.saveDataOff = async (req, res) => {
         return;
       }
     } else if (data.reason === "L-PRRO") {
-      await updateOne(
-        "LICENCIAS",
-        { _id: new ObjectId(data.id_licencia) },
-        { $set: { time: data.time } },
-      );
+
+      // Paso 1: Consultar el documento actual
+      const existingLicense = await query("HSY_LICENCIAS", {
+        id_licencia: new ObjectId(data.id_licencia)
+      });
+
+      if (existingLicense.length === 0) {
+        return res.status(404).json({ message: "Licencia no encontrada para prórroga" });
+      }
+
+      const currentEndDate = existingLicense[0].end_date;
+
+      // Inicio: día siguiente al end_date actual
+      let prorrogStart;
+      if (!currentEndDate || !moment(currentEndDate, ['DD/MM/YYYY', 'YYYY-MM-DD']).isValid()) {
+        // Primera prórroga: usar discharge_date + 1 día
+        prorrogStart = moment(existingLicense[0].discharge_date, ['DD/MM/YYYY', 'YYYY-MM-DD']).add(1, 'days').format('YYYY-MM-DD');
+      } else {
+        // Prórrogas posteriores: usar end_date + 1 día
+        prorrogStart = moment(currentEndDate, ['DD/MM/YYYY', 'YYYY-MM-DD']).add(1, 'days').format('YYYY-MM-DD');
+      }
+      const prorrogEnd = data.new_end_date ?? null;
+
+      // Paso 3: Preparar el update
+      const updateFields = {
+        $set: {
+          "end_date": prorrogEnd,
+        },
+        $push: {
+          "prorrogas": {
+            inicio: prorrogStart,
+            fin: prorrogEnd,
+          },
+        },
+      };
+
       await updateOne(
         "HSY_LICENCIAS",
-        { id_licencia: new ObjectId(data.id_licencia) },
-        { $set: { time: data.time } },
+        {
+          id_licencia: new ObjectId(data.id_licencia)
+        },
+        updateFields,
       );
+
+      await updateOne(
+        "LICENCIAS",
+        {
+          _id: new ObjectId(data.id_licencia)
+        },
+        {
+          $set: {
+            end_date: prorrogEnd,
+          },
+        },
+      );
+
+      // Consultar la plaza para obtener el array previousOcuppants
+      const plaza = await query("PLAZAS", { NUMPLA: Number(data.NUMPLA) });
+
+      if (plaza.length > 0) {
+        const plazaDoc = plaza[0];
+        const updateSet = {
+          FECHA_TERMINO: prorrogEnd,
+        };
+
+        // Si el array previousOcuppants existe y tiene elementos, actualizar el último
+        if (plazaDoc.previousOcuppants && plazaDoc.previousOcuppants.length > 0) {
+          const lastIndex = plazaDoc.previousOcuppants.length - 1;
+          updateSet[`previousOcuppants.${lastIndex}.FECHA_TERMINO`] = prorrogEnd;
+        }
+
+        await updateOne(
+          "PLAZAS",
+          {
+            NUMPLA: Number(data.NUMPLA)
+          },
+          {
+            $set: updateSet,
+          },
+        );
+      } else {
+        // Si no se encuentra la plaza, puedes manejar el error o continuar
+        console.warn("Plaza no encontrada para NUMPLA:", data.NUMPLA);
+      }
     }
     if (employee.length > 0 && data.reason !== "L-PRRO") {
       // Empleado dado de baja
@@ -307,9 +375,10 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "NOVIEMBRE",
     "DICIEMBRE",
   ];
-  const date = new Date(data.discharge_date);
-  const formattedDate = `${date.getDate() + 1} DE ${months[date.getMonth()]
-    } DE ${date.getFullYear()}`;
+
+  const formattedDate = moment(data.discharge_date)
+    .format('DD [DE] MMMM [DE] YYYY')
+    .toUpperCase();
 
   if (lastTipoNom === "F51" || lastTipoNom === "M51") {
     relacionB = true;
@@ -349,13 +418,13 @@ offEmployeeController.saveDataOff = async (req, res) => {
     CURP: data.CURP,
     RFC: data.RFC,
     NOMBRE: data.NOMBRE,
-    NUMEMP: data.NUMEMP,
+    NUMEMP: data.NUMEMP ? data.NUMEMP : "",
     NUMPLA: data.NUMPLA,
     CLAVECAT: data.CLAVECAT,
     NOMCATE: data.NOMCATE,
     DOMICILIO1: DOMICILIO1,
     DOMICILIO2: DOMICILIO2,
-    CP: data.CP,
+    CP: data.DIRECCION ? data.DIRECCION.CP : data.CP,
     FECHA: formattedDate,
     UNIRES: data.UNIDAD_RESPONSABLE,
     NOMCATE: data.CATEGORIA_DESCRIPCION,
@@ -404,7 +473,8 @@ offEmployeeController.saveDataOff = async (req, res) => {
     }
     let nameFile;
     if (L_PRRO) {
-      nameFile = `PRORROGA_${data.CURP}.docx`;
+      const fechaProroga = moment(data.new_end_date).format('YYYY-MM-DD');
+      nameFile = `PRORROGA_${data.CURP}_${fechaProroga}.docx`;
     } else {
       nameFile = `BAJA_${data.CURP}.docx`;
     }
@@ -510,30 +580,42 @@ offEmployeeController.getLicenses = async (req, res) => {
     const enhanced = await Promise.all(
       licenses.map(async (lic) => {
         try {
-          const id_employee = lic.id_employee;
           let plantilla = [];
-          if (id_employee !== undefined && id_employee !== null && id_employee !== "") {
-            plantilla = await query("PLANTILLA", { _id: new ObjectId(id_employee) });
+          let plantillaSource = null;
+          if (lic.reason === "L-SS") {
+            if (lic.id_employee) {
+              plantilla = await query("PLANTILLA", { _id: new ObjectId(lic.id_employee) });
+              plantillaSource = plantilla.length ? "L-SS" : null;
+            }
+          } else if (lic.reason === "L-IBASE") {
+            if (lic.RFC) {
+              plantilla = await query("PLANTILLA", { RFC: lic.RFC });
+              plantillaSource = plantilla.length ? "L-IBASE-RFC" : null;
+            }
+            if ((!plantilla || plantilla.length === 0) && lic.id_employee) {
+              plantilla = await query("PLANTILLA", { _id: new ObjectId(lic.id_employee) });
+              plantillaSource = plantilla.length ? "L-IBASE-ID" : null;
+            }
           }
-          const OCUPANTE_ACTIVO = Boolean(
-            plantilla && plantilla[0] && plantilla[0].CURP,
-          );
-          let OCUPANTE = {
-            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${plantilla[0]?.APE_MAT || ""
-              } ${plantilla[0]?.NOMBRES || ""}`.trim(),
+
+          const OCUPANTE_ACTIVO = Boolean(plantilla?.[0]?.CURP);
+
+          const OCUPANTE = {
+            NOMBRE: `${plantilla[0]?.APE_PAT || ""} ${plantilla[0]?.APE_MAT || ""} ${plantilla[0]?.NOMBRES || ""}`.trim(),
           };
+
           if (OCUPANTE_ACTIVO) {
-            return { ...lic, OCUPANTE };
+            return {
+              ...lic,
+              OCUPANTE,
+              OCUPA_OTRO_PUESTO: lic.reason === "L-IBASE" && OCUPANTE_ACTIVO && plantillaSource === "L-IBASE-RFC" ? true : false,
+            };
           } else {
             return { ...lic };
           }
         } catch (err) {
-          console.error(
-            "Error consultando PLANTILLA para NUMPLA:",
-            lic.NUMPLA,
-            err,
-          );
-          return { ...lic, OCUPANTE_ACTIVO: false };
+          console.error("Error consultando PLANTILLA para NUMPLA:", lic.NUMPLA, err);
+          return { ...lic };
         }
       }),
     );
@@ -546,28 +628,4 @@ offEmployeeController.getLicenses = async (req, res) => {
       .json({ message: "Error al recuperar las licencias" });
   }
 };
-// offEmployeeController.updateLicense = async (req, res) => {
-//   const { id } = req.params;
-//   const { data } = req.body;
-
-//   if (!id || !data) {
-//     return res.status(400).json({ message: "ID o datos inválidos" });
-//   }
-
-//   try {
-//     const result = await updateOne(
-//       "LICENCIAS",
-//       { _id: new ObjectId(id) },
-//       data
-//     );
-//     if (result.modifiedCount > 0) {
-//       res.status(200).json({ message: "Licencia actualizada correctamente" });
-//     } else {
-//       res.status(404).json({ message: "Licencia no encontrada" });
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Error al actualizar la licencia" });
-//   }
-// };
 module.exports = offEmployeeController;

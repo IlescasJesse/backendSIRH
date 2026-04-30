@@ -752,9 +752,9 @@ employeeController.saveEmployee = async (req, res) => {
       {
         $set: {
           OCUPANTE: {
-            APE_PAT: `${data.APE_PAT || ""} `,
-            APE_MAT: `${data.APE_MAT || ""} `,
-            NOMBRES: `${data.NOMBRES || ""} `,
+            APE_PAT: `${data.APE_PAT || ""}`,
+            APE_MAT: `${data.APE_MAT || ""}`,
+            NOMBRES: `${data.NOMBRES || ""}`,
           },
         },
       },

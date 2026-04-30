@@ -32,9 +32,14 @@ employeeController.getProfileData = async (req, res) => {
     const hsy_proyectos = await query("HSY_PROYECTOS", {
       id_employee: new ObjectId(id),
     });
-    const hsy_licencias = await query("HSY_LICENCIAS", {
-      id_employee: new ObjectId(id),
-    });
+    const [hsy_licencias_by_emp, hsy_licencias_by_lic] = await Promise.all([
+      query("HSY_LICENCIAS", { id_employee: new ObjectId(id) }),
+      query("HSY_LICENCIAS", { id_licencia: new ObjectId(id) }),
+    ]);
+
+    const hsy_licencias = hsy_licencias_by_emp.length > 0
+      ? hsy_licencias_by_emp
+      : hsy_licencias_by_lic;
     const hsy_recategorizaciones = await query("HSY_RECATEGORIZACIONES", {
       id_employee: new ObjectId(id),
     });
