@@ -5,7 +5,14 @@ const {
   crearTalonesParaFecha,
   getQuincenaInfo,
 } = require("../libs/talonesQuincena");
+const {
+  ADSCRIPCIONES_AUDI,
+  PROYECTOS_PLAN,
+  PROYECTOS_CATASTRO,
+  getAreaResp,
+} = require("../libs/areaResp");
 require("dotenv").config();
+
 
 // Crear instancia de Agenda conectada a MongoDB SIRH2026
 const agenda = new Agenda({
@@ -711,12 +718,20 @@ agenda.define("limpiarStatusEmpleado", async (job) => {
 
     for (const empleado of empleados) {
       try {
-        console.log(`Revisando status para empleado: ${empleado._id}`);
 
         const statusEmpleado = empleado.STATUS_EMPLEADO || [];
         const nuevosStatus = statusEmpleado.filter((item) => {
           return !item.HASTA || item.HASTA >= fechaActual;
         });
+
+        const updateFields = {
+          STATUS_EMPLEADO: nuevosStatus,
+        };
+
+        const hasAsignLab = nuevosStatus.some((item) => item.STATUS === "ASIG_LAB");
+        if (!hasAsignLab) {
+          updateFields.AREA_RESP = getAreaResp(empleado.ADSCRIPCION, empleado.PROYECTO);
+        }
 
         if (nuevosStatus.length !== statusEmpleado.length) {
           // Identificar estados expirados (removidos)
@@ -753,7 +768,7 @@ agenda.define("limpiarStatusEmpleado", async (job) => {
           await updateOne(
             "PLANTILLA",
             { _id: empleado._id },
-            { $set: { STATUS_EMPLEADO: nuevosStatus } },
+            { $set: updateFields },
           );
           console.log(`Status limpiado para empleado ${empleado._id}`);
         }
@@ -874,7 +889,7 @@ async function startAgenda() {
     // Limpiar status de empleados - Cada 24 horas
     await agenda.every(
       "0 0 * * *",
-      //"5 seconds",
+      //"10 seconds",
       "limpiarStatusEmpleado",
       {},
       {
