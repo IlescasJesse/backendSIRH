@@ -206,4 +206,79 @@ permisosExtController.deleteExtPermit = async (req, res) => {
   }
 };
 
+// Obtener a los empleados que tengan el tipo de permiso extraordinario seleccionado
+permisosExtController.getEmployeeWithExtPermits = async (req, res) => {
+  const { type } = req.params;
+  const user = req.user;
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/Mexico_City",
+  });
+  const currentYear = moment().year();
+  const yearFilter = [currentYear, `${currentYear}`];
+
+  if (!type) {
+    return res.status(400).json({ message: "El parámetro 'type' es requerido." });
+  }
+
+  try {
+
+    const filter = {
+      TIPO: type,
+      $or: [
+        { AÑO: { $in: yearFilter } },
+        { ANO: { $in: yearFilter } },
+      ],
+    };
+
+    const permisosExt = await query("PERMISOS_EXT", filter);
+
+    if (!permisosExt || permisosExt.length === 0) {
+      return res.status(404).json({ message: "No hay permisos extraordinarios para el tipo/año solicitados." });
+    }
+
+    const getEmployeeByIdEmployee = async (idEmployee) => {
+      if (!idEmployee) return null;
+
+      const [plantilla = [], foranea = []] = await Promise.all([
+        query("PLANTILLA", { _id: new ObjectId(idEmployee) }),
+        query("PLANTILLA_FORANEA", { _id: new ObjectId(idEmployee) }),
+      ]);
+      return [...plantilla, ...foranea][0] || null;
+    };
+
+
+    const permisosData = await Promise.all(
+      permisosExt.map(async (empRow, i) => {
+        const idEmployee = empRow.id_empoyee;
+        const empData = await getEmployeeByIdEmployee(idEmployee);
+
+        return {
+          NOMBRE: `${empData?.APE_PAT || ""} ${empData?.APE_MAT || ""} ${empData?.NOMBRES || ""}`.trim(),
+          TIPONOM: empData?.TIPONOM || "",
+          NUMTARJETA: empData?.NUMTARJETA || null,
+          DESDE: empRow.DESDE || "",
+          HASTA: empRow.HASTA || "",
+          DIAS: empRow.NUM_DIAS || "",
+          OFICIO_SOLICITUD: empRow.OFICIO_SOLICITUD || "",
+          OFICIO_AUTORIZACION: empRow.OFICIO_AUTORIZACION || ""
+        };
+      }),
+    );
+
+    const userAction = {
+      username: user.username,
+      module: "PSL-BE",
+      action: `CONSULTÓ EL PERSONAL CON EL TIPO DE PERMISO EXTRAORDINARIO: "${type}"`,
+      timestamp: currentDateTime,
+    };
+
+    await insertOne("USER_ACTIONS", userAction);
+
+    res.status(200).json(permisosData);
+
+  } catch (error) {
+    console.error("Error al obtener la información", error);
+    return res.status(500).json({ message: "Error al obtener la información" });
+  }
+};
 module.exports = permisosExtController;
