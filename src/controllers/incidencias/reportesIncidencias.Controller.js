@@ -1105,9 +1105,11 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
 
   // Agregar encabezado y pie de página dinámico
   let pageNumber = 0;
+  let currentGroupName = "";
+  let currentTiponom = "";
 
-  const addHeaderAndFooter = (groupName) => {
-    doc.fontSize(10).text(`Página ${pageNumber}`, 60, 20, {
+  const addHeaderAndFooter = (groupName, tiponom) => {
+    doc.fontSize(10).text(`Página ${pageNumber + 1}`, 60, 20, {
       align: "right",
       width: 612,
     });
@@ -1118,12 +1120,16 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
     doc.text("DIRECCIÓN DE RECURSOS HUMANOS", { align: "center" });
     doc.text("DEPARTAMENTO DE REGISTROS DE PERSONAL", { align: "center" });
     doc.text(`PÁGINA ${pageNumber}`, { align: "center" });
-    doc.text("REPORTE DE RETARDOS E INASISTENCIAS  ", {
-      align: "center",
-    });
+    doc.text("REPORTE DE RETARDOS E INASISTENCIAS", { align: "center" });
     doc.text(periodo, { align: "center" });
+
     doc.moveDown(2);
+    if (groupName) {
+      doc.text(`NÓMINA: ${groupName} (${tiponom})`, { align: "left" });
+    }
   };
+
+  doc.on("pageAdded", () => addHeaderAndFooter(currentGroupName, currentTiponom));
 
   // Primera página
   doc.margins = { top: 72, bottom: 72, left: 60, right: 40 };
@@ -1131,9 +1137,13 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
   // Agregar contenido por cada grupo
   Object.entries(tiponomGroups).forEach(([tiponom, group]) => {
     if (group.data.length > 0) {
-      if (pageNumber > 0) doc.addPage(); // Agregar nueva página si no es la primera
-      addHeaderAndFooter(group.label);
-      doc.text(`NÓMINA: ${group.label} (${tiponom})`, { align: "left" });
+      currentGroupName = group.label;
+      currentTiponom = tiponom;
+      if (pageNumber > 0) {
+        doc.addPage();
+      } else {
+        addHeaderAndFooter(currentGroupName, currentTiponom);
+      }
       doc.text(
         "---------------------------------------------------------------------------------------",
         { align: "center" },
