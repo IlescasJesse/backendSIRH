@@ -319,16 +319,22 @@ talonesController.uploadTalonImage = async (req, res) => {
       .resize({ width: Math.round(width * 1.5) })
       .toBuffer();
 
-    // Extraer una región más amplia para verificar "FIRMA DE RECIBIDO"
-    const firmaRegionHeight = Math.max(Math.floor(height * 0.30), bottomRegionHeight);
+    // Extraer región DERECHA inferior para "FIRMA DE RECIBIDO"
+    const firmaTextRegionWidth = Math.floor(width * 0.35); // 35% del ancho desde la derecha
+    const firmaTextRegionHeight = Math.max(Math.floor(height * 0.25), 100); // 10% de altura
     const firmaTextRegion = await sharp(imageBuffer)
-      .extract({ left: 0, top: height - firmaRegionHeight, width, height: firmaRegionHeight })
+      .extract({
+        left: width - firmaTextRegionWidth, // Desde la DERECHA
+        top: height - firmaTextRegionHeight, // Desde la parte inferior
+        width: firmaTextRegionWidth,
+        height: firmaTextRegionHeight
+      })
       .grayscale()
       .median(1)
       .normalize()
       .sharpen()
       .threshold(140)
-      .resize({ width: Math.round(width * 1.5) })
+      .resize({ width: Math.round(firmaTextRegionWidth * 1.5) })
       .toBuffer();
 
     const [bottomResult, firmaResult] = await Promise.all([

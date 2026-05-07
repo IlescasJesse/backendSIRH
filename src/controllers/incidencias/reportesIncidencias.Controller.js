@@ -1253,8 +1253,18 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
       });
       doc.text(`TOTAL EMPLEADOS: ${group.data.length}`, { align: "left" });
 
-      // Agregar firma al final de cada grupo
-      doc.moveDown(6);
+      const signatureHeight = 80;
+      const pageBottom = doc.page.height - doc.page.margins.bottom;
+
+      if (doc.y + signatureHeight > pageBottom) {
+        doc.addPage();
+        addHeaderAndFooter(group.label);
+        doc.moveDown(10);
+      } else {
+        doc.moveDown(6);
+      }
+
+      //doc.moveDown(6);
       doc.text("L.A. LAURA CONCEPCIÓN MARTÍNEZ GUTIERREZ", {
         align: "center",
       });
