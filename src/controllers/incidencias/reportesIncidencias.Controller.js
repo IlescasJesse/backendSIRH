@@ -1268,7 +1268,6 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
 
       if (doc.y + signatureHeight > pageBottom) {
         doc.addPage();
-        addHeaderAndFooter(group.label);
         doc.moveDown(10);
       } else {
         doc.moveDown(6);
