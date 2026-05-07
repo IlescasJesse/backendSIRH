@@ -873,7 +873,7 @@ employeeController.getEmployeeCount = async (req, res) => {
 employeeController.afiliarSindicato = async (req, res) => {
   console.log(req.body);
 
-  const { _id, DELEGACION, DELEGADO, FECHA_AFILIACION } = req.body;
+  const { _id, AFILIADO, DELEGACION, DELEGADO, FECHA_AFILIACION } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
@@ -890,10 +890,12 @@ employeeController.afiliarSindicato = async (req, res) => {
 
     if (FECHA_AFILIACION) {
       fechaAfiliacionDate = new Date(FECHA_AFILIACION);
+    } else {
+      fechaAfiliacionDate = null;
     }
 
     const SINDICATO = {
-      AFILIADO: true,
+      AFILIADO,
       DELEGACION,
       DELEGADO,
       FECHA_AFILIACION: fechaAfiliacionDate,
