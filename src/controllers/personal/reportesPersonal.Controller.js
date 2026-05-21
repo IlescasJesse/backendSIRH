@@ -1097,7 +1097,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
       if (employee.NUM_HIJOS && employee.NUM_HIJOS > 0) {
         percepciones.guarderia =
-          (Number(employee[0].NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
+          (Number(employee.NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
       } else {
         delete percepciones.guarderia;
       }
@@ -1183,10 +1183,10 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       { header: "DESPENSA", key: "DESPENSA" },
       { header: "ACT_CUL_DEP", key: "ACT_CUL_DEP" },
       { header: "DIA_AJUSTE", key: "DIA_AJUSTE" },
+      { header: "GUARDERIA", key: "GUARDERIA" },
 
       { header: "CANASTA", key: "CANASTA" },
       { header: "ESTIMULO", key: "ESTIMULO" },
-      { header: "GUARDERIA", key: "GUARDERIA" },
 
       { header: "COMP_FIJA_GARAN", key: "COMP_FIJA_GARAN" },
 

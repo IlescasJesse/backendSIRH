@@ -1270,7 +1270,7 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
         doc.addPage();
         doc.moveDown(10);
       } else {
-        doc.moveDown(6);
+        doc.moveDown(5);
       }
 
       //doc.moveDown(6);
