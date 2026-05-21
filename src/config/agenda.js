@@ -818,6 +818,80 @@ agenda.define("limpiarStatusEmpleado", async (job) => {
   }
 });
 
+// Tarea: Backup automático - Se ejecuta diariamente a las 20:00
+agenda.define("realizarBackup", async (job) => {
+  const inicioTarea = Date.now();
+  const nombreTarea = "realizarBackup";
+
+  const { runBackup } = require("../../scripts/backup/backup");
+
+  console.log("Ejecutando backup automático:", new Date().toISOString());
+
+  await registrarActividadAgenda({
+    tarea: nombreTarea,
+    estado: "iniciado",
+    mensaje: "Iniciando backup diario (MySQL + MongoDB)",
+    detalles: { fechaEjecucion: new Date().toISOString() },
+  });
+
+  let logs = [];
+  try {
+    const resultado = await runBackup({
+      onLog: (msg, type) => {
+        logs.push({ msg, type });
+        console.log(msg);
+      },
+    });
+
+    const duracion = Date.now() - inicioTarea;
+
+    if (resultado.success) {
+      await registrarActividadAgenda({
+        tarea: nombreTarea,
+        estado: "completado",
+        mensaje: `Backup completado: ${resultado.results.zip?.sizeMB || 0} MB comprimido`,
+        detalles: {
+          fechaEjecucion: new Date().toISOString(),
+          archivo: resultado.zipPath,
+          mysql: resultado.results.mysql,
+          mongo: resultado.results.mongo,
+          logs,
+        },
+        duracion,
+      });
+      console.log(`✓ Backup automático completado en ${duracion}ms`);
+    } else {
+      await registrarActividadAgenda({
+        tarea: nombreTarea,
+        estado: "error",
+        mensaje: "Backup completado con errores",
+        detalles: {
+          fechaEjecucion: new Date().toISOString(),
+          mysql: resultado.results.mysql,
+          mongo: resultado.results.mongo,
+          error: resultado.error,
+          logs,
+        },
+        duracion,
+      });
+      console.error("⚠ Backup automático completado con errores");
+    }
+  } catch (error) {
+    const duracion = Date.now() - inicioTarea;
+
+    await registrarActividadAgenda({
+      tarea: nombreTarea,
+      estado: "error",
+      mensaje: "Error crítico en backup automático",
+      detalles: { fechaEjecucion: new Date().toISOString(), logs },
+      duracion,
+      error: error.message,
+    });
+
+    console.error("✗ Error en backup automático:", error.message);
+  }
+});
+
 // Función para iniciar Agenda
 async function startAgenda() {
   try {
@@ -891,6 +965,16 @@ async function startAgenda() {
       "0 0 * * *",
       //"10 seconds",
       "limpiarStatusEmpleado",
+      {},
+      {
+        timezone: "America/Mexico_City",
+      },
+    );
+
+    // Backup automático - Diariamente a las 20:00 (8 PM)
+    await agenda.every(
+      "0 20 * * *",
+      "realizarBackup",
       {},
       {
         timezone: "America/Mexico_City",

@@ -1262,3 +1262,84 @@
 2026-03-05 11:51:50 -06:00: Cannot read properties of undefined (reading 'sueldo_base') TypeError: Cannot read properties of undefined (reading 'sueldo_base')
 2026-03-05 11:51:50 -06:00:     at employeeController.getProfileData (C:\SIRH-NODE\backendSIRH\src\controllers\personal\employees.Controller.js:99:25)
 2026-03-05 11:51:50 -06:00:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-05-04 09:45:32 -06:00: Error guardando log en MongoDB: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+2026-05-04 09:50:34 -06:00: Error guardando log en MongoDB: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+2026-05-04 09:58:09 -06:00: Error guardando log en MongoDB: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+2026-05-04 09:59:09 -06:00: Error guardando log en MongoDB: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+2026-05-04 09:59:56 -06:00: Error guardando log en MongoDB: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+2026-05-04 10:00:03 -06:00: Error guardando log en MongoDB: connect ECONNREFUSED ::1:27017, connect ECONNREFUSED 127.0.0.1:27017
+2026-05-19 09:21:37 -06:00: Error starting server: Error
+2026-05-19 09:21:37 -06:00:     at Object.createConnectionPromise [as createConnection] (C:\SIRH-NODE\backendSIRH\node_modules\mysql2\promise.js:19:31)
+2026-05-19 09:21:37 -06:00:     at ping (C:\SIRH-NODE\backendSIRH\src\config\mysql.js:22:34)
+2026-05-19 09:21:37 -06:00:     at startServer (C:\SIRH-NODE\backendSIRH\src\index.js:9:11)
+2026-05-19 09:21:37 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\index.js:20:1)
+2026-05-19 09:21:37 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-05-19 09:21:37 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-05-19 09:21:37 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-05-19 09:21:37 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-05-19 09:21:37 -06:00:     at Object.<anonymous> (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainerFork.js:33:23)
+2026-05-19 09:21:37 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14) {
+2026-05-19 09:21:37 -06:00:   code: 'ECONNREFUSED',
+2026-05-19 09:21:37 -06:00:   errno: undefined,
+2026-05-19 09:21:37 -06:00:   sqlState: undefined
+2026-05-19 09:21:37 -06:00: }
+2026-05-19 09:30:57 -06:00: Error starting server: Error
+2026-05-19 09:30:57 -06:00:     at Object.createConnectionPromise [as createConnection] (C:\SIRH-NODE\backendSIRH\node_modules\mysql2\promise.js:19:31)
+2026-05-19 09:30:57 -06:00:     at ping (C:\SIRH-NODE\backendSIRH\src\config\mysql.js:22:34)
+2026-05-19 09:30:57 -06:00:     at startServer (C:\SIRH-NODE\backendSIRH\src\index.js:9:11)
+2026-05-19 09:30:57 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\index.js:20:1)
+2026-05-19 09:30:57 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-05-19 09:30:57 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-05-19 09:30:57 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-05-19 09:30:57 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-05-19 09:30:57 -06:00:     at Object.<anonymous> (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainerFork.js:33:23)
+2026-05-19 09:30:57 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14) {
+2026-05-19 09:30:57 -06:00:   code: 'ECONNREFUSED',
+2026-05-19 09:30:57 -06:00:   errno: undefined,
+2026-05-19 09:30:57 -06:00:   sqlState: undefined
+2026-05-19 09:30:57 -06:00: }
+2026-05-19 09:31:34 -06:00: Error starting server: Error: connect ETIMEDOUT
+2026-05-19 09:31:34 -06:00:     at Object.createConnectionPromise [as createConnection] (C:\SIRH-NODE\backendSIRH\node_modules\mysql2\promise.js:19:31)
+2026-05-19 09:31:34 -06:00:     at ping (C:\SIRH-NODE\backendSIRH\src\config\mysql.js:22:34)
+2026-05-19 09:31:34 -06:00:     at startServer (C:\SIRH-NODE\backendSIRH\src\index.js:9:11)
+2026-05-19 09:31:34 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\index.js:20:1)
+2026-05-19 09:31:34 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-05-19 09:31:34 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-05-19 09:31:34 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-05-19 09:31:34 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-05-19 09:31:34 -06:00:     at Object.<anonymous> (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainerFork.js:33:23)
+2026-05-19 09:31:34 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14) {
+2026-05-19 09:31:34 -06:00:   code: 'ETIMEDOUT',
+2026-05-19 09:31:34 -06:00:   errno: undefined,
+2026-05-19 09:31:34 -06:00:   sqlState: undefined
+2026-05-19 09:31:34 -06:00: }
+2026-05-19 09:41:35 -06:00: Error starting server: Error: connect ETIMEDOUT
+2026-05-19 09:41:35 -06:00:     at Object.createConnectionPromise [as createConnection] (C:\SIRH-NODE\backendSIRH\node_modules\mysql2\promise.js:19:31)
+2026-05-19 09:41:35 -06:00:     at ping (C:\SIRH-NODE\backendSIRH\src\config\mysql.js:22:34)
+2026-05-19 09:41:35 -06:00:     at startServer (C:\SIRH-NODE\backendSIRH\src\index.js:9:11)
+2026-05-19 09:41:35 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\index.js:20:1)
+2026-05-19 09:41:35 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-05-19 09:41:35 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-05-19 09:41:35 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-05-19 09:41:35 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-05-19 09:41:35 -06:00:     at Object.<anonymous> (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainerFork.js:33:23)
+2026-05-19 09:41:35 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14) {
+2026-05-19 09:41:35 -06:00:   code: 'ETIMEDOUT',
+2026-05-19 09:41:35 -06:00:   errno: undefined,
+2026-05-19 09:41:35 -06:00:   sqlState: undefined
+2026-05-19 09:41:35 -06:00: }
+2026-05-19 09:46:33 -06:00: Error starting server: Error: connect ETIMEDOUT
+2026-05-19 09:46:33 -06:00:     at Object.createConnectionPromise [as createConnection] (C:\SIRH-NODE\backendSIRH\node_modules\mysql2\promise.js:19:31)
+2026-05-19 09:46:33 -06:00:     at ping (C:\SIRH-NODE\backendSIRH\src\config\mysql.js:22:34)
+2026-05-19 09:46:33 -06:00:     at startServer (C:\SIRH-NODE\backendSIRH\src\index.js:9:11)
+2026-05-19 09:46:33 -06:00:     at Object.<anonymous> (C:\SIRH-NODE\backendSIRH\src\index.js:20:1)
+2026-05-19 09:46:33 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+2026-05-19 09:46:33 -06:00:     at Object..js (node:internal/modules/cjs/loader:1893:10)
+2026-05-19 09:46:33 -06:00:     at Module.load (node:internal/modules/cjs/loader:1481:32)
+2026-05-19 09:46:33 -06:00:     at Module._load (node:internal/modules/cjs/loader:1300:12)
+2026-05-19 09:46:33 -06:00:     at Object.<anonymous> (C:\Users\ilesm\AppData\Roaming\npm\node_modules\pm2\lib\ProcessContainerFork.js:33:23)
+2026-05-19 09:46:33 -06:00:     at Module._compile (node:internal/modules/cjs/loader:1761:14) {
+2026-05-19 09:46:33 -06:00:   code: 'ETIMEDOUT',
+2026-05-19 09:46:33 -06:00:   errno: undefined,
+2026-05-19 09:46:33 -06:00:   sqlState: undefined
+2026-05-19 09:46:33 -06:00: }
