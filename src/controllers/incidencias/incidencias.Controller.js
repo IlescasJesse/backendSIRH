@@ -1801,7 +1801,8 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
   // aplicar a los empleados
   employees = employees.map((emp) => {
-    const adscripcion = obtenerAdscripcionNivel3(emp.ADSCRIPCION);
+    const adscripcionOriginal = emp.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || emp.ADSCRIPCION;
+    const adscripcion = obtenerAdscripcionNivel3(adscripcionOriginal);
     return {
       ...emp,
       ADSCRIPCION: abreviarAdscripcion(adscripcion),
@@ -1812,7 +1813,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
   try {
     const {
       employees: employeesBody,
-      printerPosition = PRINTER || "DERECHA",
+      printerPosition = PRINTER,
       selectedYear = YEAR,
       outputDir = "./pdfs",
     } = req.body || {};
@@ -1939,6 +1940,30 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
     // Generar PDFs en memoria (buffers)
     const pdfFiles = []; // Array para almacenar {filename, buffer, base64}
+
+    // Función auxiliar: Obtener días en vacaciones dentro de una quincena
+    function getDiasVacacionesEnQuincena(quincenaStart, quincenaEnd, vacacionesObj) {
+      if (!vacacionesObj || !vacacionesObj.FECHAS) return [];
+
+      const fechaInicio = moment(vacacionesObj.FECHAS.FECHA_INICIO);
+      const fechaFin = moment(vacacionesObj.FECHAS.FECHA_FIN);
+
+      if (!fechaInicio.isValid() || !fechaFin.isValid()) return [];
+
+      const diasVacaciones = [];
+
+      let currentDay = moment.max(moment(fechaInicio), moment(quincenaStart));
+      const lastDay = moment.min(moment(fechaFin), moment(quincenaEnd));
+
+
+      while (currentDay.isSameOrBefore(lastDay, 'day')) {
+        const isWeekend = currentDay.day() === 0 || currentDay.day() === 6;
+
+        diasVacaciones.push(isWeekend ? "" : "VACACIONES");
+        currentDay.add(1, "day");
+      }
+      return diasVacaciones;
+    }
 
     for (const quincena of quincenas) {
       // Generar PDF de comisionados
@@ -2128,8 +2153,14 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           doc.on("error", reject);
 
+          const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
+
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
+            doc.image(backgroundImage, 0, 0, {
+              width: docWidth,
+              height: docHeight,
+            });
 
             const cardNumber = record.NUMTARJETA || "";
             const area = record.ADSCRIPCION || "";
@@ -2165,81 +2196,162 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             const ajusteY = -5.67 + extraLeftUp;
             const extraRight2mm = printerPosition === "DERECHA" ? 0.2 * pt : 0;
 
-            const numBaseX = 6.5 * pt;
-            const numX =
-              printerPosition === "DERECHA"
-                ? numBaseX - 0.5 * pt + extraNumOffsetX
-                : numBaseX + extraNumOffsetX;
-            const numY =
-              (1.8 - 1 - 0.2) * pt +
-              ajusteY +
-              (printerPosition === "IZQUIERDA" ? -0.2 * pt : 0) +
-              printerOffsetGlobal +
-              extraRight2mm;
 
-            doc.text(cardNumber, numX, numY, {
-              width: docWidth - numX,
+            let numCardX, numCardY, xStartCard, xEndCard;
+
+            if (printerPosition === "DERECHA") {
+              numCardX = 174;
+              numCardY = 29;
+              xStartCard = 174;
+              xEndCard = 228;
+            } else {
+              numCardX = 120;
+              numCardY = 221;
+            }
+
+            const rangeCardWidth = xEndCard - xStartCard;
+            doc.text(cardNumber, numCardX, numCardY, {
+              width: rangeCardWidth,
               lineBreak: false,
             });
 
-            const bodyFontSize =
-              8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            const bodyFontSize = 8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
             doc.fontSize(bodyFontSize).font("Helvetica");
-            doc.text(
-              area,
-              0,
-              (2.5 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
-              {
-                width: docWidth,
-                align: "center",
-              },
-            );
+            let numAreaX, numAreaY, xStartArea, xEndArea;
 
-            doc.text(
-              name,
-              0,
-              (3.2 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
-              {
-                width: docWidth,
-                align: "center",
-              },
-            );
+            if (printerPosition === "DERECHA") {
+              numAreaX = 31;
+              numAreaY = 58;
+              xStartArea = 31;
+              xEndArea = 221;
+            } else {
+              numAreaX = 120;
+              numAreaY = 100;
+            }
 
-            doc.text(
-              REL_L,
-              0,
-              (4 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
-              {
-                width: docWidth,
-                align: "center",
-              },
-            );
+            const rangeAreaWidth = xEndArea - xStartArea;
+            doc.text(area, numAreaX, numAreaY, {
+              width: rangeAreaWidth,
+              align: "center",
+              lineBreak: false,
+            });
 
-            const shiftY =
-              3.8 * pt +
-              ajusteY +
-              (printerPosition === "DERECHA" ? -0.2 * pt : 0) +
-              printerOffsetGlobal +
-              extraRight2mm;
-            doc.text(shift, 0, shiftY, {
-              width: docWidth,
+            let numNameX, numNameY, xStartName, xEndName;
+
+            if (printerPosition === "DERECHA") {
+              numNameX = 44;
+              numNameY = 76;
+              xStartName = 44;
+              xEndName = 221;
+            } else {
+              numNameX = 120;
+              numNameY = 100;
+            }
+
+            const rangeNameWidth = xEndName - xStartName;
+            doc.text(name, numNameX, numNameY, {
+              width: rangeNameWidth,
+              align: "center",
+              lineBreak: false,
+            });
+
+            let numRelLX, numRelLY, xStartRelL, xEndRelL;
+
+            if (printerPosition === "DERECHA") {
+              numRelLX = 73;
+              numRelLY = 97;
+              xStartRelL = 73;
+              xEndRelL = 221;
+            } else {
+              numRelLX = 120;
+              numRelLY = 100;
+            }
+
+            const rangeRelLWidth = xEndRelL - xStartRelL;
+            doc.text(REL_L, numRelLX, numRelLY, {
+              width: rangeRelLWidth,
+              align: "center",
+              lineBreak: false,
+            });
+
+            let numShiftX, numShiftY, xStartShift, xEndShift;
+
+            if (printerPosition === "DERECHA") {
+              numShiftX = 50;
+              numShiftY = 116;
+              xStartShift = 50;
+              xEndShift = 221;
+            } else {
+              numShiftX = 120;
+              numShiftY = 130;
+            }
+
+            const rangeShiftWidth = xEndShift - xStartShift;
+            doc.text(shift, numShiftX, numShiftY, {
+              width: rangeShiftWidth,
               align: "center",
             });
 
-            const offsetX =
-              0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
-            const baseY =
-              (5.6 - 1) * pt +
-              ajusteY +
-              (printerPosition === "DERECHA" ? -0.3 * pt : 0) +
-              printerOffsetGlobal +
-              extraRight2mm;
+            let numQuinX, numQuinY, xStartQuin, xEndQuin;
+
+            if (printerPosition === "DERECHA") {
+              numQuinX = 55;
+              numQuinY = 135;
+              xStartQuin = 55;
+              xEndQuin = 221;
+            } else {
+              numQuinX = 120;
+              numQuinY = 130;
+            }
+
+            const rangeQuinWidth = xEndQuin - xStartQuin;
+            // doc.rect(xStartQuin, numQuinY, rangeQuinWidth, 5).fill("black");
             const quincenaFont = 9 + (printerPosition === "IZQUIERDA" ? 1 : 0);
             doc.fontSize(quincenaFont).font("Helvetica-Bold");
-            doc.text(quincena.texto, offsetX, baseY, {
-              width: docWidth - offsetX,
+            doc.text(quincena.texto, numQuinX, numQuinY, {
+              width: rangeQuinWidth,
               align: "center",
+              lineBreak: false,
             });
+
+            // // VACACIONES
+            const diasEnVacaciones = getDiasVacacionesEnQuincena(
+              quincena.start,
+              quincena.end,
+              record.VACACIONES
+            );
+
+            const vacacionesMarginLeft = 2 * pt;
+            const vacacionesTopMargin = 1 * pt;
+            const vacacionesLineHeight = 0.2 * pt;
+
+            let vacacionesY
+            if (printerPosition === "DERECHA") {
+              vacacionesY = 186;
+            } else {
+              vacacionesY = 130
+            }
+
+
+            const lineHeight = doc.heightOfString("VACACIONES", {
+              width: docWidth - vacacionesMarginLeft,
+            });
+
+            diasEnVacaciones.forEach((texto) => {
+              if (texto) {
+                const textoEspaciado = texto.split("").join("  ");
+                doc
+                  .font("Helvetica-Bold")
+                  .fontSize(0.5 * pt)
+                  .text(textoEspaciado, vacacionesMarginLeft, vacacionesY, {
+                    width: docWidth - vacacionesMarginLeft,
+                    align: "left",
+                  });
+                doc.font("Helvetica");
+              }
+              vacacionesY += lineHeight + vacacionesLineHeight;
+            });
+
           });
 
           doc.on("end", () => {

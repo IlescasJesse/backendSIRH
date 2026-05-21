@@ -1182,8 +1182,8 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
       { header: "DESPENSA", key: "DESPENSA" },
       { header: "ACT_CUL_DEP", key: "ACT_CUL_DEP" },
-      { header: "DIA_AJUSTE", key: "DIA_AJUSTE" },
       { header: "GUARDERIA", key: "GUARDERIA" },
+      { header: "DIA_AJUSTE", key: "DIA_AJUSTE" },
 
       { header: "CANASTA", key: "CANASTA" },
       { header: "ESTIMULO", key: "ESTIMULO" },
@@ -2276,6 +2276,13 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           // ✅ CLONAR objeto para evitar mutación global
           percepciones = { ...baseMap.get(nivel) };
           if (!percepciones) break;
+
+          if (employee.NUM_HIJOS && employee.NUM_HIJOS > 0) {
+            percepciones.guarderia =
+              (Number(employee.NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
+          } else {
+            delete percepciones.guarderia;
+          }
 
           // ✅ ELIMINAR cualquier quinquenio previo
           Object.keys(percepciones).forEach(key => {
