@@ -163,6 +163,13 @@ employeeController.getProfileData = async (req, res) => {
         );
         percepciones = percepciones[0];
 
+        if (employee[0].NUM_HIJOS && employee[0].NUM_HIJOS > 0) {
+          percepciones.guarderia =
+            (Number(employee[0].NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
+        } else {
+          delete percepciones.guarderia;
+        }
+
         if (employee[0].LICENCIA_ACTIVA === false && employee[0].NUMQUIN > 0) {
           const quinquenio = await querysql(
             `SELECT quin_${employee[0].NUMQUIN} FROM quin_base WHERE NIVEL = ?`,
