@@ -1094,6 +1094,13 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
         percepciones.dia_ajuste = diaAjuste.toFixed(2);
         sueldoGravable += diaAjuste;
       }
+
+      if (employee.NUM_HIJOS && employee.NUM_HIJOS > 0) {
+        percepciones.guarderia =
+          (Number(employee[0].NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
+      } else {
+        delete percepciones.guarderia;
+      }
     }
 
     if (config.incluyeSeguroVida) {
@@ -1179,6 +1186,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
       { header: "CANASTA", key: "CANASTA" },
       { header: "ESTIMULO", key: "ESTIMULO" },
+      { header: "GUARDERIA", key: "GUARDERIA" },
 
       { header: "COMP_FIJA_GARAN", key: "COMP_FIJA_GARAN" },
 
@@ -1256,6 +1264,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       "DIA_AJUSTE",
       "CANASTA",
       "ESTIMULO",
+      "GUARDERIA",
       "COMP_FIJA_GARAN",
       "TOTAL_PERCEPCIONES",
       "ISR",
@@ -1336,6 +1345,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
         DIA_AJUSTE: Number(percepciones.dia_ajuste) || 0.00,
         CANASTA: Number(percepciones.canasta_basica) || 0.00,
         ESTIMULO: Number(percepciones.estimulo) || 0.00,
+        GUARDERIA: Number(percepciones.guarderia) || 0.00,
         COMP_FIJA_GARAN: Number(percepciones.comp_fija_garan) || 0.00,
         TOTAL_PERCEPCIONES: Number(totalPercepciones.toFixed(2)) || 0.00,
 
