@@ -1018,6 +1018,41 @@ incidenciasController.newForeigner = async (req, res) => {
       .send({ error: "An error occurred while creating the foreigner" });
   }
 };
+incidenciasController.deleteForeigner = async (req, res) => {
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+
+  const data = req.body;
+  console.log("Data received for deletion:", data);
+  try {
+
+    const plazaForanea = await query("PLANTILLA_FORANEA", {
+      _id: new ObjectId(data._id),
+    });
+
+    if (plazaForanea.length === 0) {
+      return res.status(409).json({
+        message: "No se encontró al empleado en la plantilla foránea",
+      });
+    }
+
+    const result = await updateOne("PLANTILLA_FORANEA", { _id: new ObjectId(data._id) }, { $set: { status: 2 } });
+
+    const userAction = {
+      username: user.username,
+      module: "AEI-CL",
+      action: `REALIZÓ LA BAJA DE: ${plazaForanea[0].APE_PAT} ${plazaForanea[0].APE_MAT} ${plazaForanea[0].NOMBRES} DE LA PLANTILLA FORANEA`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).send({ message: "Foreigner updated successfully", data });
+  } catch (error) {
+    console.error("Error updating foreigner:", error);
+    res
+      .status(500)
+      .send({ error: "An error occurred while updating the foreigner" });
+  }
+};
 //update
 incidenciasController.updateEconomicPermit = async (req, res) => {
   const { _id, ...updateData } = req.body;

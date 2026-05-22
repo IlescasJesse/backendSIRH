@@ -45,6 +45,7 @@ router.post(
   incidenciasController.saveIncidencia
 );
 router.post("/newForeigner", verifyToken, incidenciasController.newForeigner);
+router.put("/updateForeigner", verifyToken, incidenciasController.deleteForeigner);
 //UPDATE
 router.put("/assignCard", verifyToken, incidenciasController.asignarTarjeta);
 router.put(
