@@ -2188,14 +2188,14 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           doc.on("error", reject);
 
-          const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
+          //const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
 
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
-            doc.image(backgroundImage, 0, 0, {
-              width: docWidth,
-              height: docHeight,
-            });
+            // doc.image(backgroundImage, 0, 0, {
+            //   width: docWidth,
+            //   height: docHeight,
+            // });
 
             const cardNumber = record.NUMTARJETA || "";
             const area = record.ADSCRIPCION || "";
@@ -2240,8 +2240,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xStartCard = 174;
               xEndCard = 228;
             } else {
-              numCardX = 120;
-              numCardY = 221;
+              numCardX = 174;
+              numCardY = 29;
+              xStartCard = 174;
+              xEndCard = 228;
             }
 
             const rangeCardWidth = xEndCard - xStartCard;
@@ -2260,8 +2262,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xStartArea = 31;
               xEndArea = 221;
             } else {
-              numAreaX = 120;
-              numAreaY = 100;
+              numAreaX = 31;
+              numAreaY = 58;
+              xStartArea = 31;
+              xEndArea = 221;
             }
 
             const rangeAreaWidth = xEndArea - xStartArea;
@@ -2279,8 +2283,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xStartName = 44;
               xEndName = 221;
             } else {
-              numNameX = 120;
-              numNameY = 100;
+              numNameX = 44;
+              numNameY = 76;
+              xStartName = 44;
+              xEndName = 221;
             }
 
             const rangeNameWidth = xEndName - xStartName;
@@ -2298,8 +2304,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xStartRelL = 73;
               xEndRelL = 221;
             } else {
-              numRelLX = 120;
-              numRelLY = 100;
+              numRelLX = 73;
+              numRelLY = 97;
+              xStartRelL = 73;
+              xEndRelL = 221;
             }
 
             const rangeRelLWidth = xEndRelL - xStartRelL;
@@ -2317,8 +2325,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xStartShift = 50;
               xEndShift = 221;
             } else {
-              numShiftX = 120;
-              numShiftY = 130;
+              numShiftX = 50;
+              numShiftY = 116;
+              xStartShift = 50;
+              xEndShift = 221;
             }
 
             const rangeShiftWidth = xEndShift - xStartShift;
@@ -2335,8 +2345,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xStartQuin = 55;
               xEndQuin = 221;
             } else {
-              numQuinX = 120;
-              numQuinY = 130;
+              numQuinX = 55;
+              numQuinY = 135;
+              xStartQuin = 55;
+              xEndQuin = 221;
             }
 
             const rangeQuinWidth = xEndQuin - xStartQuin;
@@ -2364,7 +2376,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             if (printerPosition === "DERECHA") {
               vacacionesY = 186;
             } else {
-              vacacionesY = 130
+              vacacionesY = 186;
             }
 
 
