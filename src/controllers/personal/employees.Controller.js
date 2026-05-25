@@ -250,11 +250,18 @@ employeeController.getProfileData = async (req, res) => {
       case "CCT":
       case "F53":
       case "M53":
+        estimuloReal = await querysql(
+          `SELECT * FROM personal_estimulo WHERE id_employee = ?`,
+          [employee[0]._id.toString()],
+        );
+
         percepciones = await querysql(
           `SELECT * FROM catalogo_contrato WHERE nivel = ?`,
           [employee[0].NIVEL],
         );
         percepciones = percepciones[0];
+
+        percepciones.estimulo = estimuloReal && estimuloReal.length > 0 ? estimuloReal[0].estimulo : percepciones.estimulo;
 
         if (employee[0].NUMQUIN > 0) {
           const quinquenio = await querysql(
@@ -313,12 +320,19 @@ employeeController.getProfileData = async (req, res) => {
 
       case "FCO":
       case "511":
+        estimuloReal = await querysql(
+          `SELECT * FROM personal_estimulo WHERE id_employee = ?`,
+          [employee[0]._id.toString()],
+        );
+
         percepciones = await querysql(
           `SELECT * FROM catalogo_contrato WHERE nivel = ?`,
           [employee[0].NIVEL],
         );
 
         percepciones = percepciones[0];
+
+        percepciones.estimulo = estimuloReal && estimuloReal.length > 0 ? estimuloReal[0].estimulo : percepciones.estimulo;
 
         if (employee[0].NUMQUIN > 0) {
           const quinquenio = await querysql(

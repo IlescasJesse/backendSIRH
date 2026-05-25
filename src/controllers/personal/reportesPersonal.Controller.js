@@ -1077,7 +1077,15 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     if (!config) throw new Error("Tipo de nómina no reconocido");
 
     percepciones = { ...config.mapa.get(nivel) };
+
     if (!percepciones) return { percepciones: {}, deducciones: {} };
+
+    estimuloReal = await querysql(
+      `SELECT * FROM personal_estimulo WHERE id_employee = ?`,
+      [employee._id.toString()],
+    );
+
+    percepciones.estimulo = estimuloReal && estimuloReal.length > 0 ? estimuloReal[0].estimulo : percepciones.estimulo;
 
     agregarQuinquenio(percepciones, employee, config.tablaQuin);
 
@@ -1409,6 +1417,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     res.status(500).json({ message: "Error al generar el archivo Excel." });
   }
 };
+
 reportesPersonalController.getBajasBetweenDates = async (req, res) => {
   console.log("Recibiendo solicitud para obtener bajas entre fechas...", {
     body: req.body,
@@ -2379,6 +2388,13 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           percepciones = { ...contratoMap.get(nivel) };
           if (!percepciones) break;
 
+          estimuloReal = await querysql(
+            `SELECT * FROM personal_estimulo WHERE id_employee = ?`,
+            [employee._id.toString()],
+          );
+
+          percepciones.estimulo = estimuloReal && estimuloReal.length > 0 ? estimuloReal[0].estimulo : percepciones.estimulo;
+
           // ✅ ELIMINAR cualquier quinquenio previo
           Object.keys(percepciones).forEach(key => {
             if (key.startsWith("QUINQUENIOS")) {
@@ -2449,6 +2465,13 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
 
           percepciones = { ...contratoMap.get(nivel) };
           if (!percepciones) break;
+
+          estimuloReal = await querysql(
+            `SELECT * FROM personal_estimulo WHERE id_employee = ?`,
+            [employee._id.toString()],
+          );
+
+          percepciones.estimulo = estimuloReal && estimuloReal.length > 0 ? estimuloReal[0].estimulo : percepciones.estimulo;
 
           // ✅ ELIMINAR cualquier quinquenio previo
           Object.keys(percepciones).forEach(key => {
