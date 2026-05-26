@@ -25,8 +25,8 @@ vacacionesController.getProfile = async (req, res) => {
     const employee = employeePlantilla.length
       ? employeePlantilla
       : employeeForanea.length
-      ? employeeForanea
-      : [];
+        ? employeeForanea
+        : [];
 
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
@@ -58,32 +58,99 @@ vacacionesController.getProfile = async (req, res) => {
     }
 
     const fechaIngreso = moment(emp.FECHA_INGRESO, "YYYY-MM-DD", true);
-    const ahora = moment();
+
+    let fechaCorte = null;
+    const mesActual = moment().month() + 1;
+    let semestreContrato = mesActual <= 6 ? 1 : 2;
+
+    if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {
+      const periodoBuscado = semestreContrato === 1 ? [1] : [5];
+
+      const periodosBase = await query("PER_VACACIONALES_BASE", {
+        PERIODO: { $in: periodoBuscado }
+      });
+      if (periodosBase.length > 0) {
+        const periodo = periodosBase[0];
+
+        for (const key in periodo) {
+          if (!isNaN(Number(key)) && periodo[key]?.FECHA_INI) {
+            fechaCorte = moment(periodo[key].FECHA_INI, "YYYY-MM-DD");
+            break;
+          }
+        }
+      }
+    } else {
+      const periodoBuscado = semestreContrato === 1 ? [1] : [5];
+
+      const periodosContrato = await query("PER_VACACIONALES_CONTRATO", {
+        PERIODO: { $in: periodoBuscado }
+      });
+
+      if (periodosContrato.length > 0) {
+        const periodo = periodosContrato[0];
+
+        for (const key in periodo) {
+          if (!isNaN(Number(key)) && periodo[key]?.FECHA_INI) {
+            fechaCorte = moment(periodo[key].FECHA_INI, "YYYY-MM-DD");
+            break;
+          }
+        }
+      }
+    }
 
     let yearsWorked = 0;
-    if (fechaVacaciones && fechaVacaciones.isValid()) {
-      yearsWorked = ahora.diff(fechaVacaciones, "years");
-    } else if (fechaIngreso.isValid()) {
-      yearsWorked = ahora.diff(fechaIngreso, "years");
+    if (fechaCorte && fechaCorte.isValid()) {
+
+      if (fechaVacaciones && fechaVacaciones.isValid()) {
+        yearsWorked = fechaCorte.diff(fechaVacaciones, "years");
+      } else if (fechaIngreso.isValid()) {
+        yearsWorked = fechaCorte.diff(fechaIngreso, "years");
+      } else {
+        console.warn(`Fecha inválida para empleado ${emp._id}`);
+        yearsWorked = 0;
+      }
+
+      if (yearsWorked > 0 && yearsWorked % 5 === 0) {
+        yearsWorked--;
+      }
     } else {
-      console.warn(`Fecha inválida para empleado ${emp._id}:`, {
-        fechaVacaciones: vacFechaStr,
-        fechaIngreso: emp.FECHA_INGRESO,
-      });
+      console.warn("No hay fecha de corte válida");
       yearsWorked = 0;
     }
+
     if (!Number.isFinite(yearsWorked) || yearsWorked < 0) yearsWorked = 0;
+
+    console.log(`Años trabajados: ${yearsWorked}`);
+
     // Determinar días según años trabajados
-    if (yearsWorked <= 5) {
-      totalDays = 11;
-    } else if (yearsWorked > 5 && yearsWorked <= 10) {
-      totalDays = 13;
-    } else if (yearsWorked > 10 && yearsWorked <= 15) {
-      totalDays = 15;
-    } else if (yearsWorked > 15 && yearsWorked <= 20) {
-      totalDays = 17;
-    } else if (yearsWorked > 20) {
-      totalDays = 19;
+    if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {
+      if (yearsWorked <= 5) {
+        totalDays = 11;
+      } else if (yearsWorked > 5 && yearsWorked <= 10) {
+        totalDays = 13;
+      } else if (yearsWorked > 10 && yearsWorked <= 15) {
+        totalDays = 15;
+      } else if (yearsWorked > 15 && yearsWorked <= 20) {
+        totalDays = 17;
+      } else if (yearsWorked > 20) {
+        totalDays = 19;
+      }
+    } else {
+      if (yearsWorked <= 5) {
+        totalDays = 10;
+      } else if (yearsWorked > 5 && yearsWorked <= 10) {
+        totalDays = 11;
+      } else if (yearsWorked > 10 && yearsWorked <= 15) {
+        totalDays = 12;
+      } else if (yearsWorked > 15 && yearsWorked <= 20) {
+        totalDays = 13;
+      } else if (yearsWorked > 20 && yearsWorked <= 25) {
+        totalDays = 14;
+      } else if (yearsWorked > 25 && yearsWorked <= 30) {
+        totalDays = 15;
+      } else if (yearsWorked > 30) {
+        totalDays = 16;
+      }
     }
 
     const diasKey = String(totalDays);
