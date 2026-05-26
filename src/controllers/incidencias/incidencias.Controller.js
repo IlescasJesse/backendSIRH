@@ -328,7 +328,29 @@ incidenciasController.getProfile = async (req, res) => {
         ? false
         : permits.some((permit) => permit.CUATRIMESTRE === previousQuarter);
 
-    if (!hasPreviousQuarterPermits && currentQuarter !== 1) {
+    const fechaIngreso = moment(emp.FECHA_INGRESO, "YYYY-MM-DD", true).isValid()
+      ? moment(emp.FECHA_INGRESO, "YYYY-MM-DD")
+      : moment(emp.FECHA_INGRESO);
+
+    const mesesTrabajados = fechaIngreso.isValid()
+      ? moment().diff(fechaIngreso, "months")
+      : 0;
+
+    const eligibleDate = fechaIngreso.clone().add(4, "months");
+
+    const previousQuarterYear = currentQuarter === 1 ? currentYear - 1 : currentYear;
+    const previousQuarterStartMonth =
+      previousQuarter === 1 ? 0 : previousQuarter === 2 ? 4 : 8;
+
+    const previousQuarterStart = moment({
+      year: previousQuarterYear,
+      month: previousQuarterStartMonth,
+      day: 1,
+    });
+
+    const hadRightInPreviousQuarter = eligibleDate.isSameOrBefore(previousQuarterStart);
+
+    if (!hasPreviousQuarterPermits && currentQuarter !== 1 && hadRightInPreviousQuarter) {
       leftDays = maxAccumulatedDays; // 6 días
     }
 
@@ -1994,7 +2016,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       while (currentDay.isSameOrBefore(lastDay, 'day')) {
         const isWeekend = currentDay.day() === 0 || currentDay.day() === 6;
 
-        diasVacaciones.push(isWeekend ? "" : "VACACIONES");
+        diasVacaciones.push(isWeekend ? "" : `${currentDay.format("DD")} VACACIONES`);
         currentDay.add(1, "day");
       }
       return diasVacaciones;
@@ -2188,7 +2210,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           doc.on("error", reject);
 
-          //const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
+          // const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
 
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
@@ -2368,7 +2390,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               record.VACACIONES
             );
 
-            const vacacionesMarginLeft = 2 * pt;
+            const vacacionesMarginLeft = 0.5 * pt;
             const vacacionesTopMargin = 1 * pt;
             const vacacionesLineHeight = 0.2 * pt;
 
