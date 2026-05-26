@@ -913,6 +913,7 @@ employeeController.newPlaza = async (req, res) => {
         $set: {
           bitacora_id: bitacoraResult.insertedId,
           ID_CTRL_ASSIST: new ObjectId(),
+          ID_CTRL_ASIST: new ObjectId(),
           ID_CTRL_TALON: new ObjectId(),
           ID_CTRL_NOM: new ObjectId(),
           ID_CTRL_CAP: new ObjectId(),
