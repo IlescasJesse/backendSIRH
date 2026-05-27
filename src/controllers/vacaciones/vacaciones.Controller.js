@@ -148,8 +148,10 @@ vacacionesController.getProfile = async (req, res) => {
         totalDays = 14;
       } else if (yearsWorked > 25 && yearsWorked <= 30) {
         totalDays = 15;
-      } else if (yearsWorked > 30) {
+      } else if (yearsWorked > 30 && yearsWorked <= 35) {
         totalDays = 16;
+      } else {
+        totalDays = 17;
       }
     }
 
