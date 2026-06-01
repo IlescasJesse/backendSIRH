@@ -2009,14 +2009,21 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
       const diasVacaciones = [];
 
-      let currentDay = moment.max(moment(fechaInicio), moment(quincenaStart));
-      const lastDay = moment.min(moment(fechaFin), moment(quincenaEnd));
-
+      let currentDay = moment(quincenaStart);  // Comenzar desde el inicio de la quincena
+      const lastDay = moment(quincenaEnd);
 
       while (currentDay.isSameOrBefore(lastDay, 'day')) {
         const isWeekend = currentDay.day() === 0 || currentDay.day() === 6;
 
-        diasVacaciones.push(isWeekend ? "" : `${currentDay.format("DD")} VACACIONES`);
+        // Verificar si el día actual está dentro del rango de vacaciones
+        const esVacacion = currentDay.isSameOrAfter(fechaInicio) && currentDay.isSameOrBefore(fechaFin);
+
+        if (esVacacion && !isWeekend) {
+          diasVacaciones.push(`${currentDay.format("DD")} VACACIONES`);
+        } else {
+          diasVacaciones.push("");  // Espacio vacío para días que no son vacaciones
+        }
+
         currentDay.add(1, "day");
       }
       return diasVacaciones;
@@ -2037,8 +2044,14 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           doc.on("error", reject);
 
+          //const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
+
           comisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
+            // doc.image(backgroundImage, 0, 0, {
+            //   width: docWidth,
+            //   height: docHeight,
+            // });
             const cardNumber = record.NUMTARJETA || "";
             const area = record.ADSCRIPCION || "";
             const name =
@@ -2074,84 +2087,133 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             const ajusteY = -5.67 + extraLeftUp;
             const extraRight2mm = printerPosition === "DERECHA" ? 0.2 * pt : 0;
 
-            // NUM
-            const numBaseX = 6.5 * pt;
-            const numX =
-              printerPosition === "DERECHA"
-                ? numBaseX - 0.5 * pt + extraNumOffsetX
-                : numBaseX + extraNumOffsetX;
-            const numY =
-              (1.8 - 1 - 0.2) * pt +
-              ajusteY +
-              (printerPosition === "IZQUIERDA" ? -0.2 * pt : 0) +
-              printerOffsetGlobal +
-              extraRight2mm;
+            let numCardX, numCardY, xStartCard, xEndCard;
 
-            doc.text(cardNumber, numX, numY, {
-              width: docWidth - numX,
+            if (printerPosition === "DERECHA") {
+              numCardX = 174;
+              numCardY = 29;
+              xStartCard = 174;
+              xEndCard = 228;
+            } else {
+              numCardX = 174;
+              numCardY = 29 - 0.8 * pt;
+              xStartCard = 174;
+              xEndCard = 228;
+            }
+
+            const rangeCardWidth = xEndCard - xStartCard;
+            doc.text(cardNumber, numCardX, numCardY, {
+              width: rangeCardWidth,
               lineBreak: false,
             });
 
-            // AREA, NOMBRE, REL_L
-            const bodyFontSize =
-              8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            const bodyFontSize = 8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
             doc.fontSize(bodyFontSize).font("Helvetica");
-            doc.text(
-              area,
-              0,
-              (2.5 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
-              {
-                width: docWidth,
-                align: "center",
-              },
-            );
+            let numAreaX, numAreaY, xStartArea, xEndArea;
 
-            doc.text(
-              name,
-              0,
-              (3.2 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
-              {
-                width: docWidth,
-                align: "center",
-              },
-            );
+            if (printerPosition === "DERECHA") {
+              numAreaX = 31;
+              numAreaY = 58;
+              xStartArea = 31;
+              xEndArea = 221;
+            } else {
+              numAreaX = 31;
+              numAreaY = 58 - 0.8 * pt;
+              xStartArea = 31;
+              xEndArea = 221;
+            }
 
-            doc.text(
-              REL_L,
-              0,
-              (4 - 1) * pt + ajusteY + printerOffsetGlobal + extraRight2mm,
-              {
-                width: docWidth,
-                align: "center",
-              },
-            );
+            const rangeAreaWidth = xEndArea - xStartArea;
+            doc.text(area, numAreaX, numAreaY, {
+              width: rangeAreaWidth,
+              align: "center",
+              lineBreak: false,
+            });
 
-            // HORARIO
-            const shiftY =
-              3.8 * pt +
-              ajusteY +
-              (printerPosition === "DERECHA" ? -0.2 * pt : 0) +
-              printerOffsetGlobal +
-              extraRight2mm;
-            doc.text(shift, 0, shiftY, {
-              width: docWidth,
+            let numNameX, numNameY, xStartName, xEndName;
+
+            if (printerPosition === "DERECHA") {
+              numNameX = 44;
+              numNameY = 76;
+              xStartName = 44;
+              xEndName = 221;
+            } else {
+              numNameX = 44;
+              numNameY = 76 - 0.8 * pt;
+              xStartName = 44;
+              xEndName = 221;
+            }
+
+            const rangeNameWidth = xEndName - xStartName;
+            doc.text(name, numNameX, numNameY, {
+              width: rangeNameWidth,
+              align: "center",
+              lineBreak: false,
+            });
+
+            let numRelLX, numRelLY, xStartRelL, xEndRelL;
+
+            if (printerPosition === "DERECHA") {
+              numRelLX = 73;
+              numRelLY = 97;
+              xStartRelL = 73;
+              xEndRelL = 221;
+            } else {
+              numRelLX = 73;
+              numRelLY = 97 - 0.8 * pt;
+              xStartRelL = 73;
+              xEndRelL = 221;
+            }
+
+            const rangeRelLWidth = xEndRelL - xStartRelL;
+            doc.text(REL_L, numRelLX, numRelLY, {
+              width: rangeRelLWidth,
+              align: "center",
+              lineBreak: false,
+            });
+
+            let numShiftX, numShiftY, xStartShift, xEndShift;
+
+            if (printerPosition === "DERECHA") {
+              numShiftX = 50;
+              numShiftY = 116;
+              xStartShift = 50;
+              xEndShift = 221;
+            } else {
+              numShiftX = 50;
+              numShiftY = 116 - 0.8 * pt;
+              xStartShift = 50;
+              xEndShift = 221;
+            }
+
+            const rangeShiftWidth = xEndShift - xStartShift;
+            doc.text(shift, numShiftX, numShiftY, {
+              width: rangeShiftWidth,
               align: "center",
             });
 
-            // QUINCENA
-            const offsetX =
-              0.5 * pt + (printerPosition === "DERECHA" ? 0.2 * pt : 0);
-            const baseY =
-              (5.6 - 1) * pt +
-              ajusteY +
-              (printerPosition === "DERECHA" ? -0.3 * pt : 0) +
-              printerOffsetGlobal +
-              extraRight2mm;
+            let numQuinX, numQuinY, xStartQuin, xEndQuin;
+
+            if (printerPosition === "DERECHA") {
+              numQuinX = 55;
+              numQuinY = 135;
+              xStartQuin = 55;
+              xEndQuin = 221;
+            } else {
+              numQuinX = 55;
+              numQuinY = 135 - 0.8 * pt;
+              xStartQuin = 55;
+              xEndQuin = 221;
+            }
+
+            const rangeQuinWidth = xEndQuin - xStartQuin;
+            // doc.rect(xStartQuin, numQuinY, rangeQuinWidth, 5).fill("black");
             const quincenaFont = 9 + (printerPosition === "IZQUIERDA" ? 1 : 0);
             doc.fontSize(quincenaFont).font("Helvetica-Bold");
-            doc.text(quincena.texto, offsetX, baseY, {
-              width: docWidth - offsetX,
+            doc.text(quincena.texto, numQuinX, numQuinY, {
+              width: rangeQuinWidth,
               align: "center",
+              lineBreak: false,
             });
 
             // COMISIONADO
@@ -2210,7 +2272,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           doc.on("error", reject);
 
-          // const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
+          //const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
 
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
@@ -2263,7 +2325,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xEndCard = 228;
             } else {
               numCardX = 174;
-              numCardY = 29;
+              numCardY = 29 - 0.8 * pt;
               xStartCard = 174;
               xEndCard = 228;
             }
@@ -2285,7 +2347,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xEndArea = 221;
             } else {
               numAreaX = 31;
-              numAreaY = 58;
+              numAreaY = 58 - 0.8 * pt;
               xStartArea = 31;
               xEndArea = 221;
             }
@@ -2306,7 +2368,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xEndName = 221;
             } else {
               numNameX = 44;
-              numNameY = 76;
+              numNameY = 76 - 0.8 * pt;
               xStartName = 44;
               xEndName = 221;
             }
@@ -2327,7 +2389,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xEndRelL = 221;
             } else {
               numRelLX = 73;
-              numRelLY = 97;
+              numRelLY = 97 - 0.8 * pt;
               xStartRelL = 73;
               xEndRelL = 221;
             }
@@ -2348,7 +2410,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xEndShift = 221;
             } else {
               numShiftX = 50;
-              numShiftY = 116;
+              numShiftY = 116 - 0.8 * pt;
               xStartShift = 50;
               xEndShift = 221;
             }
@@ -2368,7 +2430,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               xEndQuin = 221;
             } else {
               numQuinX = 55;
-              numQuinY = 135;
+              numQuinY = 135 - 0.8 * pt;
               xStartQuin = 55;
               xEndQuin = 221;
             }
@@ -2390,7 +2452,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               record.VACACIONES
             );
 
-            const vacacionesMarginLeft = 0.5 * pt;
+            const vacacionesMarginLeft = 0.7 * pt;
             const vacacionesTopMargin = 1 * pt;
             const vacacionesLineHeight = 0.2 * pt;
 
@@ -2398,7 +2460,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             if (printerPosition === "DERECHA") {
               vacacionesY = 186;
             } else {
-              vacacionesY = 186;
+              vacacionesY = 186 - 0.8 * pt;
             }
 
 
@@ -2408,11 +2470,15 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             diasEnVacaciones.forEach((texto) => {
               if (texto) {
-                const textoEspaciado = texto.split("").join("  ");
+                // Separar el día y la palabra VACACIONES
+                const [dia, ...resto] = texto.split(" ");
+                const palabra = resto.join(" ");
+                const palabraEspaciada = palabra.split("").join("  ");
+                const textoFinal = `${dia}     ${palabraEspaciada}`;
                 doc
                   .font("Helvetica-Bold")
                   .fontSize(0.5 * pt)
-                  .text(textoEspaciado, vacacionesMarginLeft, vacacionesY, {
+                  .text(textoFinal, vacacionesMarginLeft, vacacionesY, {
                     width: docWidth - vacacionesMarginLeft,
                     align: "left",
                   });
