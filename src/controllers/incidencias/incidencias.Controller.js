@@ -2473,11 +2473,11 @@ incidenciasController.printAsistenceCards = async (req, res) => {
                 // Separar el día y la palabra VACACIONES
                 const [dia, ...resto] = texto.split(" ");
                 const palabra = resto.join(" ");
-                const palabraEspaciada = palabra.split("").join("  ");
-                const textoFinal = `${dia}     ${palabraEspaciada}`;
+                const palabraEspaciada = palabra.split("").join("   ");
+                const textoFinal = `${dia}        ${palabraEspaciada}`;
                 doc
                   .font("Helvetica-Bold")
-                  .fontSize(0.5 * pt)
+                  .fontSize(0.4 * pt)
                   .text(textoFinal, vacacionesMarginLeft, vacacionesY, {
                     width: docWidth - vacacionesMarginLeft,
                     align: "left",
