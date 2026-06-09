@@ -33,6 +33,13 @@ async function updateOne(collectionName, filter, update) {
   return result;
 }
 
+async function updateMany(collectionName, filter, update, options = {}) {
+  const database = await connect();
+  const collection = database.collection(collectionName);
+  const result = await collection.updateMany(filter, update, options);
+  return result;
+}
+
 async function deleteOne(collectionName, filter) {
   const database = await connect();
   const collection = database.collection(collectionName);
@@ -66,6 +73,7 @@ module.exports = {
   ping,
   insertOne,
   updateOne,
+  updateMany,
   deleteOne,
   deleteMany,
   findById,

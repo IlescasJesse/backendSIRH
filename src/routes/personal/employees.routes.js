@@ -21,6 +21,11 @@ router.post(
   verifyToken,
   employeeController.getProfileData
 );
+router.post(
+  "/getemployee/unifiedProfile/:id",
+  verifyToken,
+  employeeController.getUnifiedProfileData
+);
 // router.post(
 //     "/getemployee/:query",
 //     verifyToken,

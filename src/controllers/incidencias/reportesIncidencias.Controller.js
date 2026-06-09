@@ -17,7 +17,7 @@ const reportesIncidenciasController = {};
 
 reportesIncidenciasController.printEconomicDays = async (req, res) => {
   const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable",
+    "SELECT * FROM proyectos",
   );
   const doc = new PDFDocument();
   const quin = req.query.QUIN || req.params.QUIN || req.body.QUIN;
@@ -149,10 +149,10 @@ reportesIncidenciasController.printEconomicDays = async (req, res) => {
       .sort((a, b) => a.localeCompare(b))
       .forEach((proyecto) => {
         const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto,
+          (unidad) => unidad.proyecto === proyecto,
         );
         const unidadResponsableNombre = unidadResponsable
-          ? ` - ${unidadResponsable.UNIDAD_RESPONSABLE}`
+          ? ` - ${unidadResponsable.unidad_responsable}`
           : "";
         doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
           align: "left",
@@ -442,7 +442,7 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
   res,
 ) => {
   const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable",
+    "SELECT * FROM proyectos",
   );
   const doc = new PDFDocument();
   const fechaDesde = req.body.FECHA_DESDE;
@@ -572,10 +572,10 @@ reportesIncidenciasController.printIndividualEconomicDays = async (
       .sort((a, b) => a.localeCompare(b))
       .forEach((proyecto) => {
         const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto,
+          (unidad) => unidad.proyecto === proyecto,
         );
         const unidadResponsableNombre = unidadResponsable
-          ? ` - ${unidadResponsable.UNIDAD_RESPONSABLE}`
+          ? ` - ${unidadResponsable.unidad_responsable}`
           : "";
         doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
           align: "left",
@@ -995,7 +995,7 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
   const { area, quin } = req.params;
 
   const unidades_responsables = await querysql(
-    "SELECT * FROM unidad_responsable",
+    "SELECT * FROM proyectos",
   );
 
   const inasistencias_central = await query("INCIDENCIAS", {
@@ -1171,10 +1171,10 @@ reportesIncidenciasController.printInasistencias = async (req, res) => {
       // Generar tablas por cada proyecto
       Object.keys(proyectosAgrupados).forEach((proyecto) => {
         const unidadResponsable = unidades_responsables.find(
-          (unidad) => unidad.PROYECTO === proyecto,
+          (unidad) => unidad.proyecto === proyecto,
         );
         const unidadResponsableNombre = unidadResponsable
-          ? ` - ${unidadResponsable.OBRA_ACTIVIDAD}`
+          ? ` - ${unidadResponsable.obra_actividad}`
           : "";
         doc.text(`PROYECTO: ${proyecto}${unidadResponsableNombre}`, {
           align: "left",

@@ -9,5 +9,8 @@ router.put("/updateQuinquenios", verifyToken, sueldosController.putQuinquenios);
 router.post("/newEstimulo", verifyToken, sueldosController.newEstimulo);
 router.put("/updateEstimulo", verifyToken, sueldosController.updateEstimulo);
 router.delete("/deleteEstimulo", verifyToken, sueldosController.deleteEstimulo);
+router.post("/newGasadmi", verifyToken, sueldosController.newGasadmi);
+router.put("/updateGasadmi", verifyToken, sueldosController.updateGasadmi);
+router.delete("/deleteGasadmi", verifyToken, sueldosController.deleteGasadmi);
 
 module.exports = router;

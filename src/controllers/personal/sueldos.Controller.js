@@ -25,7 +25,9 @@ sueldosController.getSueldosAndQuin = async (req, res) => {
         const quinContrato = await querysql(`SELECT * FROM quin_confianza`);
         const quinMandosMedios = await querysql(`SELECT * FROM quin_mandosmedios`);
 
-        const estimulos = await querysql(`SELECT * FROM personal_estimulo`);
+        const estimulos = await query("PERSONAL_ESTIMULO");
+
+        const gasadmi = await query("PERSONAL_GASADMI");
 
         const estimulosWithEmployee = await Promise.all(
             estimulos.map(async (estimulo) => {
@@ -48,6 +50,28 @@ sueldosController.getSueldosAndQuin = async (req, res) => {
             })
         );
 
+        const gasadmiWithEmployee = await Promise.all(
+            gasadmi.map(async (estimulo) => {
+                let employeeInfo = null;
+
+                if (estimulo.id_employee && ObjectId.isValid(String(estimulo.id_employee))) {
+                    const employeeResult = await query("PLANTILLA", {
+                        _id: new ObjectId(String(estimulo.id_employee)),
+                    });
+
+                    employeeInfo = Array.isArray(employeeResult) ? employeeResult[0] || null : null;
+                }
+
+                return {
+                    ...estimulo,
+                    NOMBRE: employeeInfo.status === 1 ? `${employeeInfo.APE_PAT || ''} ${employeeInfo.APE_MAT || ''} ${employeeInfo.NOMBRES || ''}`.trim() : 'V A C A N T E',
+                    NUMPLA: employeeInfo.NUMPLA || null,
+                    TIPONOM: employeeInfo.TIPONOM || null,
+                };
+            })
+        );
+
+
         const data = {
             SUELDOS: {
                 BASE: sueldosBase,
@@ -59,7 +83,8 @@ sueldosController.getSueldosAndQuin = async (req, res) => {
                 CONTRATO: quinContrato,
                 MANDOS_MEDIOS: quinMandosMedios
             },
-            ESTIMULOS: estimulosWithEmployee
+            ESTIMULOS: estimulosWithEmployee,
+            GASADMI: gasadmiWithEmployee
         };
 
         const userAction = {
@@ -200,10 +225,22 @@ sueldosController.newEstimulo = async (req, res) => {
     try {
         const { id_employee, estimulo } = req.body.data;
 
-        const existingEstimulo = await querysql(`SELECT * FROM personal_estimulo WHERE id_employee = ?`, [id_employee]);
+        if (!id_employee || !estimulo) {
+            return res.status(400).json({ message: "Información faltante que es requerida" });
+        }
+
+        const employee = await query("PLANTILLA", { _id: new ObjectId(id_employee) });
+
+        if (employee.length === 0) {
+            return res.status(404).json({ message: "Empleado no encontrado" });
+        }
+
+        const existingEstimulo = await query("PERSONAL_ESTIMULO", {
+            id_employee: new ObjectId(id_employee),
+        });
 
         if (existingEstimulo.length > 0) {
-            return res.status(409).json({ message: "Personal con estimulo ya registrado" });
+            return res.status(409).json({ message: "Empleado con estimulo ya registrado" });
         }
 
         const userAction = {
@@ -213,8 +250,14 @@ sueldosController.newEstimulo = async (req, res) => {
             timestamp: currentDateTime,
         };
 
+        const data = {
+            id_employee: new ObjectId(id_employee),
+            estimulo: estimulo
+        }
+
         await insertOne("USER_ACTIONS", userAction);
-        await querysql(`INSERT INTO personal_estimulo (id_employee, estimulo) VALUES (?, ?)`, [id_employee, estimulo]);
+        await insertOne("PERSONAL_ESTIMULO", data)
+
         return res.json({ message: "Estimulo registrado correctamente" });
     } catch (error) {
         console.error(error);
@@ -231,7 +274,13 @@ sueldosController.updateEstimulo = async (req, res) => {
     try {
         const { id_employee, estimulo } = req.body.data;
 
-        const existingEstimulo = await querysql(`SELECT * FROM personal_estimulo WHERE id_employee = ?`, [id_employee]);
+        if (!id_employee || !estimulo) {
+            return res.status(400).json({ message: "Información faltante que es requerida" });
+        }
+
+        const existingEstimulo = await query("PERSONAL_ESTIMULO", {
+            id_employee: new ObjectId(id_employee),
+        });
 
         if (existingEstimulo.length === 0) {
             return res.status(404).json({ message: "Personal con estimulo no encontrado" });
@@ -245,12 +294,15 @@ sueldosController.updateEstimulo = async (req, res) => {
         };
 
         await insertOne("USER_ACTIONS", userAction);
-
-        await querysql(`UPDATE personal_estimulo SET estimulo = ? WHERE id_employee = ?`, [estimulo, id_employee]);
+        await updateOne(
+            "PERSONAL_ESTIMULO",
+            { id_employee: new ObjectId(id_employee) },
+            { $set: { estimulo: estimulo } }
+        );
         return res.json({ message: "Estimulo actualizado correctamente" });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error al actualizar el estímulo" });
+        return res.status(500).json({ message: "Error al actualizar el estímulo" });
     }
 }
 
@@ -263,11 +315,14 @@ sueldosController.deleteEstimulo = async (req, res) => {
     try {
         const { id, id_employee } = req.body;
 
-        const estimulo = await querysql(`SELECT * FROM personal_estimulo WHERE id = ? AND id_employee = ?`, [id, id_employee]);
+        const existingEstimulo = await query("PERSONAL_ESTIMULO", {
+            id_employee: new ObjectId(id_employee),
+        });
 
-        if (estimulo.length === 0) {
+        if (existingEstimulo.length === 0) {
             return res.status(404).json({ message: "Personal con estimulo no encontrado" });
         }
+
         const userAction = {
             username: user.username,
             module: "PSL-CE",
@@ -277,11 +332,139 @@ sueldosController.deleteEstimulo = async (req, res) => {
 
         await insertOne("USER_ACTIONS", userAction);
 
-        await querysql(`DELETE FROM personal_estimulo WHERE id = ? AND  id_employee = ?`, [id, id_employee]);
+        await deleteOne("PERSONAL_ESTIMULO", {
+            id_employee: new ObjectId(id_employee),
+        });
         return res.json({ message: "Estimulo eliminado correctamente" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error al eliminar el estímulo" });
+    }
+}
+
+sueldosController.newGasadmi = async (req, res) => {
+    const { user } = req;
+    const currentDateTime = new Date().toLocaleString("es-MX", {
+        timeZone: "America/Mexico_City",
+    });
+
+    try {
+        const { id_employee, gasadmi } = req.body.data;
+
+        if (!id_employee || !gasadmi) {
+            return res.status(400).json({ message: "Información faltante que es requerida" });
+        }
+
+        const employee = await query("PLANTILLA", { _id: new ObjectId(id_employee) });
+
+        if (employee.length === 0) {
+            return res.status(404).json({ message: "Empleado no encontrado" });
+        }
+
+        const existingGasadmi = await query("PERSONAL_GASADMI", {
+            id_employee: new ObjectId(id_employee),
+        });
+
+        if (existingGasadmi.length > 0) {
+            return res.status(409).json({ message: "Empleado con gasadmi ya registrado" });
+        }
+
+        const userAction = {
+            username: user.username,
+            module: "PSL-CE",
+            action: `AGREGÓ AL EMPLEADO CON ID: "${id_employee}" UN NUEVO GASADMI DE: "${gasadmi}"`,
+            timestamp: currentDateTime,
+        };
+
+        const data = {
+            id_employee: new ObjectId(id_employee),
+            gasadmi: gasadmi
+        }
+
+        await insertOne("USER_ACTIONS", userAction);
+        await insertOne("PERSONAL_GASADMI", data)
+
+        return res.json({ message: "Gasadmi registrado correctamente" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error al registrar el estímulo" });
+    }
+}
+
+sueldosController.updateGasadmi = async (req, res) => {
+    const { user } = req;
+    const currentDateTime = new Date().toLocaleString("es-MX", {
+        timeZone: "America/Mexico_City",
+    });
+
+    try {
+        const { id_employee, gasadmi } = req.body.data;
+
+        if (!id_employee || !gasadmi) {
+            return res.status(400).json({ message: "Información faltante que es requerida" });
+        }
+
+        const existingGasadmi = await query("PERSONAL_GASADMI", {
+            id_employee: new ObjectId(id_employee),
+        });
+
+        if (existingGasadmi.length === 0) {
+            return res.status(404).json({ message: "Personal con gasadmi no encontrado" });
+        }
+
+        const userAction = {
+            username: user.username,
+            module: "PSL-CE",
+            action: `MODIFICÓ EL GASADMI DEL EMPLEADO CON ID: "${id_employee}"`,
+            timestamp: currentDateTime,
+        };
+
+        await insertOne("USER_ACTIONS", userAction);
+        await updateOne(
+            "PERSONAL_GASADMI",
+            { id_employee: new ObjectId(id_employee) },
+            { $set: { gasadmi: gasadmi } }
+        );
+        return res.json({ message: "Gasadmi actualizado correctamente" });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Error al actualizar el gasadmi" });
+    }
+}
+
+sueldosController.deleteGasadmi = async (req, res) => {
+    const { user } = req;
+    const currentDateTime = new Date().toLocaleString("es-MX", {
+        timeZone: "America/Mexico_City",
+    });
+
+    try {
+        const { id, id_employee } = req.body;
+
+        const existingEstimulo = await query("PERSONAL_GASADMI", {
+            id_employee: new ObjectId(id_employee),
+        });
+
+        if (existingEstimulo.length === 0) {
+            return res.status(404).json({ message: "Personal con gasadmi no encontrado" });
+        }
+
+        const userAction = {
+            username: user.username,
+            module: "PSL-CE",
+            action: `ELIMINÓ EL GASADMI DEL EMPLEADO CON ID: "${id_employee}"`,
+            timestamp: currentDateTime,
+        };
+
+        await insertOne("USER_ACTIONS", userAction);
+
+        await deleteOne("PERSONAL_GASADMI", {
+            id_employee: new ObjectId(id_employee),
+        });
+        return res.json({ message: "Gasadmi eliminado correctamente" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error al eliminar el gasadmi" });
     }
 }
 
