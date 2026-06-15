@@ -5,12 +5,18 @@ const NotificationSchema = new mongoose.Schema(
         title: String,
         message: String,
         username: String,    // quién generó la notificación
-        module: String,        // PSL, VACACIONES…
-        rol: [String],       // ['ADMIN', 'RH']
+        module: [String],        // PSL, VACACIONES…
         permissions: [String], // ['PSL-EI', 'VACACIONES-APROBAR']
         userTarget: String,    // username específico (opcional)
+        all: {
+            type: Boolean,
+            default: false
+        },
 
-        readBy: [String],      // usuarios que ya la leyeron
+        readBy: {
+            type: [String],
+            default: [], // 🔥 clave para leídas
+        },
 
         // campos legibles con formato solicitado
         fecha: String, // DD/MM/AAAA

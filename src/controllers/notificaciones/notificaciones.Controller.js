@@ -3,30 +3,69 @@ const notificacionesController = {};
 
 notificacionesController.getNotificaciones = async (req, res) => {
     try {
+        const user = req.user;
+        const username = user.username;
+
         const notificaciones = await query("notifications", {});
         const users = await query("USUARIOS", {});
 
-        // Crear mapa de usuarios por username para búsqueda rápida
         const userMap = new Map(users.map(u => [u.username, u]));
 
-        // Excluir acciones cuyo texto comience con "CONSULTÓ" (case-insensitive)
-        const filteredNotificaciones = notificaciones.filter((a) => {
-            const text = (a.action || "").toString().trim();
-            return !/^CONSULTÓ/i.test(text);
+        let filteredNotificaciones = notificaciones.filter((n) => {
+
+            const text = (n.action || "").toString().trim();
+            if (/^CONSULTÓ/i.test(text)) return false;
+
+            if (n.all) return true;
+
+            const userPermissions = user.permissions || [];
+
+            const userModules = userPermissions.map(p => {
+                if (p === '*') return '*';
+                return p.split('-')[0];
+            });
+
+            if (n.module?.length) {
+                return n.module.some(m =>
+                    userModules.includes('*') || userModules.includes(m)
+                );
+            }
+
+            if (n.permissions?.length) {
+
+                if (userPermissions.includes('*')) return true;
+
+                return n.permissions.some(p =>
+                    userPermissions.includes(p)
+                );
+            }
+
+            return false;
         });
 
+        console.log('Notificaciones', filteredNotificaciones);
+
+
         filteredNotificaciones.forEach((action) => {
+
             const matchedUser = userMap.get(action.username);
+
             if (matchedUser) {
                 const fullName = String(matchedUser.name || "").trim();
                 const nameParts = fullName.split(/\s+/).filter(Boolean);
                 action.name = nameParts.slice(0, 2).join(" ");
+            } else {
+                action.name = action.username;
             }
+
+            if (!action.readBy) {
+                action.readBy = [];
+            }
+
+            action.isRead = action.readBy.includes(username);
         });
 
-        // Ordenar por fecha y hora (más recientes primero)
         filteredNotificaciones.sort((a, b) => {
-            // Parsear fecha DD/MM/AAAA a Date
             const parseFecha = (fechaStr) => {
                 if (!fechaStr) return new Date(0);
                 const [dd, mm, aaaa] = fechaStr.split("/");
@@ -37,22 +76,19 @@ notificacionesController.getNotificaciones = async (req, res) => {
             const dateB = parseFecha(b.fecha);
 
             if (dateA.getTime() !== dateB.getTime()) {
-                return dateB.getTime() - dateA.getTime(); // Más recientes primero
+                return dateB.getTime() - dateA.getTime();
             }
 
-            // Si las fechas son iguales, ordenar por hora (más recientes primero)
             const parseHora = (horaStr) => {
                 if (!horaStr) return "00:00";
-                return horaStr.split(" ")[0]; // Extrae HH:MM
+                return horaStr.split(" ")[0];
             };
 
-            const horaA = parseHora(a.hora);
-            const horaB = parseHora(b.hora);
-
-            return horaB.localeCompare(horaA); // Orden descendente
+            return parseHora(b.hora).localeCompare(parseHora(a.hora));
         });
 
         res.send(filteredNotificaciones);
+
     } catch (error) {
         res.status(500).json({ error: "An error occurred while fetching data" });
     }

@@ -273,7 +273,7 @@ employeeController.makeProposal = async (req, res) => {
   const userAction = {
     username: user.username,
     module: "PSL-PRO",
-    action: `REALIZO LA PROPUESTA DE  "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
+    action: `REALIZÓ LA PROPUESTA DE "${data.NOMBRES} ${data.APE_PAT} ${data.APE_MAT}"`,
     timestamp: currentDateTime,
   };
 
@@ -770,7 +770,6 @@ employeeController.saveEmployee = async (req, res) => {
 };
 //funcion para actualizar un empleado en la plantilla
 employeeController.updateEmployee = async (req, res) => {
-  const io = req.app.get("io");
   const { data } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("en-US", {
@@ -818,19 +817,10 @@ employeeController.updateEmployee = async (req, res) => {
     const userAction = {
       username: user.username,
       module: "PSL-UPDATE",
-      action: `MODIFICÓ INFORMACION DEL EMPLEADO "${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} ${updatedEmployee.NOMBRES} "`,
+      action: `MODIFICÓ INFORMACION DEL EMPLEADO "${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} ${updatedEmployee.NOMBRES}"`,
       timestamp: currentDateTime,
     };
     await insertOne("USER_ACTIONS", userAction);
-
-    await createNotification(io, {
-      title: "Empleado actualizado",
-      username: user.username,
-      message: `MÓDIFICO LA INFORMACIÓN DEL EMPLEADO "${updatedEmployee.NOMBRES} ${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} "`,
-      module: "PSL",
-      rol: ["ADMINISTRADOR", "USUARIO"],
-      permissions: ["PSL-EI", "*"],
-    });
 
     res.status(200).json({
       message: "Employee updated and templateData removed",

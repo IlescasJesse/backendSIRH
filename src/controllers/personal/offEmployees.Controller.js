@@ -6,7 +6,7 @@ const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const { ObjectId } = require("mongodb");
-
+const { createNotification } = require("../../services/notification.service");
 const { querysql } = require("../../config/mysql");
 const { insertOne } = require("../../config/mongo");
 const { off } = require("process");
@@ -14,6 +14,7 @@ const { last } = require("pdf-lib");
 const moment = require('moment');
 require('moment/locale/es');
 moment.locale('es');
+const getIO = (req) => req.app.get("io");
 
 offEmployeeController.getVacants = async (req, res) => {
   try {
@@ -103,9 +104,8 @@ offEmployeeController.getDatatoOff = async (req, res) => {
   }
 };
 
-// DAR DE BAJA UN EMPLEADLO Y GENERAR DOCUMENTO DE BAJA
-
 offEmployeeController.saveDataOff = async (req, res) => {
+  const io = getIO(req);
   const { data } = req.body;
   const user = req.user;
 
@@ -176,6 +176,13 @@ offEmployeeController.saveDataOff = async (req, res) => {
     }
 
     if (data.reason !== "L-PRRO") {
+      await createNotification(io, {
+        title: "Baja generada",
+        username: user.username,
+        message: `REALIZÓ LA BAJA DEL EMPLEADO "${data.NOMBRE}"`,
+        all: true
+      });
+
       await insertOne(`BAJAS`, data);
 
       const plaza = await query(`PLAZAS`, { NUMPLA: data.NUMPLA });

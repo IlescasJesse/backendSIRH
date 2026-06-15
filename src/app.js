@@ -49,11 +49,10 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log("🟢 Cliente conectado:", socket.id);
 
-  socket.on("join", ({ username, rol, permissions }) => {
-    console.log("📥 Join recibido:", { username, rol, permissions });
+  socket.on("join", ({ username, permissions }) => {
+    console.log("📥 Join recibido:", { username, permissions });
 
     if (username) socket.join(`USER_${username}`);
-    if (rol) socket.join(`ROL_${rol}`);
 
     if (permissions?.length) {
       permissions.forEach(permission => {
@@ -61,7 +60,6 @@ io.on("connection", (socket) => {
       });
     }
 
-    // 🔥 Mostrar salas del usuario
     console.log("📌 Salas del socket:", [...socket.rooms]);
   });
 
