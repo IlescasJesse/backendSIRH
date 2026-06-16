@@ -994,6 +994,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
       const plaza = mapaPlazas.get(item.NUMPLA) || {};
       const ocupanteReciente = (plaza.previousOcuppants || []).slice(-1)[0] || {};
+      const dischargeDate = ocupanteReciente.FECHA_BAJA ? new Date(ocupanteReciente.FECHA_BAJA) : '';
 
       const direccion = item.DIRECCION || {};
       const estudios = item.ESTUDIOS || {};
@@ -1050,7 +1051,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
           : "",
 
         OCUPANTE_ANT: ocupanteReciente.NOMBRE || "",
-        FECHA_BAJA: ocupanteReciente.FECHA_BAJA || "",
+        FECHA_BAJA: dischargeDate,
         MOTIVO: motivoBajaMapping[ocupanteReciente.MOTIVO_BAJA] || ocupanteReciente.MOTIVO_BAJA || "",
       };
 

@@ -857,16 +857,20 @@ employeeController.newPlaza = async (req, res) => {
 
   try {
     await insertOne("PLAZAS", {
-      ...data,
-      status: 2,
       previousOcuppants: [
         {
           NOMBRE: "PLAZA DE NUEVA CREACION",
           FECHA: null,
           FECHA_BAJA: null,
           MOTIVO_BAJA: null,
+          OWNER: true
         },
       ],
+      NUMPLA: data.NUMPLA,
+      TIPONOM: data.TIPONOM,
+      PROYECTO: data.PROYECTO,
+      DEPARTAMENTO: data.ADSCRIPCION,
+      status: 2,
     });
 
     const plantillaResult = await insertOne("PLANTILLA", {
@@ -874,7 +878,11 @@ employeeController.newPlaza = async (req, res) => {
       NOMBRES: "PLAZA DE NUEVA CREACION",
       PROYECTO: data.PROYECTO,
       ADSCRIPCION: data.ADSCRIPCION,
+      CLAVE: data.CLAVE,
       TIPONOM: data.TIPONOM,
+      NOMCATE: data.NOMCATE,
+      CLAVECAT: data.CLAVECAT,
+      NIVEL: data.NIVEL,
       status: 2,
     });
     const bitacoraResult = await insertOne("BITACORA", {

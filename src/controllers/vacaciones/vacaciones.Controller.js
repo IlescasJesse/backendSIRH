@@ -99,16 +99,20 @@ vacacionesController.getProfile = async (req, res) => {
     }
 
     let yearsWorked = 0;
+    let monthsWorked = 0;
     if (fechaCorte && fechaCorte.isValid()) {
-
       if (fechaVacaciones && fechaVacaciones.isValid()) {
         yearsWorked = fechaCorte.diff(fechaVacaciones, "years");
+        monthsWorked = fechaCorte.diff(fechaVacaciones, "months");
       } else if (fechaIngreso.isValid()) {
         yearsWorked = fechaCorte.diff(fechaIngreso, "years");
+        monthsWorked = fechaCorte.diff(fechaIngreso, "months");
       } else {
         console.warn(`Fecha inválida para empleado ${emp._id}`);
         yearsWorked = 0;
       }
+
+
 
       if (yearsWorked > 0 && yearsWorked % 5 === 0) {
         yearsWorked--;
@@ -124,7 +128,9 @@ vacacionesController.getProfile = async (req, res) => {
 
     // Determinar días según años trabajados
     if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {
-      if (yearsWorked <= 5) {
+      if (monthsWorked < 6) {
+        totalDays = 0;
+      } else if (yearsWorked <= 5) {
         totalDays = 11;
       } else if (yearsWorked > 5 && yearsWorked <= 10) {
         totalDays = 13;
@@ -136,7 +142,9 @@ vacacionesController.getProfile = async (req, res) => {
         totalDays = 19;
       }
     } else {
-      if (yearsWorked <= 5) {
+      if (monthsWorked < 12) {
+        totalDays = 0;
+      } else if (yearsWorked <= 5) {
         totalDays = 10;
       } else if (yearsWorked > 5 && yearsWorked <= 10) {
         totalDays = 11;

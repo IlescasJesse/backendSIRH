@@ -128,6 +128,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
   let L_PRRO = false;
   let RR = false;
   let DEF = false;
+  let prorrogStart = null;
   try {
 
     const plantilla = await query("PLANTILLA", {
@@ -275,7 +276,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
       const currentEndDate = existingLicense[0].end_date;
 
       // Inicio: día siguiente al end_date actual
-      let prorrogStart;
       if (!currentEndDate || !moment(currentEndDate, ['DD/MM/YYYY', 'YYYY-MM-DD']).isValid()) {
         // Primera prórroga: usar discharge_date + 1 día
         prorrogStart = moment(existingLicense[0].discharge_date, ['DD/MM/YYYY', 'YYYY-MM-DD']).add(1, 'days').format('YYYY-MM-DD');
@@ -383,9 +383,12 @@ offEmployeeController.saveDataOff = async (req, res) => {
     "DICIEMBRE",
   ];
 
-  const formattedDate = moment(data.discharge_date)
-    .format('DD [DE] MMMM [DE] YYYY')
-    .toUpperCase();
+  let formattedDate = "";
+  if (data.reason === "L-PRRO") {
+    formattedDate = moment(prorrogStart).format('DD [DE] MMMM [DE] YYYY').toUpperCase();
+  } else {
+    formattedDate = moment(data.discharge_date).format('DD [DE] MMMM [DE] YYYY').toUpperCase();
+  }
 
   if (lastTipoNom === "F51" || lastTipoNom === "M51") {
     relacionB = true;
