@@ -1409,6 +1409,10 @@ reportesPersonalController.getBajasBetweenDates = async (req, res) => {
 reportesPersonalController.getPlantillaReportArea = async (req, res) => {
   try {
     const { ADSCRIPCION, CLAVE, SUBNIVELES } = req.body;
+    let claveParaQuery = CLAVE;
+    if (CLAVE === 102 || CLAVE === '102') {
+      claveParaQuery = 104;
+    }
     let claves = [];
     let adscripcionDisplay = "";
     let nombreServidorSaliente = "";
@@ -1448,7 +1452,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     if (ADSCRIPCION !== 'TODAS') {
 
       const adscripciones = await querysql(
-        `WITH RECURSIVE jerarquia AS ( SELECT id_adscripcion, nombre, clave, parent_id FROM adscripciones WHERE clave = ${CLAVE} UNION ALL SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id FROM adscripciones a INNER JOIN jerarquia j ON a.parent_id = j.id_adscripcion ) SELECT * FROM jerarquia;`
+        `WITH RECURSIVE jerarquia AS ( SELECT id_adscripcion, nombre, clave, parent_id FROM adscripciones WHERE clave = ${claveParaQuery} UNION ALL SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id FROM adscripciones a INNER JOIN jerarquia j ON a.parent_id = j.id_adscripcion ) SELECT * FROM jerarquia;`
       );
       claves = adscripciones.map(a => a.clave);
 
@@ -1465,11 +1469,11 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     )
     SELECT * FROM padres ORDER BY nivel DESC;
     `,
-        [CLAVE]
+        [claveParaQuery]
       );
 
       const nombres = ancestros
-        .filter(item => String(item.clave) !== String(CLAVE))
+        .filter(item => String(item.clave) !== String(claveParaQuery))
         .filter(item => item.parent_id !== null)
         .map(item => item.nombre);
 
@@ -1491,9 +1495,13 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     let empleadosFiltrados = employees;
 
     if (CLAVE) {
-      const claveArray = SUBNIVELES
+      let claveArray = SUBNIVELES
         ? claves.map(c => Number(c)) // 🔥 usa toda la jerarquía
         : (Array.isArray(CLAVE) ? CLAVE : [CLAVE]).map(c => Number(c));
+
+      if (claveArray.includes(102)) {
+        claveArray = [...new Set([...claveArray, 104])];
+      }
 
       empleadosFiltrados = employees.filter((emp) => {
 
