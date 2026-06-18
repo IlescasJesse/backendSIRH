@@ -1939,17 +1939,17 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       return statusArray.some(s => statuses.includes(s.STATUS));
     }
 
-    const comisionados = employees
-      .filter(emp =>
-        hasStatus(emp, ["COM_SDCL", "COM_LAB"])
-      )
-      .sort(ordenarPorTarjeta);
+    // const comisionados = employees
+    //   .filter(emp =>
+    //     hasStatus(emp, ["COM_SDCL", "COM_LAB"])
+    //   )
+    //   .sort(ordenarPorTarjeta);
 
-    const noComisionados = employees
-      .filter(emp =>
-        !hasStatus(emp, ["COM_SDCL", "COM_LAB"])
-      )
-      .sort(ordenarPorTarjeta);
+    // const noComisionados = employees
+    //   .filter(emp =>
+    //     !hasStatus(emp, ["COM_SDCL", "COM_LAB"])
+    //   )
+    //   .sort(ordenarPorTarjeta);
 
     // Calcular quincenas
     const today = new Date();
@@ -2029,7 +2029,56 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       return diasVacaciones;
     }
 
+    function isComisionadoEnQuincena(emp, quincenaStart, quincenaEnd, comisionStatusTypes = ["COM_SDCL", "COM_LAB"]) {
+      if (!emp.STATUS_EMPLEADO || emp.STATUS_EMPLEADO.length === 0) {
+        return false;
+      }
+
+      const statusArray = emp.STATUS_EMPLEADO;
+
+      // Buscar un estatus comisionado que sea vigente en esta quincena
+      return statusArray.some(status => {
+        // Verificar que tenga el tipo de comisión correcto
+        if (!comisionStatusTypes.includes(status.STATUS)) {
+          return false;
+        }
+
+        // Si no hay fechas de vigencia, asumir que está activo (PERMANENTEMENTE COMISIONADO)
+        if (!status.DESDE && !status.HASTA) {
+          return true;
+        }
+
+        const statusDesde = status.DESDE ? moment(status.DESDE) : null;
+        const statusHasta = status.HASTA ? moment(status.HASTA) : null;
+        const quinStart = moment(quincenaStart);
+        const quinEnd = moment(quincenaEnd);
+
+        // Validar si la comisión se superpone con la quincena
+        if (statusDesde && statusDesde.isAfter(quinEnd)) {
+          // La comisión inicia DESPUÉS de que termina la quincena
+          return false;
+        }
+
+        if (statusHasta && statusHasta.isBefore(quinStart)) {
+          // La comisión termina ANTES de que inicie la quincena
+          return false;
+        }
+
+        return true;
+      });
+    }
+
     for (const quincena of quincenas) {
+
+      const comisionados = employees
+        .filter(emp => isComisionadoEnQuincena(emp, quincena.start, quincena.end))
+        .sort(ordenarPorTarjeta);
+
+      const noComisionados = employees
+        .filter(emp => !isComisionadoEnQuincena(emp, quincena.start, quincena.end))
+        .sort(ordenarPorTarjeta);
+
+
       // Generar PDF de comisionados
       if (comisionados.length > 0) {
         const pdfBuffer = await new Promise((resolve, reject) => {
@@ -2517,8 +2566,8 @@ incidenciasController.printAsistenceCards = async (req, res) => {
         filename: pdf.filename,
         data: pdf.base64, // Base64 encoded PDF
       })),
-      comisionados: comisionados.length,
-      noComisionados: noComisionados.length,
+      // comisionados: comisionados.length,
+      // noComisionados: noComisionados.length,
       quincenas: quincenas.length,
     });
   } catch (err) {
