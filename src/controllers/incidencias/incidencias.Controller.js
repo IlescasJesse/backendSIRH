@@ -290,6 +290,12 @@ incidenciasController.getProfile = async (req, res) => {
 
     const emp = employee[0];
 
+    const status_plaza = await query("PLAZAS", {
+      NUMPLA: emp.NUMPLA_ORIGEN ? emp.NUMPLA_ORIGEN : emp.NUMPLA,
+    });
+
+    emp.status_plaza = status_plaza.length > 0 ? status_plaza : null;
+
     // Obtener el cuatrimestre y año actuales
     const currentQuarter = getCustomQuarter(moment().format("YYYY-MM-DD"));
     const currentYear = moment().year();
