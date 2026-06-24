@@ -19,7 +19,6 @@ const {
 } = require("date-fns");
 const { es } = require("date-fns/locale");
 const { querysql } = require("../../config/mysql");
-const { createNotification } = require("../../services/notification.service");
 const getCustomQuarter = (date) => {
   const month = moment(date, "YYYY-MM-DD").month() + 1;
   if (month >= 1 && month <= 4) return 1;
@@ -401,7 +400,6 @@ incidenciasController.getProfile = async (req, res) => {
 };
 
 incidenciasController.updateCardInformation = async (req, res) => {
-  const io = req.app.get("io");
   const { data } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("en-US", {
@@ -443,15 +441,6 @@ incidenciasController.updateCardInformation = async (req, res) => {
       timestamp: currentDateTime,
     };
     await insertOne("USER_ACTIONS", userAction);
-
-    await createNotification(io, {
-      title: "Empleado actualizado",
-      username: user.username,
-      message: `MÓDIFICO LA INFORMACIÓN DEL EMPLEADO "${updatedEmployee.NOMBRES} ${updatedEmployee.APE_PAT} ${updatedEmployee.APE_MAT} "`,
-      module: "AEI",
-      rol: ["ADMINISTRADOR", "USUARIO"],
-      permissions: ["AEI-EI", "*"],
-    });
 
     res.status(200).json({
       message: "Employee updated", _id: updatedEmployee._id,
