@@ -150,6 +150,7 @@ gafetesController.updateEmployee = async (req, res) => {
       .send({ error: "An error occurred while updating employee data" });
   }
 };
+
 gafetesController.printCredentialsEstructure = async (req, res) => {
   const { PDFDocument, rgb } = require("pdf-lib");
   const fontkit = require("@pdf-lib/fontkit");
@@ -166,20 +167,6 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
 
     // Convertir a array si es un solo objeto
     const employees = Array.isArray(data) ? data : [data];
-
-    // Leer el PDF template
-    const templatePath = path.join(
-      __dirname,
-      "../../templates",
-      "g_estructura.pdf",
-    );
-
-    if (!fs.existsSync(templatePath)) {
-      return res.status(404).send({
-        error: "Template PDF no encontrado",
-        path: templatePath,
-      });
-    }
 
     // Crear un nuevo documento PDF
     const pdfDoc = await PDFDocument.create();
@@ -245,271 +232,600 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
       return lines;
     };
 
-    // Procesar cada empleado
-    for (const employee of employees) {
-      // Cargar el template para cada gafete
-      const templateBytes = fs.readFileSync(templatePath);
-      const templateDoc = await PDFDocument.load(templateBytes);
+    for (let i = 0; i < employees.length; i += 2) {
+      const employee1 = employees[i];
+      const employee2 = employees[i + 1];
 
-      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
-      pdfDoc.addPage(templatePage);
+      const templatePath = employee2
+        ? path.join(__dirname, "../../templates", "g_estructura.pdf")
+        : path.join(__dirname, "../../templates", "g_estructura_single.pdf");
 
-      const pages = pdfDoc.getPages();
-      const currentPage = pages[pages.length - 1];
-      const { width, height } = currentPage.getSize();
+      if (!fs.existsSync(templatePath)) {
+        return res.status(404).send({
+          error: "Template PDF no encontrado",
+          path: templatePath,
+        });
+      }
 
-      // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
-      const CM_TO_POINTS = 28.3465;
+      if (employee2) {
 
-      // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
-      const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
-      // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
-      const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
+        // Cargar el template para cada gafete
+        const templateBytes = fs.readFileSync(templatePath);
+        const templateDoc = await PDFDocument.load(templateBytes);
 
-      // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
-      const adscripcionLines = splitTextByWidth(
-        employee.ADSCRIPCION || "",
-        fontBlack,
-        8,
-        5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS,
-      );
+        const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
+        pdfDoc.addPage(templatePage);
 
-      // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
-      const domicilioLines = splitTextByWidth(
-        employee.DOMICILIO || "",
-        fontBlack,
-        8,
-        5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS,
-      );
+        const pages = pdfDoc.getPages();
+        const currentPage = pages[pages.length - 1];
+        const { width, height } = currentPage.getSize();
 
-      // Procesar APELLIDOS (APE_PAT + A|PE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
-        }`.trim();
-      const apellidosLines = splitTextByWidth(
-        apellidosText,
-        fontMedium,
-        12,
-        6,
-        CM_TO_POINTS,
-      );
+        // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
+        const CM_TO_POINTS = 28.3465;
 
-      // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
-      const avisarSingleLine =
-        splitTextByWidth(
-          employee.AVISAR || "",
+        // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
+        const offsetY = CM_TO_POINTS;
+        // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
+        const offsetX = CM_TO_POINTS;
+
+        // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
+        const adscripcion1Lines = splitTextByWidth(
+          employee1.ADSCRIPCION || "",
           fontBlack,
           8,
-          5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+          5,
           CM_TO_POINTS,
-        )[0] || "";
+        );
 
-      // Configuración de campos según las coordenadas proporcionadas
-      const fieldsData = [
-        {
-          text: employee.NUP || "",
-          x: 6.5 * CM_TO_POINTS + offsetX,
-          y: height - 6.24 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.NUE || "",
-          x: 10 * CM_TO_POINTS + offsetX,
-          y: height - 6.24 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.RFC || "",
-          x: 6.5 * CM_TO_POINTS + offsetX,
-          y: height - 6.81 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.CURP || "",
-          x: 6.5 * CM_TO_POINTS + offsetX,
-          y: height - 7.3 * CM_TO_POINTS - offsetY, // Debajo de RFC
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.TEL_PERSONAL || "",
-          x: 6.7 * CM_TO_POINTS + offsetX,
-          y: height - 10.53 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: avisarSingleLine,
-          x: 5.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 12.31 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.TEL_EMERGENCIA1 || "",
-          x: 7 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
-          y: height - 12.9 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.AFILIACI || "",
-          x: 5.75 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 13.39 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.SANGRE || "",
-          x: 6.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 13.76 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
-          font: fontBlack,
-          size: 8,
-          color: hexToRgb("#9D2449"),
-        },
-        {
-          text: employee.ALERGIAS || "",
-          x: 5.85 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 14.35 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-      ];
-
-      // Insertar los datos en el PDF
-      fieldsData.forEach((field) => {
-        if (field.text) {
-          currentPage.drawText(String(field.text), {
-            x: field.x,
-            y: field.y,
-            size: field.size,
-            font: field.font,
-            color: field.color,
-          });
-        }
-      });
-
-      // Función para centrar texto en un rango
-      const centerText = (text, font, fontSize, startX, endX) => {
-        const textWidth = font.widthOfTextAtSize(text, fontSize);
-        const availableWidth = endX - startX;
-        const centeredX = startX + (availableWidth - textWidth) / 2;
-        return centeredX;
-      };
-
-      const startX = 12.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
-      const endX = 20.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
-
-      // Insertar NOMBRES centrado
-      if (employee.NOMBRES) {
-        const nombresX = centerText(
-          employee.NOMBRES,
+        const adscripcion2Lines = splitTextByWidth(
+          employee2.ADSCRIPCION || "",
           fontBlack,
-          12,
-          startX,
-          endX,
+          8,
+          5,
+          CM_TO_POINTS,
         );
-        currentPage.drawText(employee.NOMBRES, {
-          x: nombresX,
-          y: height - 11 * CM_TO_POINTS - offsetY,
-          size: 12,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-      }
 
-      // Insertar NOMCATE centrado
-      if (employee.NOMCATE) {
-        const nomcateX = centerText(
-          employee.NOMCATE,
+        // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
+        const domicilio1Lines = splitTextByWidth(
+          employee1.DOMICILIO || "",
+          fontBlack,
+          8,
+          5,
+          CM_TO_POINTS,
+        );
+
+        const domicilio2Lines = splitTextByWidth(
+          employee2.DOMICILIO || "",
+          fontBlack,
+          8,
+          5,
+          CM_TO_POINTS,
+        );
+
+        // Procesar APELLIDOS (APE_PAT + A|PE_MAT) con ancho de 6cm
+        const apellidos1Text = `${employee1.APE_PAT || ""} ${employee1.APE_MAT || ""
+          }`.trim();
+        const apellidos1Lines = splitTextByWidth(
+          apellidos1Text,
           fontMedium,
-          10,
-          startX,
-          endX,
+          12,
+          6,
+          CM_TO_POINTS,
         );
-        currentPage.drawText(employee.NOMCATE, {
-          x: nomcateX,
-          y: height - 12 * CM_TO_POINTS - offsetY,
-          size: 10,
-          font: fontMedium,
-          color: rgb(0, 0, 0),
-        });
-      }
 
-      // Insertar ADSCRIPCION con múltiples líneas
-      if (adscripcionLines.length > 0) {
-        // Primera línea (máximo 5cm)
-        const pixelX1 = 7.4 * CM_TO_POINTS + offsetX;
-        const pixelY1 =
-          height - 8 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+        const apellidos2Text = `${employee2.APE_PAT || ""} ${employee2.APE_MAT || ""
+          }`.trim();
+        const apellidos2Lines = splitTextByWidth(
+          apellidos2Text,
+          fontMedium,
+          12,
+          6,
+          CM_TO_POINTS,
+        );
 
-        currentPage.drawText(adscripcionLines[0], {
-          x: pixelX1,
-          y: pixelY1,
-          size: 8,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-
-        // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
-        const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
-
-        // Segunda línea si existe (máximo 5cm), alineada con la primera
-        if (adscripcionLines.length > 1) {
-          const remainingText = adscripcionLines.slice(1).join(" ");
-          const secondLineParts = splitTextByWidth(
-            remainingText,
+        // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
+        const avisarSingleLine =
+          splitTextByWidth(
+            employee1.AVISAR || "",
             fontBlack,
             8,
-            5, // ancho 5cm para la segunda línea
+            5,
             CM_TO_POINTS,
+          )[0] || "";
+
+        const avisar2SingleLine =
+          splitTextByWidth(
+            employee2.AVISAR || "",
+            fontBlack,
+            8,
+            5,
+            CM_TO_POINTS,
+          )[0] || "";
+
+        // Configuración de campos según las coordenadas proporcionadas
+        const fieldsData = [
+          {
+            text: employee1.NUP || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 2.9 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.NUP || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 16.02 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.NUE || "",
+            x: 8.5 * CM_TO_POINTS,
+            y: height - 2.9 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.NUE || "",
+            x: 8.5 * CM_TO_POINTS,
+            y: height - 16.02 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.RFC || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 3.47 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.RFC || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 16.59 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.CURP || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 3.98 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.CURP || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 17.1 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.TEL_PERSONAL || "",
+            x: 5.2 * CM_TO_POINTS,
+            y: height - 7.2 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.TEL_PERSONAL || "",
+            x: 5.2 * CM_TO_POINTS,
+            y: height - 20.32 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisarSingleLine,
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 8.98 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisar2SingleLine,
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 22.1 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.TEL_EMERGENCIA1 || "",
+            x: 5.83 * CM_TO_POINTS,
+            y: height - 9.55 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.TEL_EMERGENCIA1 || "",
+            x: 5.83 * CM_TO_POINTS,
+            y: height - 22.67 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.AFILIACI || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 10.07 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.AFILIACI || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 23.19 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.SANGRE || "",
+            x: 6.3 * CM_TO_POINTS,
+            y: height - 10.55 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee2.SANGRE || "",
+            x: 6.3 * CM_TO_POINTS,
+            y: height - 23.67 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee1.ALERGIAS || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 10.995 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.ALERGIAS || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 24.115 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+        ];
+
+        // Insertar los datos en el PDF
+        fieldsData.forEach((field) => {
+          if (field.text) {
+            currentPage.drawText(String(field.text), {
+              x: field.x,
+              y: field.y,
+              size: field.size,
+              font: field.font,
+              color: field.color,
+            });
+          }
+        });
+
+        // Función para centrar texto en un rango
+        const centerText = (text, font, fontSize, startX, endX) => {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          const availableWidth = endX - startX;
+          const centeredX = startX + (availableWidth - textWidth) / 2;
+          return centeredX;
+        };
+
+        const startX = 9.6 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS;
+        const endX = 17.8 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS;
+
+        if (employee1.NOMBRES) {
+          const nombresX = centerText(
+            employee1.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
           );
+          currentPage.drawText(employee1.NOMBRES, {
+            x: nombresX,
+            y: height - 7.65 * CM_TO_POINTS,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
 
-          if (secondLineParts.length > 0) {
-            // Alinear X con la primera línea
-            const pixelX2 = pixelX1;
-            const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+        if (employee2.NOMBRES) {
+          const nombresX = centerText(
+            employee2.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee2.NOMBRES, {
+            x: nombresX,
+            y: height - 20.77 * CM_TO_POINTS,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
 
-            currentPage.drawText(secondLineParts[0], {
-              x: pixelX2,
+        // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
+        if (apellidos1Lines.length > 0) {
+          const apellidosX = centerText(
+            apellidos1Lines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 8.15 * CM_TO_POINTS;
+
+          currentPage.drawText(apellidos1Lines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        if (apellidos2Lines.length > 0) {
+          const apellidosX = centerText(
+            apellidos2Lines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 21.27 * CM_TO_POINTS;
+
+          currentPage.drawText(apellidos2Lines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar NOMCATE centrado
+        if (employee1.NOMCATE) {
+          const nomcateX = centerText(
+            employee1.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee1.NOMCATE, {
+            x: nomcateX,
+            y: height - 8.65 * CM_TO_POINTS,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        if (employee2.NOMCATE) {
+          const nomcateX = centerText(
+            employee2.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee2.NOMCATE, {
+            x: nomcateX,
+            y: height - 21.77 * CM_TO_POINTS,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar ADSCRIPCION con múltiples líneas
+        if (adscripcion1Lines.length > 0) {
+          // Primera línea (máximo 5cm)
+          const pixelX1 = 5.9 * CM_TO_POINTS;
+          const pixelY1 = height - 4.48 * CM_TO_POINTS;
+
+          currentPage.drawText(adscripcion1Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcion1Lines.length > 1) {
+            const remainingText = adscripcion1Lines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
+              remainingText,
+              fontBlack,
+              8,
+              5, // ancho 5cm para la segunda línea
+              CM_TO_POINTS,
+            );
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
+                size: 8,
+                font: fontBlack,
+                color: rgb(0, 0, 0),
+              });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcion1Lines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (adscripcion2Lines.length > 0) {
+          const pixelX1 = 5.9 * CM_TO_POINTS;
+          const pixelY1 = height - 17.6 * CM_TO_POINTS;
+
+          currentPage.drawText(adscripcion2Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcion2Lines.length > 1) {
+            const remainingText = adscripcion2Lines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
+              remainingText,
+              fontBlack,
+              8,
+              5, // ancho 5cm para la segunda línea
+              CM_TO_POINTS,
+            );
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
+                size: 8,
+                font: fontBlack,
+                color: rgb(0, 0, 0),
+              });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcion2Lines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // Insertar DOMICILIO con múltiples líneas
+        if (domicilio1Lines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 5.6 * CM_TO_POINTS;
+          const pixelY1 = height - 6.25 * CM_TO_POINTS;
+
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
+
+          // Dibujar primera línea
+          currentPage.drawText(domicilio1Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Segunda línea (si existe)
+          if (domicilio1Lines.length > 1) {
+            const secondText = domicilio1Lines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
               y: pixelY2,
               size: 8,
               font: fontBlack,
               color: rgb(0, 0, 0),
             });
 
-            // Si hay más texto, crear una tercera línea con el resto
-            const remainingAfterSecond =
-              secondLineParts.length > 1
-                ? secondLineParts.slice(1).join(" ")
-                : adscripcionLines.slice(2).join(" ");
-
-            if (
-              remainingAfterSecond &&
-              remainingAfterSecond.trim().length > 0
-            ) {
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilio1Lines.length > 2) {
+              const remainingText = domicilio1Lines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
               const thirdLineParts = splitTextByWidth(
-                remainingAfterSecond,
+                remainingText,
                 fontBlack,
                 8,
-                5, // ancho 5cm para la tercera línea
+                5, // ancho 5cm
                 CM_TO_POINTS,
               );
               if (thirdLineParts.length > 0) {
-                const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                const pixelY3 = pixelY2 - LINE_SPACING;
                 currentPage.drawText(thirdLineParts[0], {
                   x: pixelX1,
                   y: pixelY3,
@@ -521,84 +837,422 @@ gafetesController.printCredentialsEstructure = async (req, res) => {
             }
           }
         }
-      }
 
-      // Insertar DOMICILIO con múltiples líneas
-      if (domicilioLines.length > 0) {
-        // Primera línea (máximo 5cm) -> subir 0.3 cm
-        const pixelX1 = 7.1 * CM_TO_POINTS + offsetX;
-        const pixelY1 =
-          height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+        if (domicilio2Lines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 5.6 * CM_TO_POINTS;
+          const pixelY1 = height - 19.37 * CM_TO_POINTS;
 
-        // Espacio vertical entre líneas reducido (0.25 cm)
-        const LINE_SPACING = 0.3 * CM_TO_POINTS;
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
 
-        // Dibujar primera línea
-        currentPage.drawText(domicilioLines[0], {
-          x: pixelX1,
-          y: pixelY1,
-          size: 8,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-
-        // Segunda línea (si existe)
-        if (domicilioLines.length > 1) {
-          const secondText = domicilioLines[1];
-          const pixelY2 = pixelY1 - LINE_SPACING;
-
-          currentPage.drawText(secondText, {
-            x: pixelX1, // misma alineación que la primera
-            y: pixelY2,
+          // Dibujar primera línea
+          currentPage.drawText(domicilio2Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
             size: 8,
             font: fontBlack,
             color: rgb(0, 0, 0),
           });
 
-          // Si hay más de dos líneas, crear una tercera con el resto del texto
-          if (domicilioLines.length > 2) {
-            const remainingText = domicilioLines.slice(2).join(" ");
-            // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
-            const thirdLineParts = splitTextByWidth(
+          // Segunda línea (si existe)
+          if (domicilio2Lines.length > 1) {
+            const secondText = domicilio2Lines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilio2Lines.length > 2) {
+              const remainingText = domicilio2Lines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
+              const thirdLineParts = splitTextByWidth(
+                remainingText,
+                fontBlack,
+                8,
+                5, // ancho 5cm
+                CM_TO_POINTS,
+              );
+              if (thirdLineParts.length > 0) {
+                const pixelY3 = pixelY2 - LINE_SPACING;
+                currentPage.drawText(thirdLineParts[0], {
+                  x: pixelX1,
+                  y: pixelY3,
+                  size: 8,
+                  font: fontBlack,
+                  color: rgb(0, 0, 0),
+                });
+              }
+            }
+          }
+        }
+
+
+      } else {
+
+        const employee = employee1;
+
+        // Cargar el template para cada gafete
+        const templateBytes = fs.readFileSync(templatePath);
+        const templateDoc = await PDFDocument.load(templateBytes);
+
+        const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
+        pdfDoc.addPage(templatePage);
+
+        const pages = pdfDoc.getPages();
+        const currentPage = pages[pages.length - 1];
+        const { width, height } = currentPage.getSize();
+
+        // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
+        const CM_TO_POINTS = 28.3465;
+
+        // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
+        const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
+        // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
+        const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
+
+        // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
+        const adscripcionLines = splitTextByWidth(
+          employee.ADSCRIPCION || "",
+          fontBlack,
+          8,
+          5, // <- ancho cambiado a 5cm
+          CM_TO_POINTS,
+        );
+
+        // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
+        const domicilioLines = splitTextByWidth(
+          employee.DOMICILIO || "",
+          fontBlack,
+          8,
+          5, // <- ancho cambiado a 5cm
+          CM_TO_POINTS,
+        );
+
+        // Procesar APELLIDOS (APE_PAT + A|PE_MAT) con ancho de 6cm
+        const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
+          }`.trim();
+        const apellidosLines = splitTextByWidth(
+          apellidosText,
+          fontMedium,
+          12,
+          6,
+          CM_TO_POINTS,
+        );
+
+        // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
+        const avisarSingleLine =
+          splitTextByWidth(
+            employee.AVISAR || "",
+            fontBlack,
+            8,
+            5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+            CM_TO_POINTS,
+          )[0] || "";
+
+        // Configuración de campos según las coordenadas proporcionadas
+        const fieldsData = [
+          {
+            text: employee.NUP || "",
+            x: 6.5 * CM_TO_POINTS + offsetX,
+            y: height - 6.24 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.NUE || "",
+            x: 10 * CM_TO_POINTS + offsetX,
+            y: height - 6.24 * CM_TO_POINTS - offsetY, // Bajar 0.1 cm (remover el +0.1)
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.RFC || "",
+            x: 6.5 * CM_TO_POINTS + offsetX,
+            y: height - 6.81 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.CURP || "",
+            x: 6.5 * CM_TO_POINTS + offsetX,
+            y: height - 7.3 * CM_TO_POINTS - offsetY, // Debajo de RFC
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.TEL_PERSONAL || "",
+            x: 6.7 * CM_TO_POINTS + offsetX,
+            y: height - 10.53 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisarSingleLine,
+            x: 5.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 12.31 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.TEL_EMERGENCIA1 || "",
+            x: 7 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
+            y: height - 12.9 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.AFILIACI || "",
+            x: 5.75 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 13.39 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.SANGRE || "",
+            x: 6.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 13.76 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee.ALERGIAS || "",
+            x: 5.85 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 14.35 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+        ];
+
+        // Insertar los datos en el PDF
+        fieldsData.forEach((field) => {
+          if (field.text) {
+            currentPage.drawText(String(field.text), {
+              x: field.x,
+              y: field.y,
+              size: field.size,
+              font: field.font,
+              color: field.color,
+            });
+          }
+        });
+
+        // Función para centrar texto en un rango
+        const centerText = (text, font, fontSize, startX, endX) => {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          const availableWidth = endX - startX;
+          const centeredX = startX + (availableWidth - textWidth) / 2;
+          return centeredX;
+        };
+
+        const startX = 12.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+        const endX = 20.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+
+        // Insertar NOMBRES centrado
+        if (employee.NOMBRES) {
+          const nombresX = centerText(
+            employee.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee.NOMBRES, {
+            x: nombresX,
+            y: height - 11 * CM_TO_POINTS - offsetY,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar NOMCATE centrado
+        if (employee.NOMCATE) {
+          const nomcateX = centerText(
+            employee.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee.NOMCATE, {
+            x: nomcateX,
+            y: height - 12 * CM_TO_POINTS - offsetY,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar ADSCRIPCION con múltiples líneas
+        if (adscripcionLines.length > 0) {
+          // Primera línea (máximo 5cm)
+          const pixelX1 = 7.4 * CM_TO_POINTS + offsetX;
+          const pixelY1 =
+            height - 8 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+
+          currentPage.drawText(adscripcionLines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcionLines.length > 1) {
+            const remainingText = adscripcionLines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
               remainingText,
               fontBlack,
               8,
-              5, // ancho 5cm
+              5, // ancho 5cm para la segunda línea
               CM_TO_POINTS,
             );
-            if (thirdLineParts.length > 0) {
-              const pixelY3 = pixelY2 - LINE_SPACING;
-              currentPage.drawText(thirdLineParts[0], {
-                x: pixelX1,
-                y: pixelY3,
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
                 size: 8,
                 font: fontBlack,
                 color: rgb(0, 0, 0),
               });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcionLines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
             }
           }
         }
+
+        // Insertar DOMICILIO con múltiples líneas
+        if (domicilioLines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 7.1 * CM_TO_POINTS + offsetX;
+          const pixelY1 =
+            height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
+
+          // Dibujar primera línea
+          currentPage.drawText(domicilioLines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Segunda línea (si existe)
+          if (domicilioLines.length > 1) {
+            const secondText = domicilioLines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilioLines.length > 2) {
+              const remainingText = domicilioLines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
+              const thirdLineParts = splitTextByWidth(
+                remainingText,
+                fontBlack,
+                8,
+                5, // ancho 5cm
+                CM_TO_POINTS,
+              );
+              if (thirdLineParts.length > 0) {
+                const pixelY3 = pixelY2 - LINE_SPACING;
+                currentPage.drawText(thirdLineParts[0], {
+                  x: pixelX1,
+                  y: pixelY3,
+                  size: 8,
+                  font: fontBlack,
+                  color: rgb(0, 0, 0),
+                });
+              }
+            }
+          }
+        }
+
+        // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
+        if (apellidosLines.length > 0) {
+          const apellidosX = centerText(
+            apellidosLines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
+
+          currentPage.drawText(apellidosLines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
       }
 
-      // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
-      if (apellidosLines.length > 0) {
-        const apellidosX = centerText(
-          apellidosLines[0],
-          fontMedium,
-          12,
-          startX,
-          endX,
-        );
-        const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
-
-        currentPage.drawText(apellidosLines[0], {
-          x: apellidosX,
-          y: apellidosY,
-          size: 12,
-          font: fontMedium,
-          color: rgb(0, 0, 0),
-        });
-      }
     }
 
     // Guardar el PDF modificado
@@ -646,20 +1300,6 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
     // Convertir a array si es un solo objeto
     const employees = Array.isArray(data) ? data : [data];
 
-    // Leer el PDF template
-    const templatePath = path.join(
-      __dirname,
-      "../../templates",
-      "g_honorarios.pdf",
-    );
-
-    if (!fs.existsSync(templatePath)) {
-      return res.status(404).send({
-        error: "Template PDF no encontrado",
-        path: templatePath,
-      });
-    }
-
     // Crear un nuevo documento PDF
     const pdfDoc = await PDFDocument.create();
 
@@ -724,255 +1364,551 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
       return lines;
     };
 
-    // Procesar cada empleado
-    for (const employee of employees) {
-      // Cargar el template para cada gafete
-      const templateBytes = fs.readFileSync(templatePath);
-      const templateDoc = await PDFDocument.load(templateBytes);
+    for (let i = 0; i < employees.length; i += 2) {
+      const employee1 = employees[i];
+      const employee2 = employees[i + 1];
 
-      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
-      pdfDoc.addPage(templatePage);
+      const templatePath = employee2
+        ? path.join(__dirname, "../../templates", "g_honorarios.pdf")
+        : path.join(__dirname, "../../templates", "g_honorarios_single.pdf");
 
-      const pages = pdfDoc.getPages();
-      const currentPage = pages[pages.length - 1];
-      const { width, height } = currentPage.getSize();
+      if (!fs.existsSync(templatePath)) {
+        return res.status(404).send({
+          error: "Template PDF no encontrado",
+          path: templatePath,
+        });
+      }
 
-      // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
-      const CM_TO_POINTS = 28.3465;
+      if (employee2) {
+        // Cargar el template para cada gafete
+        const templateBytes = fs.readFileSync(templatePath);
+        const templateDoc = await PDFDocument.load(templateBytes);
 
-      console.log(`
-      ════════════════════════════════════════
-      📄 Dimensiones del PDF:
-      Width: ${width} points (${(width / CM_TO_POINTS).toFixed(2)} cm)
-      Height: ${height} points (${(height / CM_TO_POINTS).toFixed(2)} cm)
-      ════════════════════════════════════════
-      `);
+        const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
+        pdfDoc.addPage(templatePage);
 
-      // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
-      const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
-      // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
-      const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
+        const pages = pdfDoc.getPages();
+        const currentPage = pages[pages.length - 1];
+        const { width, height } = currentPage.getSize();
 
-      // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
-      const adscripcionLines = splitTextByWidth(
-        employee.ADSCRIPCION || "",
-        fontBlack,
-        8,
-        5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS,
-      );
+        // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
+        const CM_TO_POINTS = 28.3465;
 
-      // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
-      const domicilioLines = splitTextByWidth(
-        employee.DOMICILIO || "",
-        fontBlack,
-        8,
-        5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS,
-      );
 
-      // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
-        }`.trim();
-      const apellidosLines = splitTextByWidth(
-        apellidosText,
-        fontMedium,
-        12,
-        6,
-        CM_TO_POINTS,
-      );
+        // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
+        const offsetY = CM_TO_POINTS;
+        // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
+        const offsetX = CM_TO_POINTS;
 
-      // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
-      const avisarSingleLine =
-        splitTextByWidth(
-          employee.AVISAR || "",
+        // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
+        const adscripcion1Lines = splitTextByWidth(
+          employee1.ADSCRIPCION || "",
           fontBlack,
           8,
-          5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+          5,
           CM_TO_POINTS,
-        )[0] || "";
+        );
 
-      // Configuración de campos según las coordenadas proporcionadas
-      const fieldsData = [
-        {
-          text: employee.RFC || "",
-          x: 6.35 * CM_TO_POINTS + offsetX,
-          y: height - 6.49 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.CURP || "",
-          x: 6.72 * CM_TO_POINTS + offsetX,
-          y: height - 7.15 * CM_TO_POINTS - offsetY, // Debajo de RFC
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.TEL_PERSONAL || "",
-          x: 6.6 * CM_TO_POINTS + offsetX,
-          y: height - 10.52 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: avisarSingleLine,
-          x: 5.72 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 12.5 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.TEL_EMERGENCIA1 || "",
-          x: 7.1 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
-          y: height - 12.98 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.SANGRE || "",
-          x: 6.77 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 13.41 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
-          font: fontBlack,
-          size: 8,
-          color: hexToRgb("#9D2449"),
-        },
-        {
-          text: employee.ALERGIAS || "",
-          x: 5.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 14.03 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-      ];
-
-      // Insertar los datos en el PDF
-      fieldsData.forEach((field) => {
-        if (field.text) {
-          currentPage.drawText(String(field.text), {
-            x: field.x,
-            y: field.y,
-            size: field.size,
-            font: field.font,
-            color: field.color,
-          });
-        }
-      });
-
-      // Función para centrar texto en un rango
-      const centerText = (text, font, fontSize, startX, endX) => {
-        const textWidth = font.widthOfTextAtSize(text, fontSize);
-        const availableWidth = endX - startX;
-        const centeredX = startX + (availableWidth - textWidth) / 2;
-        return centeredX;
-      };
-
-      const startX = 12.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
-      const endX = 20.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
-
-      // Insertar NOMBRES centrado
-      if (employee.NOMBRES) {
-        const nombresX = centerText(
-          employee.NOMBRES,
+        const adscripcion2Lines = splitTextByWidth(
+          employee2.ADSCRIPCION || "",
           fontBlack,
-          12,
-          startX,
-          endX,
+          8,
+          5,
+          CM_TO_POINTS,
         );
-        currentPage.drawText(employee.NOMBRES, {
-          x: nombresX,
-          y: height - 11 * CM_TO_POINTS - offsetY,
-          size: 12,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-      }
 
-      // Insertar NOMCATE centrado
-      if (employee.NOMCATE) {
-        const nomcateX = centerText(
-          employee.NOMCATE,
+        // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
+        const domicilio1Lines = splitTextByWidth(
+          employee1.DOMICILIO || "",
+          fontBlack,
+          8,
+          5,
+          CM_TO_POINTS,
+        );
+
+        const domicilio2Lines = splitTextByWidth(
+          employee2.DOMICILIO || "",
+          fontBlack,
+          8,
+          5,
+          CM_TO_POINTS,
+        );
+
+        // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
+        const apellidos1Text = `${employee1.APE_PAT || ""} ${employee1.APE_MAT || ""
+          }`.trim();
+        const apellidos1Lines = splitTextByWidth(
+          apellidos1Text,
           fontMedium,
-          10,
-          startX,
-          endX,
+          12,
+          6,
+          CM_TO_POINTS,
         );
-        currentPage.drawText(employee.NOMCATE, {
-          x: nomcateX,
-          y: height - 12 * CM_TO_POINTS - offsetY,
-          size: 10,
-          font: fontMedium,
-          color: rgb(0, 0, 0),
-        });
-      }
 
-      // Insertar ADSCRIPCION con múltiples líneas
-      if (adscripcionLines.length > 0) {
-        // Primera línea (máximo 5cm)
-        const pixelX1 = 6.4 * CM_TO_POINTS + offsetX;
-        const pixelY1 =
-          height - 8 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+        const apellidos2Text = `${employee2.APE_PAT || ""} ${employee2.APE_MAT || ""
+          }`.trim();
+        const apellidos2Lines = splitTextByWidth(
+          apellidos2Text,
+          fontMedium,
+          12,
+          6,
+          CM_TO_POINTS,
+        );
 
-        currentPage.drawText(adscripcionLines[0], {
-          x: pixelX1,
-          y: pixelY1,
-          size: 8,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-
-        // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
-        const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
-
-        // Segunda línea si existe (máximo 5cm), alineada con la primera
-        if (adscripcionLines.length > 1) {
-          const remainingText = adscripcionLines.slice(1).join(" ");
-          const secondLineParts = splitTextByWidth(
-            remainingText,
+        // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
+        const avisarSingleLine =
+          splitTextByWidth(
+            employee1.AVISAR || "",
             fontBlack,
             8,
-            5, // ancho 5cm para la segunda línea
+            5,
             CM_TO_POINTS,
+          )[0] || "";
+
+        const avisar2SingleLine =
+          splitTextByWidth(
+            employee2.AVISAR || "",
+            fontBlack,
+            8,
+            5,
+            CM_TO_POINTS,
+          )[0] || "";
+
+        // Configuración de campos según las coordenadas proporcionadas
+        const fieldsData = [
+          {
+            text: employee1.RFC || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 3.17 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.RFC || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 16.29 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.CURP || "",
+            x: 5.25 * CM_TO_POINTS,
+            y: height - 3.83 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.CURP || "",
+            x: 5.25 * CM_TO_POINTS,
+            y: height - 16.95 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.TEL_PERSONAL || "",
+            x: 5.2 * CM_TO_POINTS,
+            y: height - 7.2 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.TEL_PERSONAL || "",
+            x: 5.2 * CM_TO_POINTS,
+            y: height - 20.32 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisarSingleLine,
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 9.17 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisar2SingleLine,
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 22.29 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.TEL_EMERGENCIA1 || "",
+            x: 6 * CM_TO_POINTS,
+            y: height - 9.68 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.TEL_EMERGENCIA1 || "",
+            x: 6 * CM_TO_POINTS,
+            y: height - 22.80 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.SANGRE || "",
+            x: 6.3 * CM_TO_POINTS,
+            y: height - 10.20 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee2.SANGRE || "",
+            x: 6.3 * CM_TO_POINTS,
+            y: height - 23.32 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee1.ALERGIAS || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 10.71 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.ALERGIAS || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 23.83 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+        ];
+
+        // Insertar los datos en el PDF
+        fieldsData.forEach((field) => {
+          if (field.text) {
+            currentPage.drawText(String(field.text), {
+              x: field.x,
+              y: field.y,
+              size: field.size,
+              font: field.font,
+              color: field.color,
+            });
+          }
+        });
+
+        // Función para centrar texto en un rango
+        const centerText = (text, font, fontSize, startX, endX) => {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          const availableWidth = endX - startX;
+          const centeredX = startX + (availableWidth - textWidth) / 2;
+          return centeredX;
+        };
+
+        const startX = 9.6 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS;
+        const endX = 17.8 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS;
+
+        if (employee1.NOMBRES) {
+          const nombresX = centerText(
+            employee1.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
           );
+          currentPage.drawText(employee1.NOMBRES, {
+            x: nombresX,
+            y: height - 7.65 * CM_TO_POINTS,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
 
-          if (secondLineParts.length > 0) {
-            // Alinear X con la primera línea
-            const pixelX2 = pixelX1;
-            const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+        if (employee2.NOMBRES) {
+          const nombresX = centerText(
+            employee2.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee2.NOMBRES, {
+            x: nombresX,
+            y: height - 20.77 * CM_TO_POINTS,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
 
-            currentPage.drawText(secondLineParts[0], {
-              x: pixelX2,
+        if (apellidos1Lines.length > 0) {
+          const apellidosX = centerText(
+            apellidos1Lines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 8.15 * CM_TO_POINTS;
+
+          currentPage.drawText(apellidos1Lines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        if (apellidos2Lines.length > 0) {
+          const apellidosX = centerText(
+            apellidos2Lines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 21.27 * CM_TO_POINTS;
+
+          currentPage.drawText(apellidos2Lines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar NOMCATE centrado
+        if (employee1.NOMCATE) {
+          const nomcateX = centerText(
+            employee1.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee1.NOMCATE, {
+            x: nomcateX,
+            y: height - 8.65 * CM_TO_POINTS,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        if (employee2.NOMCATE) {
+          const nomcateX = centerText(
+            employee2.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee2.NOMCATE, {
+            x: nomcateX,
+            y: height - 21.77 * CM_TO_POINTS,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar ADSCRIPCION con múltiples líneas
+        if (adscripcion1Lines.length > 0) {
+          // Primera línea (máximo 5cm)
+          const pixelX1 = 5 * CM_TO_POINTS;
+          const pixelY1 = height - 4.48 * CM_TO_POINTS;
+
+          currentPage.drawText(adscripcion1Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcion1Lines.length > 1) {
+            const remainingText = adscripcion1Lines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
+              remainingText,
+              fontBlack,
+              8,
+              5, // ancho 5cm para la segunda línea
+              CM_TO_POINTS,
+            );
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
+                size: 8,
+                font: fontBlack,
+                color: rgb(0, 0, 0),
+              });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcion1Lines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (adscripcion2Lines.length > 0) {
+          const pixelX1 = 5 * CM_TO_POINTS;
+          const pixelY1 = height - 17.6 * CM_TO_POINTS;
+
+          currentPage.drawText(adscripcion2Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcion2Lines.length > 1) {
+            const remainingText = adscripcion2Lines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
+              remainingText,
+              fontBlack,
+              8,
+              5, // ancho 5cm para la segunda línea
+              CM_TO_POINTS,
+            );
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
+                size: 8,
+                font: fontBlack,
+                color: rgb(0, 0, 0),
+              });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcion2Lines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // Insertar DOMICILIO con múltiples líneas
+        if (domicilio1Lines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 5.6 * CM_TO_POINTS;
+          const pixelY1 = height - 6.25 * CM_TO_POINTS;
+
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
+
+          // Dibujar primera línea
+          currentPage.drawText(domicilio1Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Segunda línea (si existe)
+          if (domicilio1Lines.length > 1) {
+            const secondText = domicilio1Lines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
               y: pixelY2,
               size: 8,
               font: fontBlack,
               color: rgb(0, 0, 0),
             });
 
-            // Si hay más texto, crear una tercera línea con el resto
-            const remainingAfterSecond =
-              secondLineParts.length > 1
-                ? secondLineParts.slice(1).join(" ")
-                : adscripcionLines.slice(2).join(" ");
-
-            if (
-              remainingAfterSecond &&
-              remainingAfterSecond.trim().length > 0
-            ) {
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilio1Lines.length > 2) {
+              const remainingText = domicilio1Lines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
               const thirdLineParts = splitTextByWidth(
-                remainingAfterSecond,
+                remainingText,
                 fontBlack,
                 8,
-                5, // ancho 5cm para la tercera línea
+                5, // ancho 5cm
                 CM_TO_POINTS,
               );
               if (thirdLineParts.length > 0) {
-                const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                const pixelY3 = pixelY2 - LINE_SPACING;
                 currentPage.drawText(thirdLineParts[0], {
                   x: pixelX1,
                   y: pixelY3,
@@ -984,84 +1920,395 @@ gafetesController.printCredentialsHonorarios = async (req, res) => {
             }
           }
         }
-      }
 
-      // Insertar DOMICILIO con múltiples líneas
-      if (domicilioLines.length > 0) {
-        // Primera línea (máximo 5cm) -> subir 0.3 cm
-        const pixelX1 = 6.95 * CM_TO_POINTS + offsetX;
-        const pixelY1 =
-          height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+        if (domicilio2Lines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 5.6 * CM_TO_POINTS;
+          const pixelY1 = height - 19.37 * CM_TO_POINTS;
 
-        // Espacio vertical entre líneas reducido (0.25 cm)
-        const LINE_SPACING = 0.3 * CM_TO_POINTS;
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
 
-        // Dibujar primera línea
-        currentPage.drawText(domicilioLines[0], {
-          x: pixelX1,
-          y: pixelY1,
-          size: 8,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-
-        // Segunda línea (si existe)
-        if (domicilioLines.length > 1) {
-          const secondText = domicilioLines[1];
-          const pixelY2 = pixelY1 - LINE_SPACING;
-
-          currentPage.drawText(secondText, {
-            x: pixelX1, // misma alineación que la primera
-            y: pixelY2,
+          // Dibujar primera línea
+          currentPage.drawText(domicilio2Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
             size: 8,
             font: fontBlack,
             color: rgb(0, 0, 0),
           });
 
-          // Si hay más de dos líneas, crear una tercera con el resto del texto
-          if (domicilioLines.length > 2) {
-            const remainingText = domicilioLines.slice(2).join(" ");
-            // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
-            const thirdLineParts = splitTextByWidth(
+          // Segunda línea (si existe)
+          if (domicilio2Lines.length > 1) {
+            const secondText = domicilio2Lines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilio2Lines.length > 2) {
+              const remainingText = domicilio2Lines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
+              const thirdLineParts = splitTextByWidth(
+                remainingText,
+                fontBlack,
+                8,
+                5, // ancho 5cm
+                CM_TO_POINTS,
+              );
+              if (thirdLineParts.length > 0) {
+                const pixelY3 = pixelY2 - LINE_SPACING;
+                currentPage.drawText(thirdLineParts[0], {
+                  x: pixelX1,
+                  y: pixelY3,
+                  size: 8,
+                  font: fontBlack,
+                  color: rgb(0, 0, 0),
+                });
+              }
+            }
+          }
+        }
+      } else {
+
+        const employee = employee1;
+
+        // Cargar el template para cada gafete
+        const templateBytes = fs.readFileSync(templatePath);
+        const templateDoc = await PDFDocument.load(templateBytes);
+
+        const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
+        pdfDoc.addPage(templatePage);
+
+        const pages = pdfDoc.getPages();
+        const currentPage = pages[pages.length - 1];
+        const { width, height } = currentPage.getSize();
+
+        // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
+        const CM_TO_POINTS = 28.3465;
+
+        // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
+        const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
+        // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
+        const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
+
+        // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
+        const adscripcionLines = splitTextByWidth(
+          employee.ADSCRIPCION || "",
+          fontBlack,
+          8,
+          5, // <- ancho cambiado a 5cm
+          CM_TO_POINTS,
+        );
+
+        // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
+        const domicilioLines = splitTextByWidth(
+          employee.DOMICILIO || "",
+          fontBlack,
+          8,
+          5, // <- ancho cambiado a 5cm
+          CM_TO_POINTS,
+        );
+
+        // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
+        const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
+          }`.trim();
+        const apellidosLines = splitTextByWidth(
+          apellidosText,
+          fontMedium,
+          12,
+          6,
+          CM_TO_POINTS,
+        );
+
+        // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
+        const avisarSingleLine =
+          splitTextByWidth(
+            employee.AVISAR || "",
+            fontBlack,
+            8,
+            5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+            CM_TO_POINTS,
+          )[0] || "";
+
+        // Configuración de campos según las coordenadas proporcionadas
+        const fieldsData = [
+          {
+            text: employee.RFC || "",
+            x: 6.35 * CM_TO_POINTS + offsetX,
+            y: height - 6.49 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.CURP || "",
+            x: 6.72 * CM_TO_POINTS + offsetX,
+            y: height - 7.15 * CM_TO_POINTS - offsetY, // Debajo de RFC
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.TEL_PERSONAL || "",
+            x: 6.6 * CM_TO_POINTS + offsetX,
+            y: height - 10.52 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisarSingleLine,
+            x: 5.72 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 12.5 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.TEL_EMERGENCIA1 || "",
+            x: 7.1 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
+            y: height - 12.98 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.SANGRE || "",
+            x: 6.77 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 13.41 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee.ALERGIAS || "",
+            x: 5.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 14.03 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+        ];
+
+        // Insertar los datos en el PDF
+        fieldsData.forEach((field) => {
+          if (field.text) {
+            currentPage.drawText(String(field.text), {
+              x: field.x,
+              y: field.y,
+              size: field.size,
+              font: field.font,
+              color: field.color,
+            });
+          }
+        });
+
+        // Función para centrar texto en un rango
+        const centerText = (text, font, fontSize, startX, endX) => {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          const availableWidth = endX - startX;
+          const centeredX = startX + (availableWidth - textWidth) / 2;
+          return centeredX;
+        };
+
+        const startX = 12.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+        const endX = 20.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+
+        // Insertar NOMBRES centrado
+        if (employee.NOMBRES) {
+          const nombresX = centerText(
+            employee.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee.NOMBRES, {
+            x: nombresX,
+            y: height - 11 * CM_TO_POINTS - offsetY,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar NOMCATE centrado
+        if (employee.NOMCATE) {
+          const nomcateX = centerText(
+            employee.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee.NOMCATE, {
+            x: nomcateX,
+            y: height - 12 * CM_TO_POINTS - offsetY,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar ADSCRIPCION con múltiples líneas
+        if (adscripcionLines.length > 0) {
+          // Primera línea (máximo 5cm)
+          const pixelX1 = 6.4 * CM_TO_POINTS + offsetX;
+          const pixelY1 =
+            height - 8 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+
+          currentPage.drawText(adscripcionLines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcionLines.length > 1) {
+            const remainingText = adscripcionLines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
               remainingText,
               fontBlack,
               8,
-              5, // ancho 5cm
+              5, // ancho 5cm para la segunda línea
               CM_TO_POINTS,
             );
-            if (thirdLineParts.length > 0) {
-              const pixelY3 = pixelY2 - LINE_SPACING;
-              currentPage.drawText(thirdLineParts[0], {
-                x: pixelX1,
-                y: pixelY3,
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
                 size: 8,
                 font: fontBlack,
                 color: rgb(0, 0, 0),
               });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcionLines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
             }
           }
         }
+
+        // Insertar DOMICILIO con múltiples líneas
+        if (domicilioLines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 6.95 * CM_TO_POINTS + offsetX;
+          const pixelY1 =
+            height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
+
+          // Dibujar primera línea
+          currentPage.drawText(domicilioLines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Segunda línea (si existe)
+          if (domicilioLines.length > 1) {
+            const secondText = domicilioLines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilioLines.length > 2) {
+              const remainingText = domicilioLines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
+              const thirdLineParts = splitTextByWidth(
+                remainingText,
+                fontBlack,
+                8,
+                5, // ancho 5cm
+                CM_TO_POINTS,
+              );
+              if (thirdLineParts.length > 0) {
+                const pixelY3 = pixelY2 - LINE_SPACING;
+                currentPage.drawText(thirdLineParts[0], {
+                  x: pixelX1,
+                  y: pixelY3,
+                  size: 8,
+                  font: fontBlack,
+                  color: rgb(0, 0, 0),
+                });
+              }
+            }
+          }
+        }
+
+        // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
+        if (apellidosLines.length > 0) {
+          const apellidosX = centerText(
+            apellidosLines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
+
+          currentPage.drawText(apellidosLines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
       }
 
-      // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
-      if (apellidosLines.length > 0) {
-        const apellidosX = centerText(
-          apellidosLines[0],
-          fontMedium,
-          12,
-          startX,
-          endX,
-        );
-        const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
-
-        currentPage.drawText(apellidosLines[0], {
-          x: apellidosX,
-          y: apellidosY,
-          size: 12,
-          font: fontMedium,
-          color: rgb(0, 0, 0),
-        });
-      }
     }
 
     // Guardar el PDF modificado
@@ -1109,20 +2356,6 @@ gafetesController.printCredentialsServicios = async (req, res) => {
     // Convertir a array si es un solo objeto
     const employees = Array.isArray(data) ? data : [data];
 
-    // Leer el PDF template
-    const templatePath = path.join(
-      __dirname,
-      "../../templates",
-      "g_servicios.pdf",
-    );
-
-    if (!fs.existsSync(templatePath)) {
-      return res.status(404).send({
-        error: "Template PDF no encontrado",
-        path: templatePath,
-      });
-    }
-
     // Crear un nuevo documento PDF
     const pdfDoc = await PDFDocument.create();
 
@@ -1187,255 +2420,568 @@ gafetesController.printCredentialsServicios = async (req, res) => {
       return lines;
     };
 
-    // Procesar cada empleado
-    for (const employee of employees) {
-      // Cargar el template para cada gafete
-      const templateBytes = fs.readFileSync(templatePath);
-      const templateDoc = await PDFDocument.load(templateBytes);
+    for (let i = 0; i < employees.length; i += 2) {
 
-      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
-      pdfDoc.addPage(templatePage);
+      const employee1 = employees[i];
+      const employee2 = employees[i + 1];
 
-      const pages = pdfDoc.getPages();
-      const currentPage = pages[pages.length - 1];
-      const { width, height } = currentPage.getSize();
+      const templatePath = employee2
+        ? path.join(__dirname, "../../templates", "g_servicios.pdf")
+        : path.join(__dirname, "../../templates", "g_servicios_single.pdf");
 
-      // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
-      const CM_TO_POINTS = 28.3465;
+      if (!fs.existsSync(templatePath)) {
+        return res.status(404).send({
+          error: "Template PDF no encontrado",
+          path: templatePath,
+        });
+      }
 
-      // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
-      const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
-      // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
-      const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
+      if (employee2) {
+        // Cargar el template para cada gafete
+        const templateBytes = fs.readFileSync(templatePath);
+        const templateDoc = await PDFDocument.load(templateBytes);
 
-      // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
-      const adscripcionLines = splitTextByWidth(
-        employee.ADSCRIPCION || "",
-        fontBlack,
-        8,
-        5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS,
-      );
+        const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
+        pdfDoc.addPage(templatePage);
 
-      // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
-      const domicilioLines = splitTextByWidth(
-        employee.DOMICILIO || "",
-        fontBlack,
-        8,
-        5, // <- ancho cambiado a 5cm
-        CM_TO_POINTS,
-      );
+        const pages = pdfDoc.getPages();
+        const currentPage = pages[pages.length - 1];
+        const { width, height } = currentPage.getSize();
 
-      // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
-      const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
-        }`.trim();
-      const apellidosLines = splitTextByWidth(
-        apellidosText,
-        fontMedium,
-        12,
-        6,
-        CM_TO_POINTS,
-      );
+        // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
+        const CM_TO_POINTS = 28.3465;
 
-      // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
-      const avisarSingleLine =
-        splitTextByWidth(
-          employee.AVISAR || "",
+
+        // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
+        const offsetY = CM_TO_POINTS;
+        // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
+        const offsetX = CM_TO_POINTS;
+
+        // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
+        const adscripcion1Lines = splitTextByWidth(
+          employee1.ADSCRIPCION || "",
           fontBlack,
           8,
-          5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+          5,
           CM_TO_POINTS,
-        )[0] || "";
+        );
 
-      // Configuración de campos según las coordenadas proporcionadas
-      const fieldsData = [
-        {
-          text: employee.RFC || "",
-          x: 6.35 * CM_TO_POINTS + offsetX,
-          y: height - 6.49 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.CURP || "",
-          x: 6.72 * CM_TO_POINTS + offsetX,
-          y: height - 7.15 * CM_TO_POINTS - offsetY, // Debajo de RFC
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.TEL_PERSONAL || "",
-          x: 6.6 * CM_TO_POINTS + offsetX,
-          y: height - 10.52 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: avisarSingleLine,
-          x: 5.72 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 12.5 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.TEL_EMERGENCIA1 || "",
-          x: 7.1 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
-          y: height - 12.98 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.SANGRE || "",
-          x: 6.77 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 13.41 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
-          font: fontBlack,
-          size: 8,
-          color: hexToRgb("#9D2449"),
-        },
-        {
-          text: employee.ALERGIAS || "",
-          x: 5.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 14.03 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-        {
-          text: employee.AFILIACI || "",
-          x: 7.45 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
-          y: height - 14.57 * CM_TO_POINTS - offsetY,
-          font: fontBlack,
-          size: 8,
-          color: rgb(0, 0, 0),
-        },
-      ];
-
-      // Insertar los datos en el PDF
-      fieldsData.forEach((field) => {
-        if (field.text) {
-          currentPage.drawText(String(field.text), {
-            x: field.x,
-            y: field.y,
-            size: field.size,
-            font: field.font,
-            color: field.color,
-          });
-        }
-      });
-
-      // Función para centrar texto en un rango
-      const centerText = (text, font, fontSize, startX, endX) => {
-        const textWidth = font.widthOfTextAtSize(text, fontSize);
-        const availableWidth = endX - startX;
-        const centeredX = startX + (availableWidth - textWidth) / 2;
-        return centeredX;
-      };
-
-      const startX = 12.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
-      const endX = 20.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
-
-      // Insertar NOMBRES centrado
-      if (employee.NOMBRES) {
-        const nombresX = centerText(
-          employee.NOMBRES,
+        const adscripcion2Lines = splitTextByWidth(
+          employee2.ADSCRIPCION || "",
           fontBlack,
-          12,
-          startX,
-          endX,
+          8,
+          5,
+          CM_TO_POINTS,
         );
-        currentPage.drawText(employee.NOMBRES, {
-          x: nombresX,
-          y: height - 11 * CM_TO_POINTS - offsetY,
-          size: 12,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-      }
 
-      // Insertar NOMCATE centrado
-      if (employee.NOMCATE) {
-        const nomcateX = centerText(
-          employee.NOMCATE,
+        // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
+        const domicilio1Lines = splitTextByWidth(
+          employee1.DOMICILIO || "",
+          fontBlack,
+          8,
+          5,
+          CM_TO_POINTS,
+        );
+
+        const domicilio2Lines = splitTextByWidth(
+          employee2.DOMICILIO || "",
+          fontBlack,
+          8,
+          5,
+          CM_TO_POINTS,
+        );
+
+        // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
+        const apellidos1Text = `${employee1.APE_PAT || ""} ${employee1.APE_MAT || ""
+          }`.trim();
+        const apellidos1Lines = splitTextByWidth(
+          apellidos1Text,
           fontMedium,
-          10,
-          startX,
-          endX,
+          12,
+          6,
+          CM_TO_POINTS,
         );
-        currentPage.drawText(employee.NOMCATE, {
-          x: nomcateX,
-          y: height - 12 * CM_TO_POINTS - offsetY,
-          size: 10,
-          font: fontMedium,
-          color: rgb(0, 0, 0),
-        });
-      }
 
-      // Insertar ADSCRIPCION con múltiples líneas
-      if (adscripcionLines.length > 0) {
-        // Primera línea (máximo 5cm)
-        const pixelX1 = 6.4 * CM_TO_POINTS + offsetX;
-        const pixelY1 =
-          height - 8 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+        const apellidos2Text = `${employee2.APE_PAT || ""} ${employee2.APE_MAT || ""
+          }`.trim();
+        const apellidos2Lines = splitTextByWidth(
+          apellidos2Text,
+          fontMedium,
+          12,
+          6,
+          CM_TO_POINTS,
+        );
 
-        currentPage.drawText(adscripcionLines[0], {
-          x: pixelX1,
-          y: pixelY1,
-          size: 8,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-
-        // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
-        const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
-
-        // Segunda línea si existe (máximo 5cm), alineada con la primera
-        if (adscripcionLines.length > 1) {
-          const remainingText = adscripcionLines.slice(1).join(" ");
-          const secondLineParts = splitTextByWidth(
-            remainingText,
+        // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
+        const avisarSingleLine =
+          splitTextByWidth(
+            employee1.AVISAR || "",
             fontBlack,
             8,
-            5, // ancho 5cm para la segunda línea
+            5,
             CM_TO_POINTS,
+          )[0] || "";
+
+        const avisar2SingleLine =
+          splitTextByWidth(
+            employee2.AVISAR || "",
+            fontBlack,
+            8,
+            5,
+            CM_TO_POINTS,
+          )[0] || "";
+
+        // Configuración de campos según las coordenadas proporcionadas
+        const fieldsData = [
+          {
+            text: employee1.RFC || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 3.17 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.RFC || "",
+            x: 5 * CM_TO_POINTS,
+            y: height - 16.29 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.CURP || "",
+            x: 5.25 * CM_TO_POINTS,
+            y: height - 3.83 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.CURP || "",
+            x: 5.25 * CM_TO_POINTS,
+            y: height - 16.95 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.TEL_PERSONAL || "",
+            x: 5.2 * CM_TO_POINTS,
+            y: height - 7.2 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.TEL_PERSONAL || "",
+            x: 5.2 * CM_TO_POINTS,
+            y: height - 20.32 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisarSingleLine,
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 9.17 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisar2SingleLine,
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 22.29 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.TEL_EMERGENCIA1 || "",
+            x: 6 * CM_TO_POINTS,
+            y: height - 9.68 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.TEL_EMERGENCIA1 || "",
+            x: 6 * CM_TO_POINTS,
+            y: height - 22.80 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.SANGRE || "",
+            x: 6.3 * CM_TO_POINTS,
+            y: height - 10.20 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee2.SANGRE || "",
+            x: 6.3 * CM_TO_POINTS,
+            y: height - 23.32 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee1.ALERGIAS || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 10.71 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.ALERGIAS || "",
+            x: 5.3 * CM_TO_POINTS,
+            y: height - 23.83 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee1.AFILIACI || "",
+            x: 7.05 * CM_TO_POINTS,
+            y: height - 11.25 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee2.AFILIACI || "",
+            x: 7.05 * CM_TO_POINTS,
+            y: height - 24.38 * CM_TO_POINTS,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+        ];
+
+        // Insertar los datos en el PDF
+        fieldsData.forEach((field) => {
+          if (field.text) {
+            currentPage.drawText(String(field.text), {
+              x: field.x,
+              y: field.y,
+              size: field.size,
+              font: field.font,
+              color: field.color,
+            });
+          }
+        });
+
+        // Función para centrar texto en un rango
+        const centerText = (text, font, fontSize, startX, endX) => {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          const availableWidth = endX - startX;
+          const centeredX = startX + (availableWidth - textWidth) / 2;
+          return centeredX;
+        };
+
+        const startX = 9.6 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS;
+        const endX = 17.8 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS;
+
+        if (employee1.NOMBRES) {
+          const nombresX = centerText(
+            employee1.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
           );
+          currentPage.drawText(employee1.NOMBRES, {
+            x: nombresX,
+            y: height - 7.65 * CM_TO_POINTS,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
 
-          if (secondLineParts.length > 0) {
-            // Alinear X con la primera línea
-            const pixelX2 = pixelX1;
-            const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+        if (employee2.NOMBRES) {
+          const nombresX = centerText(
+            employee2.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee2.NOMBRES, {
+            x: nombresX,
+            y: height - 20.77 * CM_TO_POINTS,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
 
-            currentPage.drawText(secondLineParts[0], {
-              x: pixelX2,
+        if (apellidos1Lines.length > 0) {
+          const apellidosX = centerText(
+            apellidos1Lines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 8.15 * CM_TO_POINTS;
+
+          currentPage.drawText(apellidos1Lines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        if (apellidos2Lines.length > 0) {
+          const apellidosX = centerText(
+            apellidos2Lines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 21.27 * CM_TO_POINTS;
+
+          currentPage.drawText(apellidos2Lines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar NOMCATE centrado
+        if (employee1.NOMCATE) {
+          const nomcateX = centerText(
+            employee1.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee1.NOMCATE, {
+            x: nomcateX,
+            y: height - 8.65 * CM_TO_POINTS,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        if (employee2.NOMCATE) {
+          const nomcateX = centerText(
+            employee2.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee2.NOMCATE, {
+            x: nomcateX,
+            y: height - 21.77 * CM_TO_POINTS,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar ADSCRIPCION con múltiples líneas
+        if (adscripcion1Lines.length > 0) {
+          // Primera línea (máximo 5cm)
+          const pixelX1 = 5 * CM_TO_POINTS;
+          const pixelY1 = height - 4.48 * CM_TO_POINTS;
+
+          currentPage.drawText(adscripcion1Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcion1Lines.length > 1) {
+            const remainingText = adscripcion1Lines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
+              remainingText,
+              fontBlack,
+              8,
+              5, // ancho 5cm para la segunda línea
+              CM_TO_POINTS,
+            );
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
+                size: 8,
+                font: fontBlack,
+                color: rgb(0, 0, 0),
+              });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcion1Lines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (adscripcion2Lines.length > 0) {
+          const pixelX1 = 5 * CM_TO_POINTS;
+          const pixelY1 = height - 17.6 * CM_TO_POINTS;
+
+          currentPage.drawText(adscripcion2Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcion2Lines.length > 1) {
+            const remainingText = adscripcion2Lines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
+              remainingText,
+              fontBlack,
+              8,
+              5, // ancho 5cm para la segunda línea
+              CM_TO_POINTS,
+            );
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
+                size: 8,
+                font: fontBlack,
+                color: rgb(0, 0, 0),
+              });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcion2Lines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // Insertar DOMICILIO con múltiples líneas
+        if (domicilio1Lines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 5.6 * CM_TO_POINTS;
+          const pixelY1 = height - 6.25 * CM_TO_POINTS;
+
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
+
+          // Dibujar primera línea
+          currentPage.drawText(domicilio1Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Segunda línea (si existe)
+          if (domicilio1Lines.length > 1) {
+            const secondText = domicilio1Lines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
               y: pixelY2,
               size: 8,
               font: fontBlack,
               color: rgb(0, 0, 0),
             });
 
-            // Si hay más texto, crear una tercera línea con el resto
-            const remainingAfterSecond =
-              secondLineParts.length > 1
-                ? secondLineParts.slice(1).join(" ")
-                : adscripcionLines.slice(2).join(" ");
-
-            if (
-              remainingAfterSecond &&
-              remainingAfterSecond.trim().length > 0
-            ) {
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilio1Lines.length > 2) {
+              const remainingText = domicilio1Lines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
               const thirdLineParts = splitTextByWidth(
-                remainingAfterSecond,
+                remainingText,
                 fontBlack,
                 8,
-                5, // ancho 5cm para la tercera línea
+                5, // ancho 5cm
                 CM_TO_POINTS,
               );
               if (thirdLineParts.length > 0) {
-                const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                const pixelY3 = pixelY2 - LINE_SPACING;
                 currentPage.drawText(thirdLineParts[0], {
                   x: pixelX1,
                   y: pixelY3,
@@ -1447,84 +2993,403 @@ gafetesController.printCredentialsServicios = async (req, res) => {
             }
           }
         }
-      }
 
-      // Insertar DOMICILIO con múltiples líneas
-      if (domicilioLines.length > 0) {
-        // Primera línea (máximo 5cm) -> subir 0.3 cm
-        const pixelX1 = 6.95 * CM_TO_POINTS + offsetX;
-        const pixelY1 =
-          height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+        if (domicilio2Lines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 5.6 * CM_TO_POINTS;
+          const pixelY1 = height - 19.37 * CM_TO_POINTS;
 
-        // Espacio vertical entre líneas reducido (0.25 cm)
-        const LINE_SPACING = 0.3 * CM_TO_POINTS;
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
 
-        // Dibujar primera línea
-        currentPage.drawText(domicilioLines[0], {
-          x: pixelX1,
-          y: pixelY1,
-          size: 8,
-          font: fontBlack,
-          color: rgb(0, 0, 0),
-        });
-
-        // Segunda línea (si existe)
-        if (domicilioLines.length > 1) {
-          const secondText = domicilioLines[1];
-          const pixelY2 = pixelY1 - LINE_SPACING;
-
-          currentPage.drawText(secondText, {
-            x: pixelX1, // misma alineación que la primera
-            y: pixelY2,
+          // Dibujar primera línea
+          currentPage.drawText(domicilio2Lines[0], {
+            x: pixelX1,
+            y: pixelY1,
             size: 8,
             font: fontBlack,
             color: rgb(0, 0, 0),
           });
 
-          // Si hay más de dos líneas, crear una tercera con el resto del texto
-          if (domicilioLines.length > 2) {
-            const remainingText = domicilioLines.slice(2).join(" ");
-            // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
-            const thirdLineParts = splitTextByWidth(
+          // Segunda línea (si existe)
+          if (domicilio2Lines.length > 1) {
+            const secondText = domicilio2Lines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilio2Lines.length > 2) {
+              const remainingText = domicilio2Lines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
+              const thirdLineParts = splitTextByWidth(
+                remainingText,
+                fontBlack,
+                8,
+                5, // ancho 5cm
+                CM_TO_POINTS,
+              );
+              if (thirdLineParts.length > 0) {
+                const pixelY3 = pixelY2 - LINE_SPACING;
+                currentPage.drawText(thirdLineParts[0], {
+                  x: pixelX1,
+                  y: pixelY3,
+                  size: 8,
+                  font: fontBlack,
+                  color: rgb(0, 0, 0),
+                });
+              }
+            }
+          }
+        }
+      } else {
+
+        const employee = employee1;
+
+        // Cargar el template para cada gafete
+        const templateBytes = fs.readFileSync(templatePath);
+        const templateDoc = await PDFDocument.load(templateBytes);
+
+        const [templatePage] = await pdfDoc.copyPages(templateDoc, [0]);
+        pdfDoc.addPage(templatePage);
+
+        const pages = pdfDoc.getPages();
+        const currentPage = pages[pages.length - 1];
+        const { width, height } = currentPage.getSize();
+
+        // Conversión correcta: 1 cm = 28.3465 puntos (1 inch = 72 points, 1 inch = 2.54 cm)
+        const CM_TO_POINTS = 28.3465;
+
+        // Bajar 1.7 cm - Subir 1.5 cm = Bajar 0.2 cm
+        const offsetY = (1.7 - 1.5) * CM_TO_POINTS;
+        // Mover a la derecha 1.5 cm + 0.2 cm = 1.7 cm
+        const offsetX = (1.5 + 0.2) * CM_TO_POINTS;
+
+        // Procesar ADSCRIPCION (primer renglón 5cm, segundo 6cm)
+        const adscripcionLines = splitTextByWidth(
+          employee.ADSCRIPCION || "",
+          fontBlack,
+          8,
+          5, // <- ancho cambiado a 5cm
+          CM_TO_POINTS,
+        );
+
+        // Procesar DOMICILIO (primer renglón 5cm, segundo 5cm)
+        const domicilioLines = splitTextByWidth(
+          employee.DOMICILIO || "",
+          fontBlack,
+          8,
+          5, // <- ancho cambiado a 5cm
+          CM_TO_POINTS,
+        );
+
+        // Procesar APELLIDOS (APE_PAT + APE_MAT) con ancho de 6cm
+        const apellidosText = `${employee.APE_PAT || ""} ${employee.APE_MAT || ""
+          }`.trim();
+        const apellidosLines = splitTextByWidth(
+          apellidosText,
+          fontMedium,
+          12,
+          6,
+          CM_TO_POINTS,
+        );
+
+        // Antes de armar los campos, truncar AVISAR a una sola línea (máximo 5cm)
+        const avisarSingleLine =
+          splitTextByWidth(
+            employee.AVISAR || "",
+            fontBlack,
+            8,
+            5, // ancho máximo 5cm (igual que ADSCRIPCION/DOMICILIO)
+            CM_TO_POINTS,
+          )[0] || "";
+
+        // Configuración de campos según las coordenadas proporcionadas
+        const fieldsData = [
+          {
+            text: employee.RFC || "",
+            x: 6.35 * CM_TO_POINTS + offsetX,
+            y: height - 6.49 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.CURP || "",
+            x: 6.72 * CM_TO_POINTS + offsetX,
+            y: height - 7.15 * CM_TO_POINTS - offsetY, // Debajo de RFC
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.TEL_PERSONAL || "",
+            x: 6.6 * CM_TO_POINTS + offsetX,
+            y: height - 10.52 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: avisarSingleLine,
+            x: 5.72 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 12.5 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.TEL_EMERGENCIA1 || "",
+            x: 7.1 * CM_TO_POINTS + offsetX + 0.3 * CM_TO_POINTS, // 3mm a la derecha
+            y: height - 12.98 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.SANGRE || "",
+            x: 6.77 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 13.41 * CM_TO_POINTS - offsetY - 0.1 * CM_TO_POINTS, // 1mm abajo
+            font: fontBlack,
+            size: 8,
+            color: hexToRgb("#9D2449"),
+          },
+          {
+            text: employee.ALERGIAS || "",
+            x: 5.8 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 14.03 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+          {
+            text: employee.AFILIACI || "",
+            x: 7.45 * CM_TO_POINTS + offsetX + 1 * CM_TO_POINTS, // 1 cm a la derecha
+            y: height - 14.57 * CM_TO_POINTS - offsetY,
+            font: fontBlack,
+            size: 8,
+            color: rgb(0, 0, 0),
+          },
+        ];
+
+        // Insertar los datos en el PDF
+        fieldsData.forEach((field) => {
+          if (field.text) {
+            currentPage.drawText(String(field.text), {
+              x: field.x,
+              y: field.y,
+              size: field.size,
+              font: field.font,
+              color: field.color,
+            });
+          }
+        });
+
+        // Función para centrar texto en un rango
+        const centerText = (text, font, fontSize, startX, endX) => {
+          const textWidth = font.widthOfTextAtSize(text, fontSize);
+          const availableWidth = endX - startX;
+          const centeredX = startX + (availableWidth - textWidth) / 2;
+          return centeredX;
+        };
+
+        const startX = 12.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+        const endX = 20.2 * CM_TO_POINTS + offsetX + 0.25 * CM_TO_POINTS; // 0.25cm a la derecha
+
+        // Insertar NOMBRES centrado
+        if (employee.NOMBRES) {
+          const nombresX = centerText(
+            employee.NOMBRES,
+            fontBlack,
+            12,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee.NOMBRES, {
+            x: nombresX,
+            y: height - 11 * CM_TO_POINTS - offsetY,
+            size: 12,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar NOMCATE centrado
+        if (employee.NOMCATE) {
+          const nomcateX = centerText(
+            employee.NOMCATE,
+            fontMedium,
+            10,
+            startX,
+            endX,
+          );
+          currentPage.drawText(employee.NOMCATE, {
+            x: nomcateX,
+            y: height - 12 * CM_TO_POINTS - offsetY,
+            size: 10,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Insertar ADSCRIPCION con múltiples líneas
+        if (adscripcionLines.length > 0) {
+          // Primera línea (máximo 5cm)
+          const pixelX1 = 6.4 * CM_TO_POINTS + offsetX;
+          const pixelY1 =
+            height - 8 * CM_TO_POINTS - offsetY + 0.2 * CM_TO_POINTS; // Subir 0.2cm
+
+          currentPage.drawText(adscripcionLines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Espacio vertical entre líneas de adscripción (usar 0.30 cm)
+          const LINE_SPACING_ADS = 0.3 * CM_TO_POINTS;
+
+          // Segunda línea si existe (máximo 5cm), alineada con la primera
+          if (adscripcionLines.length > 1) {
+            const remainingText = adscripcionLines.slice(1).join(" ");
+            const secondLineParts = splitTextByWidth(
               remainingText,
               fontBlack,
               8,
-              5, // ancho 5cm
+              5, // ancho 5cm para la segunda línea
               CM_TO_POINTS,
             );
-            if (thirdLineParts.length > 0) {
-              const pixelY3 = pixelY2 - LINE_SPACING;
-              currentPage.drawText(thirdLineParts[0], {
-                x: pixelX1,
-                y: pixelY3,
+
+            if (secondLineParts.length > 0) {
+              // Alinear X con la primera línea
+              const pixelX2 = pixelX1;
+              const pixelY2 = pixelY1 - LINE_SPACING_ADS;
+
+              currentPage.drawText(secondLineParts[0], {
+                x: pixelX2,
+                y: pixelY2,
                 size: 8,
                 font: fontBlack,
                 color: rgb(0, 0, 0),
               });
+
+              // Si hay más texto, crear una tercera línea con el resto
+              const remainingAfterSecond =
+                secondLineParts.length > 1
+                  ? secondLineParts.slice(1).join(" ")
+                  : adscripcionLines.slice(2).join(" ");
+
+              if (
+                remainingAfterSecond &&
+                remainingAfterSecond.trim().length > 0
+              ) {
+                const thirdLineParts = splitTextByWidth(
+                  remainingAfterSecond,
+                  fontBlack,
+                  8,
+                  5, // ancho 5cm para la tercera línea
+                  CM_TO_POINTS,
+                );
+                if (thirdLineParts.length > 0) {
+                  const pixelY3 = pixelY2 - LINE_SPACING_ADS;
+                  currentPage.drawText(thirdLineParts[0], {
+                    x: pixelX1,
+                    y: pixelY3,
+                    size: 8,
+                    font: fontBlack,
+                    color: rgb(0, 0, 0),
+                  });
+                }
+              }
             }
           }
         }
+
+        // Insertar DOMICILIO con múltiples líneas
+        if (domicilioLines.length > 0) {
+          // Primera línea (máximo 5cm) -> subir 0.3 cm
+          const pixelX1 = 6.95 * CM_TO_POINTS + offsetX;
+          const pixelY1 =
+            height - 9.9 * CM_TO_POINTS - offsetY + 0.3 * CM_TO_POINTS;
+
+          // Espacio vertical entre líneas reducido (0.25 cm)
+          const LINE_SPACING = 0.3 * CM_TO_POINTS;
+
+          // Dibujar primera línea
+          currentPage.drawText(domicilioLines[0], {
+            x: pixelX1,
+            y: pixelY1,
+            size: 8,
+            font: fontBlack,
+            color: rgb(0, 0, 0),
+          });
+
+          // Segunda línea (si existe)
+          if (domicilioLines.length > 1) {
+            const secondText = domicilioLines[1];
+            const pixelY2 = pixelY1 - LINE_SPACING;
+
+            currentPage.drawText(secondText, {
+              x: pixelX1, // misma alineación que la primera
+              y: pixelY2,
+              size: 8,
+              font: fontBlack,
+              color: rgb(0, 0, 0),
+            });
+
+            // Si hay más de dos líneas, crear una tercera con el resto del texto
+            if (domicilioLines.length > 2) {
+              const remainingText = domicilioLines.slice(2).join(" ");
+              // Asegurarse que la tercera línea quepa en 5cm (tomar solo la primera línea resultante)
+              const thirdLineParts = splitTextByWidth(
+                remainingText,
+                fontBlack,
+                8,
+                5, // ancho 5cm
+                CM_TO_POINTS,
+              );
+              if (thirdLineParts.length > 0) {
+                const pixelY3 = pixelY2 - LINE_SPACING;
+                currentPage.drawText(thirdLineParts[0], {
+                  x: pixelX1,
+                  y: pixelY3,
+                  size: 8,
+                  font: fontBlack,
+                  color: rgb(0, 0, 0),
+                });
+              }
+            }
+          }
+        }
+
+        // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
+        if (apellidosLines.length > 0) {
+          const apellidosX = centerText(
+            apellidosLines[0],
+            fontMedium,
+            12,
+            startX,
+            endX,
+          );
+          const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
+
+          currentPage.drawText(apellidosLines[0], {
+            x: apellidosX,
+            y: apellidosY,
+            size: 12,
+            font: fontMedium,
+            color: rgb(0, 0, 0),
+          });
+        }
       }
 
-      // Insertar APELLIDOS (APE_PAT + APE_MAT) centrado
-      if (apellidosLines.length > 0) {
-        const apellidosX = centerText(
-          apellidosLines[0],
-          fontMedium,
-          12,
-          startX,
-          endX,
-        );
-        const apellidosY = height - 11.5 * CM_TO_POINTS - offsetY;
-
-        currentPage.drawText(apellidosLines[0], {
-          x: apellidosX,
-          y: apellidosY,
-          size: 12,
-          font: fontMedium,
-          color: rgb(0, 0, 0),
-        });
-      }
     }
 
     // Guardar el PDF modificado
