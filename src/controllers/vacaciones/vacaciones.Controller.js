@@ -59,70 +59,107 @@ vacacionesController.getProfile = async (req, res) => {
 
     const fechaIngreso = moment(emp.FECHA_INGRESO, "YYYY-MM-DD", true);
 
-    let fechaCorte = null;
+    const getPeriodoBuscados = (emp, semestreContrato) => {
+      if (semestreContrato === 1) {
+        return [1, 2, 3, 4];
+      }
+
+      return emp.TIPONOM === "F51" || emp.TIPONOM === "M51"
+        ? [5, 6]
+        : [5, 6, 7, 8];
+    };
+
+    const getPeriodDateRange = async (emp, semestreContrato) => {
+      const collection =
+        emp.TIPONOM === "F51" || emp.TIPONOM === "M51"
+          ? "PER_VACACIONALES_BASE"
+          : "PER_VACACIONALES_CONTRATO";
+
+      const periodoBuscado = getPeriodoBuscados(emp, semestreContrato);
+      const periodos = await query(collection, {
+        PERIODO: { $in: periodoBuscado },
+      });
+
+      let primerInicio = null;
+      let ultimoFin = null;
+
+      for (const periodo of periodos) {
+        for (const key of Object.keys(periodo)) {
+          if (isNaN(Number(key))) continue;
+
+          const item = periodo[key];
+
+          if (item?.FECHA_INI) {
+            const inicio = moment(item.FECHA_INI, "YYYY-MM-DD", true);
+            if (inicio.isValid() && (!primerInicio || inicio.isBefore(primerInicio))) {
+              primerInicio = inicio;
+            }
+          }
+
+          if (item?.FECHA_FIN) {
+            const fin = moment(item.FECHA_FIN, "YYYY-MM-DD", true);
+            if (fin.isValid() && (!ultimoFin || fin.isAfter(ultimoFin))) {
+              ultimoFin = fin;
+            }
+          }
+        }
+      }
+
+      return { primerInicio, ultimoFin };
+    };
+
     const mesActual = moment().month() + 1;
-    let semestreContrato = mesActual <= 6 ? 1 : 2;
+    const semestreContrato = (mesActual >= 6 && mesActual <= 9) ? 1 : 2;
 
-    if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {
-      const periodoBuscado = semestreContrato === 1 ? [1] : [5];
+    const { primerInicio, ultimoFin } = await getPeriodDateRange(
+      emp,
+      semestreContrato
+    );
 
-      const periodosBase = await query("PER_VACACIONALES_BASE", {
-        PERIODO: { $in: periodoBuscado }
-      });
-      if (periodosBase.length > 0) {
-        const periodo = periodosBase[0];
-
-        for (const key in periodo) {
-          if (!isNaN(Number(key)) && periodo[key]?.FECHA_INI) {
-            fechaCorte = moment(periodo[key].FECHA_INI, "YYYY-MM-DD");
-            break;
-          }
-        }
-      }
-    } else {
-      const periodoBuscado = semestreContrato === 1 ? [1] : [5];
-
-      const periodosContrato = await query("PER_VACACIONALES_CONTRATO", {
-        PERIODO: { $in: periodoBuscado }
-      });
-
-      if (periodosContrato.length > 0) {
-        const periodo = periodosContrato[0];
-
-        for (const key in periodo) {
-          if (!isNaN(Number(key)) && periodo[key]?.FECHA_INI) {
-            fechaCorte = moment(periodo[key].FECHA_INI, "YYYY-MM-DD");
-            break;
-          }
-        }
-      }
-    }
-
+    console.log(`Primer inicio: ${primerInicio?.format("YYYY-MM-DD")}`);
+    console.log(`Último fin: ${ultimoFin?.format("YYYY-MM-DD")}`);
     let yearsWorked = 0;
     let monthsWorked = 0;
-    if (fechaCorte && fechaCorte.isValid()) {
-      if (fechaVacaciones && fechaVacaciones.isValid()) {
-        yearsWorked = fechaCorte.diff(fechaVacaciones, "years");
-        monthsWorked = fechaCorte.diff(fechaVacaciones, "months");
-      } else if (fechaIngreso.isValid()) {
-        yearsWorked = fechaCorte.diff(fechaIngreso, "years");
-        monthsWorked = fechaCorte.diff(fechaIngreso, "months");
-      } else {
-        console.warn(`Fecha inválida para empleado ${emp._id}`);
-        yearsWorked = 0;
+
+    const fechaBase =
+      fechaVacaciones && fechaVacaciones.isValid()
+        ? fechaVacaciones
+        : fechaIngreso;
+
+    if (
+      primerInicio &&
+      primerInicio.isValid() &&
+      ultimoFin &&
+      ultimoFin.isValid() &&
+      fechaBase.isValid()
+    ) {
+
+      // Antigüedad al iniciar el semestre
+      yearsWorked = primerInicio.diff(fechaBase, "years");
+      monthsWorked = primerInicio.diff(fechaBase, "months");
+
+      // Fecha en la que cumple años de servicio durante este año
+      const aniversario = fechaBase.clone().year(primerInicio.year());
+
+      // Si el aniversario cae dentro del semestre,
+      // se considera la nueva antigüedad.
+      if (
+        aniversario.isSameOrAfter(primerInicio, "day") &&
+        aniversario.isSameOrBefore(ultimoFin, "day")
+      ) {
+        yearsWorked++;
       }
 
-
-
-      if (yearsWorked > 0 && yearsWorked % 5 === 0) {
-        yearsWorked--;
-      }
     } else {
-      console.warn("No hay fecha de corte válida");
+      console.warn("No hay rango de fechas válido.");
+
       yearsWorked = 0;
+      monthsWorked = 0;
     }
 
-    if (!Number.isFinite(yearsWorked) || yearsWorked < 0) yearsWorked = 0;
+    if (!Number.isFinite(yearsWorked) || yearsWorked < 0) {
+      yearsWorked = 0;
+    }
 
     console.log(`Años trabajados: ${yearsWorked}`);
 
@@ -208,7 +245,7 @@ vacacionesController.getProfile = async (req, res) => {
         });
 
       const month = moment().month();
-      const isFirstSection = month >= 1 && month <= 6;
+      const isFirstSection = semestreContrato === 1;
       const filteredMatches = matches.filter((m) =>
         isFirstSection ? m.periodo >= 1 && m.periodo <= 4 : m.periodo >= 5
       );
@@ -241,9 +278,11 @@ vacacionesController.getProfile = async (req, res) => {
         });
 
       const month = moment().month();
-      const isFirstSection = month >= 1 && month <= 6;
+      const isFirstSection = semestreContrato === 1;
       const filteredMatches = matches.filter((m) =>
-        isFirstSection ? m.periodo >= 1 && m.periodo <= 4 : m.periodo >= 5
+        isFirstSection
+          ? m.periodo >= 1 && m.periodo <= 4
+          : m.periodo >= 5 && m.periodo <= 8
       );
       emp.PERIODOS_VACACIONALES = filteredMatches;
     }
