@@ -81,7 +81,6 @@ vacacionesController.getProfile = async (req, res) => {
       });
 
       let primerInicio = null;
-      let ultimoFin = null;
 
       for (const periodo of periodos) {
         for (const key of Object.keys(periodo)) {
@@ -95,29 +94,20 @@ vacacionesController.getProfile = async (req, res) => {
               primerInicio = inicio;
             }
           }
-
-          if (item?.FECHA_FIN) {
-            const fin = moment(item.FECHA_FIN, "YYYY-MM-DD", true);
-            if (fin.isValid() && (!ultimoFin || fin.isAfter(ultimoFin))) {
-              ultimoFin = fin;
-            }
-          }
         }
       }
 
-      return { primerInicio, ultimoFin };
+      return { primerInicio };
     };
 
     const mesActual = moment().month() + 1;
     const semestreContrato = (mesActual >= 6 && mesActual <= 9) ? 1 : 2;
 
-    const { primerInicio, ultimoFin } = await getPeriodDateRange(
+    const { primerInicio } = await getPeriodDateRange(
       emp,
       semestreContrato
     );
 
-    console.log(`Primer inicio: ${primerInicio?.format("YYYY-MM-DD")}`);
-    console.log(`Último fin: ${ultimoFin?.format("YYYY-MM-DD")}`);
     let yearsWorked = 0;
     let monthsWorked = 0;
 
@@ -126,13 +116,7 @@ vacacionesController.getProfile = async (req, res) => {
         ? fechaVacaciones
         : fechaIngreso;
 
-    if (
-      primerInicio &&
-      primerInicio.isValid() &&
-      ultimoFin &&
-      ultimoFin.isValid() &&
-      fechaBase.isValid()
-    ) {
+    if (primerInicio && primerInicio.isValid() && fechaBase.isValid()) {
 
       // Antigüedad al iniciar el semestre
       yearsWorked = primerInicio.diff(fechaBase, "years");
@@ -141,12 +125,7 @@ vacacionesController.getProfile = async (req, res) => {
       // Fecha en la que cumple años de servicio durante este año
       const aniversario = fechaBase.clone().year(primerInicio.year());
 
-      // Si el aniversario cae dentro del semestre,
-      // se considera la nueva antigüedad.
-      if (
-        aniversario.isSameOrAfter(primerInicio, "day") &&
-        aniversario.isSameOrBefore(ultimoFin, "day")
-      ) {
+      if (aniversario.isBefore(primerInicio, "day")) {
         yearsWorked++;
       }
 
@@ -167,15 +146,15 @@ vacacionesController.getProfile = async (req, res) => {
     if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {
       if (monthsWorked < 6) {
         totalDays = 0;
-      } else if (yearsWorked <= 5) {
+      } else if (yearsWorked <= 4) {
         totalDays = 11;
-      } else if (yearsWorked > 5 && yearsWorked <= 10) {
+      } else if (yearsWorked >= 5 && yearsWorked <= 9) {
         totalDays = 13;
-      } else if (yearsWorked > 10 && yearsWorked <= 15) {
+      } else if (yearsWorked >= 10 && yearsWorked <= 14) {
         totalDays = 15;
-      } else if (yearsWorked > 15 && yearsWorked <= 20) {
+      } else if (yearsWorked >= 15 && yearsWorked <= 19) {
         totalDays = 17;
-      } else if (yearsWorked > 20) {
+      } else if (yearsWorked >= 20) {
         totalDays = 19;
       }
     } else {

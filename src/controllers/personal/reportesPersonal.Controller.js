@@ -1043,7 +1043,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
         PROFESION1: est1?.NIVEL_ESTUDIO
           ? `${est1.NIVEL_ESTUDIO} ${est1.PROFES || ""}${est1.CEDULA ? ` (CÉDULA: ${est1.CEDULA})` : ""
           }`
-          : item.PROFESION || "",
+          : item.PROFES || "",
 
         PROFESION2: est2?.NIVEL_ESTUDIO
           ? `${est2.NIVEL_ESTUDIO} ${est2.PROFES || ""}${est2.CEDULA ? ` (CÉDULA: ${est2.CEDULA})` : ""

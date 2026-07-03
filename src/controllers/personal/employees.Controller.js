@@ -61,14 +61,6 @@ employeeController.getProfileData = async (req, res) => {
       hsy_recategorizaciones,
       hsy_status,
     };
-    // Buscar el empleado por su ID
-    // const employee = await query("PLANTILLA", {
-    //   _id: new ObjectId(id),
-    //   $or: [{ STATUS: 1 }, { STATUS: 2 }, { status: 1 }, { status: 2 }],
-    // });
-    // if (!employee || employee.length === 0) {
-    //   return res.status(404).json({ message: "Empleado no encontrado" });
-    // }
 
     const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
       query("PLANTILLA", { _id: new ObjectId(id), $or: [{ STATUS: 1 }, { STATUS: 2 }, { status: 1 }, { status: 2 }] }),
@@ -84,6 +76,15 @@ employeeController.getProfileData = async (req, res) => {
     if (!employee || employee.length === 0) {
       res.status(404).send({ error: "No data found" });
       return;
+    }
+
+    if (employee[0].SINDICATO) {
+      const delegados = await querysql(`
+      SELECT * FROM delegaciones
+      WHERE delegacion = ?`,
+        [employee[0].SINDICATO.DELEGACION],
+      );
+      employee[0].SINDICATO.DELEGADO = delegados.length > 0 ? delegados[0].delegado : null;
     }
 
     // Validamos si el perfil que se esta consultado es de un empleado con licencia activa
@@ -907,7 +908,7 @@ employeeController.getEmployeeCount = async (req, res) => {
 employeeController.afiliarSindicato = async (req, res) => {
   console.log(req.body);
 
-  const { _id, AFILIADO, DELEGACION, DELEGADO, FECHA_AFILIACION } = req.body;
+  const { _id, AFILIADO, DELEGACION, FECHA_AFILIACION } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
@@ -931,7 +932,6 @@ employeeController.afiliarSindicato = async (req, res) => {
     const SINDICATO = {
       AFILIADO,
       DELEGACION,
-      DELEGADO,
       FECHA_AFILIACION: fechaAfiliacionDate,
     };
 

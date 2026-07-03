@@ -289,6 +289,15 @@ incidenciasController.getProfile = async (req, res) => {
 
     const emp = employee[0];
 
+    if (emp.SINDICATO) {
+      const delegados = await querysql(`
+      SELECT * FROM delegaciones
+      WHERE delegacion = ?`,
+        [emp.SINDICATO.DELEGACION],
+      );
+      emp.SINDICATO.DELEGADO = delegados.length > 0 ? delegados[0].delegado : null;
+    }
+
     const status_plaza = await query("PLAZAS", {
       NUMPLA: emp.NUMPLA_ORIGEN ? emp.NUMPLA_ORIGEN : emp.NUMPLA,
     });
