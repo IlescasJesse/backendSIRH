@@ -7,5 +7,5 @@ router.get("/getEmployee/:id", verifyToken, permisosExtController.getProfile);
 router.post("/newExtPermit", verifyToken, permisosExtController.newExtPermit);
 router.put("/updateExtPermit", verifyToken, permisosExtController.updateExtPermit);
 router.delete("/deleteExtPermit/:id", verifyToken, permisosExtController.deleteExtPermit);
-router.get("/getEmployeeWithExtPermits/:type", verifyToken, permisosExtController.getEmployeeWithExtPermits);
+router.get("/getEmployeeWithExtPermits/:type/:quincena", verifyToken, permisosExtController.getEmployeeWithExtPermits);
 module.exports = router;

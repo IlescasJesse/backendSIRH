@@ -424,7 +424,7 @@ reportesPermisosExtController.printReportQuincena = async (req, res) => {
 
     const templateData = {
         fechaHoy: moment().format("DD/MM/YYYY"),
-        quincena: `DEL ${startDay} AL ${endDay} DE ${moment({ year, month: month - 1, day: 1 }).locale("es").format("MMMM").toUpperCase()} DE ${year}`,
+        quincena: `${startDay} AL ${endDay} DE ${moment({ year, month: month - 1, day: 1 }).locale("es").format("MMMM").toUpperCase()} DE ${year}`,
         DIAS_LENP: totalDaysLENP,
         DIAS_CUFA: totalDaysCUFA,
         DIAS_CUMA: totalDaysCUMA,
@@ -581,7 +581,7 @@ reportesPermisosExtController.printReportQuincenaAndType = async (req, res) => {
 
     const templateData = {
         fechaHoy: moment().format("DD/MM/YYYY"),
-        quincena: `DEL ${startDay} AL ${endDay} DE ${moment({ year, month: month - 1, day: 1 }).locale("es").format("MMMM").toUpperCase()} DE ${year}`,
+        quincena: `${startDay} AL ${endDay} DE ${moment({ year, month: month - 1, day: 1 }).locale("es").format("MMMM").toUpperCase()} DE ${year}`,
         tipoPermiso: tipoMapping[tipo] || tipo,
         totalPersonas: permisosExt.length,
         totalDias: totalDays,

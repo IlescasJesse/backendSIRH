@@ -2097,13 +2097,24 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           doc.on("error", reject);
 
-          //const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
+          // const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjetaComisionados.jpg");
+          // const img = doc.openImage(backgroundImage);
+
+          // const scale = Math.min(
+          //   docWidth / img.width,
+          //   docHeight / img.height
+          // );
+          // const width = img.width * scale;
+          // const height = img.height * scale;
+
+          // const x = (docWidth - width) / 2;
+          // const y = 0;
 
           comisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
-            // doc.image(backgroundImage, 0, 0, {
-            //   width: docWidth,
-            //   height: docHeight,
+            // doc.image(backgroundImage, x, y, {
+            //   width: width,
+            //   height: height
             // });
             const cardNumber = record.NUMTARJETA || "";
             const area = record.ADSCRIPCION || "";
@@ -2121,35 +2132,27 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
 
             // Ajuste dinámico de posición para NUM
-            const baseNumSize = 22;
+            let baseNumSize = 22;
             const numStr = String(cardNumber || "");
             const digitCount = (numStr.match(/\d/g) || []).length;
-            let extraNumOffsetX = 0;
 
-            if (digitCount === 3) {
-              extraNumOffsetX = -0.3 * pt;
-            } else if (digitCount === 4) {
-              extraNumOffsetX = -0.5 * pt;
+            if (digitCount === 4) {
+              baseNumSize = 17;
+            } else {
+              baseNumSize = 22;
             }
-
-            const numFontSizeAdjusted =
-              baseNumSize + (printerPosition === "IZQUIERDA" ? 1 : 0);
-            doc.fontSize(numFontSizeAdjusted).font("Helvetica-Bold");
-
-            const extraLeftUp = printerPosition === "IZQUIERDA" ? -0.1 * pt : 0;
-            const ajusteY = -5.67 + extraLeftUp;
-            const extraRight2mm = printerPosition === "DERECHA" ? 0.2 * pt : 0;
+            doc.fontSize(baseNumSize).font("Helvetica-Bold");
 
             let numCardX, numCardY, xStartCard, xEndCard;
 
             if (printerPosition === "DERECHA") {
               numCardX = 174;
-              numCardY = 29;
+              numCardY = digitCount === 4 ? 33 : 29;
               xStartCard = 174;
               xEndCard = 228;
             } else {
               numCardX = 174;
-              numCardY = 29 - 0.8 * pt;
+              numCardY = digitCount === 4 ? 33 - 0.8 * pt : 29 - 0.8 * pt;
               xStartCard = 174;
               xEndCard = 228;
             }
@@ -2166,12 +2169,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numAreaX = 31;
-              numAreaY = 58;
+              numAreaY = 52;
               xStartArea = 31;
               xEndArea = 221;
             } else {
               numAreaX = 31;
-              numAreaY = 58 - 0.8 * pt;
+              numAreaY = 52 - 0.8 * pt;
               xStartArea = 31;
               xEndArea = 221;
             }
@@ -2187,12 +2190,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numNameX = 44;
-              numNameY = 76;
+              numNameY = 70;
               xStartName = 44;
               xEndName = 221;
             } else {
               numNameX = 44;
-              numNameY = 76 - 0.8 * pt;
+              numNameY = 70 - 0.8 * pt;
               xStartName = 44;
               xEndName = 221;
             }
@@ -2208,12 +2211,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numRelLX = 73;
-              numRelLY = 97;
+              numRelLY = 91;
               xStartRelL = 73;
               xEndRelL = 221;
             } else {
               numRelLX = 73;
-              numRelLY = 97 - 0.8 * pt;
+              numRelLY = 91 - 0.8 * pt;
               xStartRelL = 73;
               xEndRelL = 221;
             }
@@ -2229,12 +2232,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numShiftX = 50;
-              numShiftY = 116;
+              numShiftY = 110;
               xStartShift = 50;
               xEndShift = 221;
             } else {
               numShiftX = 50;
-              numShiftY = 116 - 0.8 * pt;
+              numShiftY = 110 - 0.8 * pt;
               xStartShift = 50;
               xEndShift = 221;
             }
@@ -2249,12 +2252,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numQuinX = 55;
-              numQuinY = 135;
+              numQuinY = 129;
               xStartQuin = 55;
               xEndQuin = 221;
             } else {
               numQuinX = 55;
-              numQuinY = 135 - 0.8 * pt;
+              numQuinY = 129 - 0.8 * pt;
               xStartQuin = 55;
               xEndQuin = 221;
             }
@@ -2280,8 +2283,8 @@ incidenciasController.printAsistenceCards = async (req, res) => {
                 })
                 .text(
                   "COMISIONADO",
-                  1.5 * 28.35,
-                  (10 + 2) * 28.35 + printerOffsetGlobal,
+                  2.3 * 28.35,
+                  (9 + 2) * 28.35 + printerOffsetGlobal - 6,
                   {
                     width: docWidth - 1.5 * 28.35,
                     align: "left",
@@ -2325,7 +2328,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           doc.on("error", reject);
 
-          //const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
+          // const backgroundImage = path.join(__dirname, "../../assets/img/fondoTarjeta.jpg");
 
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
@@ -2349,36 +2352,27 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             const shift =
               record.TURNOMAT || record.TURNOVES || record.HORARIO || "";
 
-            const baseNumSize = 22;
+            let baseNumSize = 22;
             const numStr = String(cardNumber || "");
             const digitCount = (numStr.match(/\d/g) || []).length;
-            let extraNumOffsetX = 0;
 
-            if (digitCount === 3) {
-              extraNumOffsetX = -0.3 * pt;
-            } else if (digitCount === 4) {
-              extraNumOffsetX = -0.5 * pt;
+            if (digitCount === 4) {
+              baseNumSize = 17;
+            } else {
+              baseNumSize = 22;
             }
-
-            const numFontSizeAdjusted =
-              baseNumSize + (printerPosition === "IZQUIERDA" ? 1 : 0);
-            doc.fontSize(numFontSizeAdjusted).font("Helvetica-Bold");
-
-            const extraLeftUp = printerPosition === "IZQUIERDA" ? -0.1 * pt : 0;
-            const ajusteY = -5.67 + extraLeftUp;
-            const extraRight2mm = printerPosition === "DERECHA" ? 0.2 * pt : 0;
-
+            doc.fontSize(baseNumSize).font("Helvetica-Bold");
 
             let numCardX, numCardY, xStartCard, xEndCard;
 
             if (printerPosition === "DERECHA") {
               numCardX = 174;
-              numCardY = 29;
+              numCardY = digitCount === 4 ? 33 : 29;
               xStartCard = 174;
               xEndCard = 228;
             } else {
               numCardX = 174;
-              numCardY = 29 - 0.8 * pt;
+              numCardY = digitCount === 4 ? 33 - 0.8 * pt : 29 - 0.8 * pt;
               xStartCard = 174;
               xEndCard = 228;
             }

@@ -6,6 +6,7 @@ const {
 } = require("../../config/mongo");
 const { ObjectId } = require("mongodb");
 const moment = require("moment");
+const { querysql } = require("../../config/mysql");
 
 
 const permisosExtController = {};
@@ -55,6 +56,15 @@ permisosExtController.getProfile = async (req, res) => {
     }
 
     const emp = employee[0];
+
+    if (emp.SINDICATO) {
+      const delegados = await querysql(`
+      SELECT * FROM delegaciones
+      WHERE delegacion = ?`,
+        [emp.SINDICATO.DELEGACION],
+      );
+      emp.SINDICATO.DELEGADO = delegados.length > 0 ? delegados[0].delegado : null;
+    }
 
     // Obtener la bitácora del empleado
     const bitacora = await query("BITACORA", {
@@ -208,32 +218,59 @@ permisosExtController.deleteExtPermit = async (req, res) => {
 
 // Obtener a los empleados que tengan el tipo de permiso extraordinario seleccionado
 permisosExtController.getEmployeeWithExtPermits = async (req, res) => {
-  const { type } = req.params;
+  const { type, quincena } = req.params;
   const user = req.user;
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
   });
   const currentYear = moment().year();
+  const year = moment().year();
   const yearFilter = [currentYear, `${currentYear}`];
 
-  if (!type) {
-    return res.status(400).json({ message: "El parámetro 'type' es requerido." });
+  if (!type || !quincena) {
+    return res.status(400).json({ message: "Los parámetros 'type' y 'quincena' son requeridos." });
   }
 
   try {
 
     const filter = {
-      TIPO: type,
       $or: [
         { AÑO: { $in: yearFilter } },
         { ANO: { $in: yearFilter } },
       ],
     };
 
+    if (type && type.toUpperCase() !== "ALL") {
+      filter.TIPO = type;
+    }
+
+
+    if (quincena && quincena.toUpperCase() !== "ALL") {
+      const q = Number(quincena);
+      if (!q || q < 1 || q > 24) {
+        return res.status(400).json({ message: "Quincena inválida" });
+      }
+
+      const month = Math.ceil(q / 2);
+      const isSecond = q % 2 === 0;
+      const startDay = isSecond ? 16 : 1;
+      const endDay = isSecond ? moment({ year, month: month - 1 }).endOf("month").date() : 15;
+
+      const desdeQuincena = moment({ year, month: month - 1, day: startDay }).format("YYYY-MM-DD");
+      const hastaQuincena = moment({ year, month: month - 1, day: endDay }).format("YYYY-MM-DD");
+
+      filter.$and = [
+        { DESDE: { $lte: hastaQuincena } },
+        { HASTA: { $gte: desdeQuincena } },
+      ];
+    }
+
+
+
     const permisosExt = await query("PERMISOS_EXT", filter);
 
     if (!permisosExt || permisosExt.length === 0) {
-      return res.status(404).json({ message: "No hay permisos extraordinarios para el tipo/año solicitados." });
+      return res.status(404).json({ message: "No hay permisos extraordinarios para el tipo/quincena solicitados." });
     }
 
     const getEmployeeByIdEmployee = async (idEmployee) => {
@@ -256,6 +293,7 @@ permisosExtController.getEmployeeWithExtPermits = async (req, res) => {
           NOMBRE: `${empData?.APE_PAT || ""} ${empData?.APE_MAT || ""} ${empData?.NOMBRES || ""}`.trim(),
           TIPONOM: empData?.TIPONOM || "",
           NUMTARJETA: empData?.NUMTARJETA || null,
+          TIPO: empRow.TIPO || "",
           DESDE: empRow.DESDE || "",
           HASTA: empRow.HASTA || "",
           DIAS: empRow.NUM_DIAS || "",

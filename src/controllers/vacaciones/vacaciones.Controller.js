@@ -118,16 +118,12 @@ vacacionesController.getProfile = async (req, res) => {
 
     if (primerInicio && primerInicio.isValid() && fechaBase.isValid()) {
 
-      // Antigüedad al iniciar el semestre
-      yearsWorked = primerInicio.diff(fechaBase, "years");
-      monthsWorked = primerInicio.diff(fechaBase, "months");
+      // Fecha de corte: un día antes de iniciar el período vacacional
+      const fechaCorte = primerInicio.clone().subtract(1, "day");
 
-      // Fecha en la que cumple años de servicio durante este año
-      const aniversario = fechaBase.clone().year(primerInicio.year());
-
-      if (aniversario.isBefore(primerInicio, "day")) {
-        yearsWorked++;
-      }
+      // Antigüedad al día del corte
+      yearsWorked = fechaCorte.diff(fechaBase, "years");
+      monthsWorked = fechaCorte.diff(fechaBase, "months");
 
     } else {
       console.warn("No hay rango de fechas válido.");
@@ -140,7 +136,9 @@ vacacionesController.getProfile = async (req, res) => {
       yearsWorked = 0;
     }
 
-    console.log(`Años trabajados: ${yearsWorked}`);
+    if (!Number.isFinite(monthsWorked) || monthsWorked < 0) {
+      monthsWorked = 0;
+    }
 
     // Determinar días según años trabajados
     if (emp.TIPONOM === "F51" || emp.TIPONOM === "M51") {

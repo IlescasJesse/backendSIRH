@@ -27,5 +27,34 @@ delegacionesController.getDelegaciones = async (req, res) => {
     }
 };
 
+delegacionesController.newDelegacion = async (req, res) => {
+    try {
+        const { delegacion, delegado } = req.body;
+
+        if (!delegacion || !delegado) {
+            return res.status(400).json({ message: "Falta información de datos" });
+        }
+
+        const existingDelegacion = await querysql(
+            `SELECT * FROM delegaciones WHERE delegacion = ?`,
+            [delegacion]
+        );
+
+        if (existingDelegacion.length > 0) {
+            return res.status(409).json({ message: "La delegación ya existe" });
+        }
+
+        const result = await querysql(
+            `INSERT INTO delegaciones (delegacion, delegado) VALUES (?, ?)`,
+            [delegacion, delegado]
+        );
+
+        return res.status(202).json({ message: "Delegación creada", result });
+
+    } catch (error) {
+        return res.status(500).json({ message: "Error en el servidor", error });
+    }
+};
+
 
 module.exports = delegacionesController;
