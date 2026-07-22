@@ -14,7 +14,6 @@ employeeController = {};
 
 // Función para obtener posiciones vacantes y sus ocupantes anteriores
 employeeController.getVacants = async (_, res) => {
-  console.log("Fetching vacants..."); // Verificar si la función se llama
   try {
     const vacants = await query("PLANTILLA", { status: { $in: [2, 3] } });
 
@@ -642,7 +641,6 @@ employeeController.makeProposal = async (req, res) => {
       const helvFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
       try {
         form.updateFieldAppearances(helvFont);
-        console.log("updateFieldAppearances: OK");
       } catch (uErr) {
         console.warn("No se pudo actualizar apariencias de campos:", uErr);
       }

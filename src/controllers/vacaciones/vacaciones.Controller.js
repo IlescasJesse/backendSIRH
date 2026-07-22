@@ -123,7 +123,7 @@ vacacionesController.getProfile = async (req, res) => {
 
       // Antigüedad al día del corte
       yearsWorked = fechaCorte.diff(fechaBase, "years");
-      monthsWorked = fechaCorte.diff(fechaBase, "months");
+      monthsWorked = primerInicio.diff(fechaBase, "months");
 
     } else {
       console.warn("No hay rango de fechas válido.");

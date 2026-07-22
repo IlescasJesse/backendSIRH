@@ -129,11 +129,16 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
       }
 
       const nombreCompleto = `${item.APE_PAT || ''} ${item.APE_MAT || ''} ${item.NOMBRES || ''}`.trim();
+      const nivel = item.NIVEL
+        ? String(item.NIVEL).replace(/[^0-9].*$/, '').replace(/^0+/, '')
+        : '';
+
+
       dataRow.values = [
         'OAXACA',
         '',
-        item.CLAVE || '',
-        item.ADSCRIPCION || '',
+        114,
+        'SECRETARÍA DE FINANZAS',
         item.RFC || '',
         item.CURP || '',
         nombreCompleto,
@@ -141,8 +146,8 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
         item.NUMPLA || '',
         'BASE',
         item.CLAVECAT || '',
-        item.NIVEL || '',
-        '',
+        Number(nivel) || '',
+        6,
         dischargeDate || '',
         '',
         '',
@@ -219,8 +224,6 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
     }
   }
   if (NOMCATE) {
-    console.log(NOMCATE.CLAVE_CATEGORIA);
-
     filtro.CLAVECAT = NOMCATE.CLAVE_CATEGORIA;
     nomcateText = `LA CATEGORÍA "${NOMCATE.DESCRIPCION}"`;
   }
@@ -394,11 +397,6 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       ];
       return row;
     });
-
-    console.log("Inicio de la función"); // Verifica si el flujo llega aquí
-    if (rows.length > 0) {
-      console.log("Condición cumplida");
-    }
 
     const filePath = path.join(
       __dirname,
@@ -826,6 +824,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       { header: "AREA", key: "ADSCRIPCION" },
       { header: "PROYECTO", key: "PROYECTO" },
       { header: "TIPONOM", key: "TIPONOM" },
+      { header: "MOD_ANTE", key: "MOD_ANTE" },
       { header: "CLAVECAT", key: "CLAVECAT" },
       { header: "NOMCATE", key: "NOMCATE" },
       { header: "NIVEL", key: "NIVEL" },
@@ -907,6 +906,8 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       { header: "TURNOMAT", key: "TURNOMAT" },
       { header: "TURNOVES", key: "TURNOVES" },
       { header: "AREAR_ESP", key: "AREA_RESP" },
+      { header: "COMISIONADO", key: "COMISIONADO" },
+      { header: "LUGAR_COMISIONADO", key: "LUGAR_COMI" },
 
       // Históricos
       { header: "OCUPANTE_ANTERIOR", key: "OCUPANTE_ANT" },
@@ -1032,6 +1033,8 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
         CLAVE: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.CLAVE || item.CLAVE,
         ADSCRIPCION: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || item.ADSCRIPCION,
         AREA_RESP: areaRespMapping[item.AREA_RESP] || item.AREA_RESP || "",
+        COMISIONADO: item.STATUS_EMPLEADO?.find(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB") ? 'SI' : 'NO',
+        LUGAR_COMI: item.STATUS_EMPLEADO?.find(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB")?.LUGAR_COMISIONADO || "",
 
         CP: direccion?.CP || item.CP || "",
         DOMICILIO: direccion?.DOMICILIO
@@ -1081,10 +1084,6 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 };
 
 reportesPersonalController.getBajasBetweenDates = async (req, res) => {
-  console.log("Recibiendo solicitud para obtener bajas entre fechas...", {
-    body: req.body,
-  });
-
   try {
     const { FECHA_INI, FECHA_FIN } = req.body;
 
@@ -1410,9 +1409,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
   try {
     const { ADSCRIPCION, CLAVE, SUBNIVELES } = req.body;
     let claveParaQuery = CLAVE;
-    if (CLAVE === 102 || CLAVE === '102') {
-      claveParaQuery = 104;
-    }
+    const include104 = CLAVE === 102 || CLAVE === '102';
     let claves = [];
     let adscripcionDisplay = "";
     let nombreServidorSaliente = "";
@@ -1455,6 +1452,11 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
         `WITH RECURSIVE jerarquia AS ( SELECT id_adscripcion, nombre, clave, parent_id FROM adscripciones WHERE clave = ${claveParaQuery} UNION ALL SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id FROM adscripciones a INNER JOIN jerarquia j ON a.parent_id = j.id_adscripcion ) SELECT * FROM jerarquia;`
       );
       claves = adscripciones.map(a => a.clave);
+
+      // Si la clave solicitada es 102, incluir también 104 en la lista de claves
+      if (include104 && !claves.includes(104)) {
+        claves.push(104);
+      }
 
       const ancestros = await querysql(
         `
@@ -1558,21 +1560,18 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       });
     }
 
-    // Filter to include all active employees (status 1) plus only mandos medios vacancies (status !=1 and TIPONOM in ['FMM', 'MMS'])
-    empleadosFiltrados = empleadosFiltrados.filter(emp =>
-      emp.status === 1 || (emp.status !== 1 && ['FMM', 'MMS'].includes(emp.TIPONOM))
-    );
-
     // Entre vacantes de FMM/MMS, mantener solo la de mayor nivel
     const activos = empleadosFiltrados.filter(emp => emp.status === 1);
     const vacantes = empleadosFiltrados.filter(emp => emp.status !== 1);
 
     if (vacantes.length > 1) {
-      const vacanteMayorNivel = vacantes.sort((a, b) => {
-        const nivelA = parseInt(String(a.NIVEL).match(/\d+/)?.[0] || 0);
-        const nivelB = parseInt(String(b.NIVEL).match(/\d+/)?.[0] || 0);
-        return nivelB - nivelA;
-      })[0];
+      const vacanteMayorNivel = vacantes
+        .filter(emp => ['FMM', 'MMS'].includes(emp.TIPONOM))
+        .sort((a, b) => {
+          const nivelA = parseInt(String(a.NIVEL).match(/\d+/)?.[0] || 0);
+          const nivelB = parseInt(String(b.NIVEL).match(/\d+/)?.[0] || 0);
+          return nivelB - nivelA;
+        })[0];
 
       // Obtener el nombre del servidor saliente de la vacante de mayor nivel
       if (vacanteMayorNivel) {
@@ -1586,22 +1585,23 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           nombreServidorSaliente = `C. ${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
         }
       }
-      empleadosFiltrados = [...activos, vacanteMayorNivel];
+      empleadosFiltrados = [...activos, ...vacantes];
     } else if (vacantes.length === 1) {
-      const bajasDelEmpleado = await query("BAJAS", {
-        id_employee: String(vacantes[0]._id),
-      });
+      if (['FMM', 'MMS'].includes(vacantes[0].TIPONOM)) {
+        const bajasDelEmpleado = await query("BAJAS", {
+          id_employee: String(vacantes[0]._id),
+        });
 
-      if (Array.isArray(bajasDelEmpleado) && bajasDelEmpleado.length > 0) {
-        const baja = bajasDelEmpleado[0];
+        if (Array.isArray(bajasDelEmpleado) && bajasDelEmpleado.length > 0) {
+          const baja = bajasDelEmpleado[0];
 
-        nombreServidorSaliente = `C. ${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
+          nombreServidorSaliente = `C. ${baja.NOMBRES || ""} ${baja.APE_PAT || ""} ${baja.APE_MAT || ""}`.trim();
+        }
+      } else {
+        nombreServidorSaliente = "";
       }
       empleadosFiltrados = [...activos, vacantes[0]];
     }
-
-    console.log(`Empleados después de filtrar por CLAVE (${CLAVE}):`, empleadosFiltrados.length);
-
 
     // Cargar licencias activas
     const licenciasActivas = await query("LICENCIAS", { status: 1 });

@@ -906,8 +906,6 @@ employeeController.getEmployeeCount = async (req, res) => {
 };
 
 employeeController.afiliarSindicato = async (req, res) => {
-  console.log(req.body);
-
   const { _id, AFILIADO, DELEGACION, FECHA_AFILIACION } = req.body;
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("es-MX", {

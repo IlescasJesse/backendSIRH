@@ -63,8 +63,6 @@ talonesController.getProfile = async (req, res) => {
 
     const emp = employee[0];
 
-    console.log("Employee data:", emp.STATUS_EMPLEADO);
-
     // Obtener la bitácora del empleado
     const bitacora = await query("BITACORA", {
       id_plantilla: emp._id,

@@ -1922,7 +1922,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       }
     }
 
-    const printerOffsetGlobal = printerPosition === "DERECHA" ? 0.7 * 28.35 : 0;
+    const printerOffsetGlobal = printerPosition === "IZQUIERDA" ? 0.7 * 28.35 : 0;
     const pt = 28.35;
     const docWidth = 8.1 * 28.35;
     const docHeight = 18.3 * 28.35;
@@ -2147,12 +2147,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numCardX = 174;
-              numCardY = digitCount === 4 ? 33 : 29;
+              numCardY = digitCount === 4 ? 33 - 0.8 * pt : 29 - 0.8 * pt;
               xStartCard = 174;
               xEndCard = 228;
             } else {
               numCardX = 174;
-              numCardY = digitCount === 4 ? 33 - 0.8 * pt : 29 - 0.8 * pt;
+              numCardY = digitCount === 4 ? 33 : 29;
               xStartCard = 174;
               xEndCard = 228;
             }
@@ -2163,18 +2163,18 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               lineBreak: false,
             });
 
-            const bodyFontSize = 8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            const bodyFontSize = 8.5;
             doc.fontSize(bodyFontSize).font("Helvetica");
             let numAreaX, numAreaY, xStartArea, xEndArea;
 
             if (printerPosition === "DERECHA") {
               numAreaX = 31;
-              numAreaY = 52;
+              numAreaY = 52 - 0.8 * pt;
               xStartArea = 31;
               xEndArea = 221;
             } else {
               numAreaX = 31;
-              numAreaY = 52 - 0.8 * pt;
+              numAreaY = 52;
               xStartArea = 31;
               xEndArea = 221;
             }
@@ -2190,12 +2190,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numNameX = 44;
-              numNameY = 70;
+              numNameY = 70 - 0.8 * pt;
               xStartName = 44;
               xEndName = 221;
             } else {
               numNameX = 44;
-              numNameY = 70 - 0.8 * pt;
+              numNameY = 70;
               xStartName = 44;
               xEndName = 221;
             }
@@ -2211,12 +2211,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numRelLX = 73;
-              numRelLY = 91;
+              numRelLY = 91 - 0.8 * pt;
               xStartRelL = 73;
               xEndRelL = 221;
             } else {
               numRelLX = 73;
-              numRelLY = 91 - 0.8 * pt;
+              numRelLY = 91;
               xStartRelL = 73;
               xEndRelL = 221;
             }
@@ -2232,12 +2232,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numShiftX = 50;
-              numShiftY = 110;
+              numShiftY = 110 - 0.8 * pt;
               xStartShift = 50;
               xEndShift = 221;
             } else {
               numShiftX = 50;
-              numShiftY = 110 - 0.8 * pt;
+              numShiftY = 110;
               xStartShift = 50;
               xEndShift = 221;
             }
@@ -2252,19 +2252,19 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numQuinX = 55;
-              numQuinY = 129;
+              numQuinY = 129 - 0.8 * pt;
               xStartQuin = 55;
               xEndQuin = 221;
             } else {
               numQuinX = 55;
-              numQuinY = 129 - 0.8 * pt;
+              numQuinY = 129;
               xStartQuin = 55;
               xEndQuin = 221;
             }
 
             const rangeQuinWidth = xEndQuin - xStartQuin;
             // doc.rect(xStartQuin, numQuinY, rangeQuinWidth, 5).fill("black");
-            const quincenaFont = 9 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            const quincenaFont = 9;
             doc.fontSize(quincenaFont).font("Helvetica-Bold");
             doc.text(quincena.texto, numQuinX, numQuinY, {
               width: rangeQuinWidth,
@@ -2332,7 +2332,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
-            // doc.image(backgroundImage, 0, 0, {
+            // doc.image(backgroundImage, 0, -22, {
             //   width: docWidth,
             //   height: docHeight,
             // });
@@ -2367,12 +2367,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numCardX = 174;
-              numCardY = digitCount === 4 ? 33 : 29;
+              numCardY = digitCount === 4 ? 33 - 0.8 * pt : 29 - 0.8 * pt;
               xStartCard = 174;
               xEndCard = 228;
             } else {
               numCardX = 174;
-              numCardY = digitCount === 4 ? 33 - 0.8 * pt : 29 - 0.8 * pt;
+              numCardY = digitCount === 4 ? 33 : 29;
               xStartCard = 174;
               xEndCard = 228;
             }
@@ -2383,18 +2383,18 @@ incidenciasController.printAsistenceCards = async (req, res) => {
               lineBreak: false,
             });
 
-            const bodyFontSize = 8.5 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            const bodyFontSize = 8.5;
             doc.fontSize(bodyFontSize).font("Helvetica");
             let numAreaX, numAreaY, xStartArea, xEndArea;
 
             if (printerPosition === "DERECHA") {
               numAreaX = 31;
-              numAreaY = 58;
+              numAreaY = 58 - 0.8 * pt;
               xStartArea = 31;
               xEndArea = 221;
             } else {
               numAreaX = 31;
-              numAreaY = 58 - 0.8 * pt;
+              numAreaY = 58;
               xStartArea = 31;
               xEndArea = 221;
             }
@@ -2410,12 +2410,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numNameX = 44;
-              numNameY = 76;
+              numNameY = 76 - 0.8 * pt;
               xStartName = 44;
               xEndName = 221;
             } else {
               numNameX = 44;
-              numNameY = 76 - 0.8 * pt;
+              numNameY = 76;
               xStartName = 44;
               xEndName = 221;
             }
@@ -2431,12 +2431,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numRelLX = 73;
-              numRelLY = 97;
+              numRelLY = 97 - 0.8 * pt;
               xStartRelL = 73;
               xEndRelL = 221;
             } else {
               numRelLX = 73;
-              numRelLY = 97 - 0.8 * pt;
+              numRelLY = 97;
               xStartRelL = 73;
               xEndRelL = 221;
             }
@@ -2452,12 +2452,12 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numShiftX = 50;
-              numShiftY = 116;
+              numShiftY = 116 - 0.8 * pt;
               xStartShift = 50;
               xEndShift = 221;
             } else {
               numShiftX = 50;
-              numShiftY = 116 - 0.8 * pt;
+              numShiftY = 116;
               xStartShift = 50;
               xEndShift = 221;
             }
@@ -2472,19 +2472,19 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             if (printerPosition === "DERECHA") {
               numQuinX = 55;
-              numQuinY = 135;
+              numQuinY = 135 - 0.8 * pt;
               xStartQuin = 55;
               xEndQuin = 221;
             } else {
               numQuinX = 55;
-              numQuinY = 135 - 0.8 * pt;
+              numQuinY = 135;
               xStartQuin = 55;
               xEndQuin = 221;
             }
 
             const rangeQuinWidth = xEndQuin - xStartQuin;
             // doc.rect(xStartQuin, numQuinY, rangeQuinWidth, 5).fill("black");
-            const quincenaFont = 9 + (printerPosition === "IZQUIERDA" ? 1 : 0);
+            const quincenaFont = 9;
             doc.fontSize(quincenaFont).font("Helvetica-Bold");
             doc.text(quincena.texto, numQuinX, numQuinY, {
               width: rangeQuinWidth,
@@ -2503,11 +2503,11 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             const vacacionesTopMargin = 1 * pt;
             const vacacionesLineHeight = 0.2 * pt;
 
-            let vacacionesY
+            let vacacionesY;
             if (printerPosition === "DERECHA") {
-              vacacionesY = 186;
-            } else {
               vacacionesY = 186 - 0.8 * pt;
+            } else {
+              vacacionesY = 186;
             }
 
 

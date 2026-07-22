@@ -43,9 +43,6 @@ notificacionesController.getNotificaciones = async (req, res) => {
             return false;
         });
 
-        console.log('Notificaciones', filteredNotificaciones);
-
-
         filteredNotificaciones.forEach((action) => {
 
             const matchedUser = userMap.get(action.username);

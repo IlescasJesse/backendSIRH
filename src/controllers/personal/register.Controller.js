@@ -23,7 +23,6 @@ registerController.getAllUsers = async (req, res) => {
 registerController.addUser = async (req, res) => {
   const data = req.body;
   const user = req.user;
-  console.log(user);
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
   });
@@ -53,12 +52,9 @@ registerController.addUser = async (req, res) => {
 
 registerController.sendHistory = async (req, res) => {
   const username = req.params.username;
-  console.log(username);
-  console.log(req.params);
 
   try {
     const data = await query("USER_ACTIONS", { username: username });
-    console.log(data);
 
     res.json(data);
   } catch (error) {
@@ -69,7 +65,6 @@ registerController.sendHistory = async (req, res) => {
 registerController.updateUser = async (req, res) => {
   const data = req.body;
   const user = req.user;
-  console.log(user);
   const currentDateTime = new Date().toLocaleString("en-US", {
     timeZone: "America/Mexico_City",
   });

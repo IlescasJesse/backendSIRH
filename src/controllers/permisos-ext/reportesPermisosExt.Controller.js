@@ -140,8 +140,6 @@ reportesPermisosExtController.printReport = async (req, res) => {
             totalDaysFAFA,
     };
 
-    console.log(templateData);
-
     const userAction = {
         username: user.username,
         module: "PSL-BE",
@@ -207,8 +205,6 @@ reportesPermisosExtController.printReportType = async (req, res) => {
     };
 
     const permisosExt = await query("PERMISOS_EXT", filter);
-
-    console.log("permisosExt encontrados:", permisosExt?.length, permisosExt?.slice(0, 3));
 
     if (!permisosExt || permisosExt.length === 0) {
         return res.status(404).json({ message: "No hay permisos extraordinarios para el tipo/año solicitados." });

@@ -518,6 +518,8 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
             PARENTESCO: null,
             SUELDO_GRV: 0,
             TEL_CASA: null,
+            TIPONOM: baja.TIPONOM || null,
+            MOD_ANTE: baja.MOD_ANTE || null,
           },
         },
       );

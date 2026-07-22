@@ -169,11 +169,14 @@ offEmployeeController.saveDataOff = async (req, res) => {
     if (data.TIPONOM === "FCO") {
       // NOMBRAMIENTO CONFIANZA FORANEO cambia a CONTRATO CONFIANZA FORANEO
       data.TIPONOM = "FCT";
+      data.MOD_ANTE = "FCO";
     } else if (data.TIPONOM === "511") {
       // NOMBRAMIENTO CONFIANZA CENTRAL cambia a CONTRATO CONFIANZA CENTRAL
       data.TIPONOM = "CCT";
+      data.MOD_ANTE = "511";
     } else {
       data.TIPONOM = data.TIPONOM;
+      data.MOD_ANTE = data.TIPONOM;
     }
 
     if (data.reason !== "L-PRRO") {

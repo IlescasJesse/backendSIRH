@@ -180,6 +180,8 @@ agenda.define("bajasExtemporaneas", async (job) => {
             PARENTESCO: null,
             SUELDO_GRV: 0,
             TEL_CASA: null,
+            TIPONOM: baja.TIPONOM || null,
+            MOD_ANTE: baja.MOD_ANTE || null,
           };
 
           let plantillaResult = null;
