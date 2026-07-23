@@ -1044,6 +1044,61 @@ incidenciasController.newForeigner = async (req, res) => {
       .send({ error: "An error occurred while creating the foreigner" });
   }
 };
+incidenciasController.updateForeigner = async (req, res) => {
+  const user = req.user;
+  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+  const userAction = {
+    username: user.username,
+    module: "AEI-CL",
+    action: `ACTUALIZÓ EL REGISTRO DE PLANTILLA FORANEA`,
+    timestamp: currentDateTime,
+  };
+  const data = req.body;
+  try {
+    const plazaPlantilla = await query("PLANTILLA", { NUMPLA: data.NUMPLA, _id: { $ne: new ObjectId(data._id) } });
+    const plazaForanea = await query("PLANTILLA_FORANEA", {
+      NUMPLA: data.NUMPLA, _id: { $ne: new ObjectId(data._id) }
+    });
+    if (plazaPlantilla.length > 0 || plazaForanea.length > 0) {
+      return res.status(409).json({
+        message: "El número de plaza ya está registrado en plantilla",
+        errorCode: "DUPLICATE_NUMPLA",
+      });
+    }
+
+    if (data.NUMTARJETA !== null) {
+      const tarjetaPlantilla = await query("PLANTILLA", {
+        NUMTARJETA: data.NUMTARJETA,
+        AREA_RESP: data.AREA_RESP,
+        _id: { $ne: new ObjectId(data._id) }
+      });
+      const tarjetaForanea = await query("PLANTILLA_FORANEA", {
+        NUMTARJETA: data.NUMTARJETA,
+        AREA_RESP: data.AREA_RESP,
+        _id: { $ne: new ObjectId(data._id) }
+      });
+      if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
+        return res.status(409).json({
+          message:
+            "El número de tarjeta ya está registrado en el área seleccionada",
+          errorCode: "DUPLICATE_NUMTARJETA",
+        });
+      }
+    }
+
+    const { _id, ...updateData } = data;
+
+    await updateOne("PLANTILLA_FORANEA", { _id: new ObjectId(_id) }, { $set: updateData });
+
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).send(data);
+  } catch (error) {
+    console.error("Error updating foreigner:", error);
+    res
+      .status(500)
+      .send({ error: "An error occurred while updating the foreigner" });
+  }
+};
 incidenciasController.deleteForeigner = async (req, res) => {
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");

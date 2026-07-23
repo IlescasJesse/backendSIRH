@@ -72,13 +72,13 @@ calendarController.getCalendar = async (req, res) => {
 };
 
 calendarController.changeStatus = async (req, res) => {
-  const { _id, HABIL, MOTIVO } = req.body; // Cambiado FESTIVIDAD a MOTIVO
+  const { _id, HABIL, MOTIVO } = req.body;
   const currentDateTime = moment()
     .tz("America/Mexico_City")
     .format("YYYY-MM-DD HH:mm:ss");
 
-  const user = req.user; // Obtener el usuario autenticado
-  console.log(req.body.MOTIVO);
+  const user = req.user;
+
   if (!user) {
     return res.status(401).send("Usuario no autenticado");
   }
@@ -89,10 +89,12 @@ calendarController.changeStatus = async (req, res) => {
     if (HABIL) {
       if (HABIL.BASE !== undefined) {
         updateFields["HABIL.BASE"] = HABIL.BASE;
+        updateFields["HABIL.SEXO"] = HABIL.SEXO;
         updateFields["MOTIVO"] = MOTIVO;
       }
       if (HABIL.CONTRATO !== undefined) {
         updateFields["HABIL.CONTRATO"] = HABIL.CONTRATO;
+        updateFields["HABIL.SEXO"] = HABIL.SEXO;
         updateFields["MOTIVO"] = MOTIVO;
       }
     }
