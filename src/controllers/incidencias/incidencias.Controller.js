@@ -2387,7 +2387,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
           noComisionados.forEach((record, index) => {
             if (index > 0) doc.addPage();
-            // doc.image(backgroundImage, 0, -22, {
+            // doc.image(backgroundImage, 0, 0, {
             //   width: docWidth,
             //   height: docHeight,
             // });
@@ -2412,7 +2412,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             const digitCount = (numStr.match(/\d/g) || []).length;
 
             if (digitCount === 4) {
-              baseNumSize = 17;
+              baseNumSize = 16;
             } else {
               baseNumSize = 22;
             }

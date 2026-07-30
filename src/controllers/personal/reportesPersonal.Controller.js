@@ -624,7 +624,10 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     quinConfianza,
     quinMandos,
     segVida,
-    subsidioISR
+    subsidioISR,
+    licencias,
+    personalGasadmi,
+    personalEstimulo
   ] = await Promise.all([
     querysql(`SELECT * FROM catalogo_base`),
     querysql(`SELECT * FROM catalogo_contrato`),
@@ -634,7 +637,11 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     querysql(`SELECT * FROM quin_confianza`),
     querysql(`SELECT * FROM quin_mandosmedios`),
     querysql(`SELECT * FROM seg_vida`),
-    querysql(`SELECT * FROM subsidio_isr WHERE id = 1`)
+    querysql(`SELECT * FROM subsidio_isr`),
+
+    query("LICENCIAS", { status: 1 }),
+    query("PERSONAL_GASADMI", {}),
+    query("PERSONAL_ESTIMULO", {})
   ]);
 
   const baseMap = new Map();
@@ -658,136 +665,372 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
   const segVidaMap = new Map();
   segVida.forEach(x => segVidaMap.set(String(x.nivel), x));
 
-  // Funciones auxiliares para reducir duplicidad
-  async function calcularISR(sueldoGravable) {
-    const isrData = await querysql(
-      "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
-      [sueldoGravable, sueldoGravable]
-    );
-    const isrObject = isrData[0];
-    const isrBruto = ((sueldoGravable - parseFloat(isrObject.limite_inf)) * parseFloat(isrObject.porcentajeliminf)) / 100 + parseFloat(isrObject.cuota_fija);
-    const subsidioData = await querysql(
-      "SELECT subsidio FROM subsidio_isr WHERE ? > lim_inf AND ? < lim_sup",
-      [sueldoGravable, sueldoGravable]
-    );
-    const subsidio = subsidioData && subsidioData.length > 0 ? parseFloat(subsidioData[0].subsidio) : 0;
-    let isrFinal = isrBruto - subsidio;
-    return Math.max(isrFinal, 0).toFixed(2);
-  }
+  const licenciaMap = new Map();
 
-  function agregarQuinquenio(percepciones, employee, tablaQuin) {
-    Object.keys(percepciones).forEach(key => {
-      if (key.startsWith("QUINQUENIOS")) delete percepciones[key];
-    });
-    if (employee.NUMQUIN > 0) {
-      const quinMap = tablaQuin === "quin_base" ? quinBaseMap : tablaQuin === "quin_confianza" ? quinConfianzaMap : quinMandosMap;
-      const quinquenio = quinMap.get(String(employee.NIVEL));
-      if (quinquenio && quinquenio[`quin_${employee.NUMQUIN}`] != null) {
-        percepciones[`QUINQUENIOS`] = quinquenio[`quin_${employee.NUMQUIN}`];
-      }
-    }
-  }
+  licencias.forEach(x => {
+    licenciaMap.set(String(x.id_employee), true);
+  });
 
-  // Configuración por tipo de nómina
-  const configNomina = {
-    "M51": { mapa: baseMap, tablaQuin: "quin_base", incluyeEstimulo: false, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "F51": { mapa: baseMap, tablaQuin: "quin_base", incluyeEstimulo: false, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "FCT": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "CCT": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "F53": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "M53": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: false, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "FCO": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "511": { mapa: contratoMap, tablaQuin: "quin_confianza", incluyeEstimulo: true, incluyeCuotaSindical: true, incluyeSeguroVida: false, ajustaISR_RDL: false },
-    "FMM": { mapa: mandosMap, tablaQuin: "quin_mandosmedios", incluyeEstimulo: false, incluyeCuotaSindical: false, incluyeSeguroVida: true, ajustaISR_RDL: true },
-    "MMS": { mapa: mandosMap, tablaQuin: "quin_mandosmedios", incluyeEstimulo: false, incluyeCuotaSindical: false, incluyeSeguroVida: true, ajustaISR_RDL: true },
+  const gasadmiMap = new Map();
+
+  personalGasadmi.forEach(x => {
+    gasadmiMap.set(String(x.id_employee), x);
+  });
+
+  const estimuloMap = new Map();
+
+  personalEstimulo.forEach(x => {
+    estimuloMap.set(String(x.id_employee), x);
+  });
+
+  const buscarISR = (sueldoGravable) => {
+    return isrTable.find(r =>
+      sueldoGravable >= Number(r.limite_inf) &&
+      sueldoGravable <= Number(r.limite_sup)
+    );
+  };
+
+  const buscarSubsidio = (sueldoGravable) => {
+    return subsidioISR.find(r =>
+      sueldoGravable >= Number(r.lim_inf) &&
+      sueldoGravable <= Number(r.lim_sup)
+    );
+  };
+
+  const obtenerQuinquenio = (mapa, nivel, numQuin) => {
+
+    if (!numQuin || numQuin <= 0)
+      return 0;
+
+    const fila = mapa.get(String(nivel));
+
+    if (!fila)
+      return 0;
+
+    return Number(fila[`quin_${numQuin}`]) || 0;
   };
 
   async function procesarNomina(employee) {
     let percepciones = {};
     let deducciones = {};
 
-    const cubreLicencia = await query("LICENCIAS", {
-      NUMPLA: employee.NUMPLA,
-      status: 1,
-    });
-
-    employee.CUBRIENDO_LICENCIA = cubreLicencia && cubreLicencia.length > 0;
+    employee.CUBRIENDO_LICENCIA = licenciaMap.has(String(employee._id));
 
     const nivel = String(employee.NIVEL);
     const tipo = employee.TIPONOM;
-    const config = configNomina[tipo];
 
-    if (!config) throw new Error("Tipo de nómina no reconocido");
+    switch (tipo) {
 
-    percepciones = { ...config.mapa.get(nivel) };
+      // ======================
+      // 🔸 BASE
+      // ======================
+      case "M51":
+      case "F51":
 
-    if (!percepciones) return { percepciones: {}, deducciones: {} };
+        // ✅ CLONAR objeto para evitar mutación global
+        percepciones = { ...baseMap.get(nivel) };
+        if (!percepciones) break;
 
-    const dataGasadmi = await query("PERSONAL_GASADMI", {
-      id_employee: new ObjectId(employee._id),
-    });
+        const dataGasadmi = gasadmiMap.get(String(employee._id));
 
-    if (dataGasadmi.length > 0) {
-      percepciones.gasadmi = dataGasadmi[0].gasadmi;
-    }
+        if (dataGasadmi) {
+          percepciones.gasadmi = dataGasadmi.gasadmi;
+        }
 
-    estimuloReal = await query("PERSONAL_ESTIMULO", {
-      id_employee: new ObjectId(employee._id),
-    });
+        if (employee.NUM_HIJOS && employee.NUM_HIJOS > 0) {
+          percepciones.guarderia = (Number(employee.NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
+        } else {
+          delete percepciones.guarderia;
+        }
 
-    percepciones.estimulo = estimuloReal && estimuloReal.length > 0 ? estimuloReal[0].estimulo : percepciones.estimulo;
+        // ✅ ELIMINAR cualquier quinquenio previo
+        Object.keys(percepciones).forEach(key => {
+          if (key.startsWith("QUINQUENIOS")) {
+            delete percepciones[key];
+          }
+        });
 
-    agregarQuinquenio(percepciones, employee, config.tablaQuin);
+        const sueldoBase = parseFloat(percepciones.sueldo_base);
 
-    let sueldoGravable = parseFloat(percepciones.sueldo_base);
-    if (config.incluyeEstimulo) sueldoGravable += parseFloat(percepciones.estimulo || 0);
+        // Determinar si la quincena actual es de 16 días (segunda quincena de mes con 31 días) para aunmentar el día de ajuste
+        const now = new Date();
+        const day = now.getDate();
+        const month = now.getMonth() + 1;
+        const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
 
-    if (tipo === "M51" || tipo === "F51") {
-      const now = new Date();
-      const day = now.getDate();
-      const month = now.getMonth() + 1;
-      const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
-      if (isSegundaQuincena16Dias) {
-        const diaAjuste = percepciones.sueldo_base / 30;
-        percepciones.dia_ajuste = diaAjuste.toFixed(2);
-        sueldoGravable += diaAjuste;
-      }
+        let sueldoGravableB;
+        if (isSegundaQuincena16Dias) {
+          const diaAjuste = percepciones.sueldo_base / 30;
+          percepciones.dia_ajuste = diaAjuste.toFixed(2);
+        }
 
-      if (employee.NUM_HIJOS && employee.NUM_HIJOS > 0) {
-        percepciones.guarderia =
-          (Number(employee.NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
-      } else {
-        delete percepciones.guarderia;
-      }
-    }
+        const quinquenioBase =
+          obtenerQuinquenio(
+            quinBaseMap,
+            employee.NIVEL,
+            employee.NUMQUIN
+          );
 
-    if (config.incluyeSeguroVida) {
-      sueldoGravable += parseFloat(percepciones.rdl || 0) + parseFloat(percepciones.comp_fija_garan || 0);
-    }
+        if (quinquenioBase) {
+          percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+            quinquenioBase;
+        }
 
-    deducciones.ISR = await calcularISR(sueldoGravable);
+        sueldoGravableB = (
+          parseFloat(percepciones.sueldo_base) +
+          parseFloat(percepciones.despensa) +
+          parseFloat(percepciones.act_cul_dep) +
+          parseFloat(percepciones.api_base) +
+          parseFloat(percepciones.psm) +
+          parseFloat(percepciones.gasadmi ? percepciones.gasadmi : 0) +
+          parseFloat(quinquenioBase) +
+          parseFloat(percepciones.guarderia ? percepciones.guarderia : 0)
+        ).toFixed(2);
 
-    const sueldoBase = parseFloat(percepciones.sueldo_base);
-    if (!employee.CUBRIENDO_LICENCIA && employee.FECHA_NOMBRAMIENTO) {
-      deducciones.FONDO_PENSIONES = (sueldoBase * 0.09).toFixed(2);
-    }
-    deducciones.IMSS = (sueldoBase * 0.041219).toFixed(2);
+        const isrObjectB = buscarISR(Number(sueldoGravableB));
 
-    if (config.incluyeCuotaSindical && !employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.AFILIADO === true) {
-      deducciones.CUOTA_SINDICAL = (sueldoBase * 0.01).toFixed(2);
-    }
+        const isrBrutoB =
+          ((sueldoGravableB - parseFloat(isrObjectB.limite_inf)) *
+            parseFloat(isrObjectB.porcentajeliminf)) /
+          100 +
+          parseFloat(isrObjectB.cuota_fija);
 
-    if (config.incluyeSeguroVida) {
-      const CAT_SEGURO = await querysql(
-        "SELECT * FROM seg_vida WHERE nivel = ?",
-        [employee.NIVEL],
-      );
-      deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
-      if (config.ajustaISR_RDL) {
-        deducciones.ISR = (parseFloat(deducciones.ISR) - parseFloat(percepciones.isr_rdl || 0)).toFixed(2);
+        const subsidioB = Number(buscarSubsidio(Number(sueldoGravableB))?.subsidio) || 0;
+
+        let isrFinal = isrBrutoB - subsidioB;
+        if (isrFinal < 0) isrFinal = 0;
+
+        const isrRedondeado = (Math.round(isrFinal * 10) / 10).toFixed(2);
+        deducciones.ISR = isrRedondeado;
+
+        if (!employee.CUBRIENDO_LICENCIA && employee.FECHA_NOMBRAMIENTO) {
+          const FONDO_PENSIONES_BASE = (sueldoBase * 0.09).toFixed(2);
+          deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_BASE * 10) / 10).toFixed(2);
+        }
+        if (!employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.AFILIADO === true) {
+          const CUOTA_SINDICAL_BASE = (sueldoBase * 0.01).toFixed(2);
+          deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_BASE * 10) / 10).toFixed(2);
+        }
+
+        const IMSS_BASE = (sueldoBase * 0.041219).toFixed(2);
+        deducciones.IMSS = (Math.round(IMSS_BASE * 10) / 10).toFixed(2);
+
+        break;
+
+      // ======================
+      // 🔸 CONTRATO
+      // ======================
+      case "FCT":
+      case "CCT":
+      case "F53":
+      case "M53":
+
+        percepciones = { ...contratoMap.get(nivel) };
+        if (!percepciones) break;
+
+        const estimuloRealConfianza = estimuloMap.get(String(employee._id));
+
+        if (estimuloRealConfianza) {
+          percepciones.estimulo = estimuloRealConfianza.estimulo;
+        }
+
+        // ✅ ELIMINAR cualquier quinquenio previo
+        Object.keys(percepciones).forEach(key => {
+          if (key.startsWith("QUINQUENIOS")) {
+            delete percepciones[key];
+          }
+        });
+
+        const quinquenioCC =
+          obtenerQuinquenio(
+            quinConfianzaMap,
+            employee.NIVEL,
+            employee.NUMQUIN
+          );
+
+        if (quinquenioCC) {
+          percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+            quinquenioCC;
+        }
+
+        const sueldoGravableCC = (
+          parseFloat(percepciones.sueldo_base) +
+          parseFloat(percepciones.canasta_basica) +
+          parseFloat(percepciones.psm) +
+          parseFloat(percepciones.estimulo) +
+          parseFloat(percepciones.api_contrato) +
+          parseFloat(quinquenioCC)
+        ).toFixed(2);
+
+        const isrObjectCC = buscarISR(Number(sueldoGravableCC));
+
+        const isrBrutoCC =
+          ((sueldoGravableCC - parseFloat(isrObjectCC.limite_inf)) *
+            parseFloat(isrObjectCC.porcentajeliminf)) /
+          100 +
+          parseFloat(isrObjectCC.cuota_fija);
+
+        const subsidioCC = Number(buscarSubsidio(Number(sueldoGravableCC))?.subsidio) || 0;
+
+        let isrFinalCC = isrBrutoCC - subsidioCC;
+        if (isrFinalCC < 0) isrFinalCC = 0;
+
+        deducciones.ISR = (Math.round(isrFinalCC * 10) / 10).toFixed(2);
+
+        if (employee.FECHA_NOMBRAMIENTO) {
+          const FONDO_PENSIONES_CC = (parseFloat(percepciones.sueldo_base) * 0.09).toFixed(2);
+          deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_CC * 10) / 10).toFixed(2);
+        }
+
+        const IMSS_CC = (parseFloat(percepciones.sueldo_base) * 0.041219).toFixed(2);
+        deducciones.IMSS = (Math.round(IMSS_CC * 10) / 10).toFixed(2);
+
+        break;
+
+      case "FCO":
+      case "511":
+
+        percepciones = { ...contratoMap.get(nivel) };
+        if (!percepciones) break;
+
+        const estimuloRealNombramiento =
+          estimuloMap.get(String(employee._id));
+
+        if (estimuloRealNombramiento) {
+          percepciones.estimulo = estimuloRealNombramiento.estimulo;
+        }
+
+        // ✅ ELIMINAR cualquier quinquenio previo
+        Object.keys(percepciones).forEach(key => {
+          if (key.startsWith("QUINQUENIOS")) {
+            delete percepciones[key];
+          }
+        });
+
+        const quinquenioCN =
+          obtenerQuinquenio(
+            quinConfianzaMap,
+            employee.NIVEL,
+            employee.NUMQUIN
+          );
+
+        if (quinquenioCN) {
+          percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+            quinquenioCN;
+        }
+
+        const sueldoGravableCN = (
+          parseFloat(percepciones.sueldo_base) +
+          parseFloat(percepciones.canasta_basica) +
+          parseFloat(percepciones.psm) +
+          parseFloat(percepciones.estimulo) +
+          parseFloat(percepciones.api_contrato) +
+          parseFloat(quinquenioCN)
+        ).toFixed(2);
+
+        const isrObjectCN = buscarISR(Number(sueldoGravableCN));
+
+        const isrBrutoCN =
+          ((sueldoGravableCN - parseFloat(isrObjectCN.limite_inf)) *
+            parseFloat(isrObjectCN.porcentajeliminf)) /
+          100 +
+          parseFloat(isrObjectCN.cuota_fija);
+
+        const subsidioCN = Number(buscarSubsidio(Number(sueldoGravableCN))?.subsidio) || 0;
+
+        let isrFinalCN = isrBrutoCN - subsidioCN;
+        if (isrFinalCN < 0) isrFinalCN = 0;
+
+        deducciones.ISR = (Math.round(isrFinalCN * 10) / 10).toFixed(2);
+
+        if (employee.FECHA_NOMBRAMIENTO) {
+          const FONDO_PENSIONES_CN = (parseFloat(percepciones.sueldo_base) * 0.09).toFixed(2);
+          deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_CN * 10) / 10).toFixed(2);
+        }
+
+        if (employee.SINDICATO?.AFILIADO === true) {
+          const CUOTA_SINDICAL_CN = (parseFloat(percepciones.sueldo_base) * 0.01).toFixed(2);
+          deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_CN * 10) / 10).toFixed(2);
+        }
+
+        const IMSS_CN = (parseFloat(percepciones.sueldo_base) * 0.041219).toFixed(2);
+        deducciones.IMSS = (Math.round(IMSS_CN * 10) / 10).toFixed(2);
+
+        break;
+
+      // ======================
+      // 🔸 MANDOS MEDIOS
+      // ======================
+      case "FMM":
+      case "MMS":
+
+        percepciones = { ...mandosMap.get(nivel) };
+        if (!percepciones) break;
+
+        // ✅ ELIMINAR cualquier quinquenio previo
+        Object.keys(percepciones).forEach(key => {
+          if (key.startsWith("QUINQUENIOS")) {
+            delete percepciones[key];
+          }
+        });
+
+        const quinquenioMms =
+          obtenerQuinquenio(
+            quinMandosMap,
+            employee.NIVEL,
+            employee.NUMQUIN
+          );
+
+        if (quinquenioMms) {
+          percepciones[`QUINQUENIOS: ${employee.NUMQUIN}`] =
+            quinquenioMms;
+        }
+
+        const sueldoGravableMM = (
+          parseFloat(percepciones.sueldo_base) +
+          parseFloat(percepciones.psm) +
+          parseFloat(percepciones.comp_fija_garan) +
+          parseFloat(percepciones.api_mms) +
+          parseFloat(quinquenioMms)
+        ).toFixed(2);
+
+        const isrObjectMM = buscarISR(Number(sueldoGravableMM));
+
+        const isrBrutoMM =
+          ((sueldoGravableMM - parseFloat(isrObjectMM.limite_inf)) *
+            parseFloat(isrObjectMM.porcentajeliminf)) /
+          100 +
+          parseFloat(isrObjectMM.cuota_fija);
+
+        const subsidioMM = Number(buscarSubsidio(Number(sueldoGravableMM))?.subsidio) || 0;
+
+        let isrFinalMM = isrBrutoMM - subsidioMM;
+        if (isrFinalMM < 0) isrFinalMM = 0;
+
+        deducciones.ISR = (Math.round(isrFinalMM * 10) / 10).toFixed(2);
+
+        const IMSS_MMS = (parseFloat(percepciones.sueldo_base) * 0.041219).toFixed(2);
+        deducciones.IMSS = (Math.round(IMSS_MMS * 10) / 10).toFixed(2);
+
+        const seguro = segVidaMap.get(String(employee.NIVEL));
+        console.log("Seguro de vida para nivel", employee.NIVEL, ":", seguro);
+
+        const SEGURO_VIDA_MMS = Number(seguro?.seg_vida) || 0;
+
+        deducciones.SEGURO_VIDA = (Math.round(SEGURO_VIDA_MMS * 10) / 10).toFixed(2);
+
+        if (employee.FECHA_NOMBRAMIENTO) {
+          const FONDO_PENSIONES_MMS = (parseFloat(percepciones.sueldo_base) * 0.09).toFixed(2);
+          deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_MMS * 10) / 10).toFixed(2);
+        }
+
         delete percepciones.isr_rdl;
         delete percepciones.rdl;
-      }
+
+        break;
+
+      default:
+        throw new Error("Tipo de nómina no reconocido");
     }
 
     return { percepciones, deducciones };
@@ -1001,11 +1244,13 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       const estudios = item.ESTUDIOS || {};
       const est1 = estudios.PRIMER_ESTUDIO || {};
       const est2 = estudios.SEGUNDO_ESTUDIO || {};
+      const quinquenio = Object.entries(percepciones)
+        .find(([key]) => key.startsWith("QUINQUENIOS"))?.[1] || 0;
 
       const fila = {
         ...item,
         SUELDO: Number(percepciones.sueldo_base) || 0.00,
-        QUINQUENIO: Number(percepciones.QUINQUENIOS) || 0.00,
+        QUINQUENIO: Number(quinquenio) || 0.00,
         PSM: Number(percepciones.psm) || 0.00,
         API_BASE: Number(percepciones.api_base) || 0.00,
         API_CONFIANZA: Number(percepciones.api_contrato) || 0.00,
@@ -1965,8 +2210,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           }
 
           if (employee.NUM_HIJOS && employee.NUM_HIJOS > 0) {
-            percepciones.guarderia =
-              (Number(employee.NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
+            percepciones.guarderia = (Number(employee.NUM_HIJOS) * Number(percepciones.guarderia)).toFixed(2);
           } else {
             delete percepciones.guarderia;
           }
@@ -2007,14 +2251,21 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           if (isSegundaQuincena16Dias) {
             const diaAjuste = percepciones.sueldo_base / 30;
             percepciones.dia_ajuste = diaAjuste.toFixed(2);
-
-            sueldoGravableB = (
-              parseFloat(percepciones.sueldo_base) +
-              parseFloat(percepciones.dia_ajuste)
-            ).toFixed(2);
-          } else {
-            sueldoGravableB = parseFloat(percepciones.sueldo_base).toFixed(2);
           }
+
+          const quinquenioBase = Object.entries(percepciones)
+            .find(([key]) => key.startsWith("QUINQUENIOS"))?.[1] || 0;
+
+          sueldoGravableB = (
+            parseFloat(percepciones.sueldo_base) +
+            parseFloat(percepciones.despensa) +
+            parseFloat(percepciones.act_cul_dep) +
+            parseFloat(percepciones.api_base) +
+            parseFloat(percepciones.psm) +
+            parseFloat(percepciones.gasadmi ? percepciones.gasadmi : 0) +
+            parseFloat(quinquenioBase) +
+            parseFloat(percepciones.guarderia ? percepciones.guarderia : 0)
+          ).toFixed(2);
 
           const isrDataB = await querysql(
             "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
@@ -2042,16 +2293,20 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           let isrFinal = isrBrutoB - subsidioB;
           if (isrFinal < 0) isrFinal = 0;
 
-          deducciones.ISR = isrFinal.toFixed(2);
+          const isrRedondeado = (Math.round(isrFinal * 10) / 10).toFixed(2);
+          deducciones.ISR = isrRedondeado;
 
           if (!employee.CUBRIENDO_LICENCIA && employee.FECHA_NOMBRAMIENTO) {
-            deducciones.FONDO_PENSIONES = (sueldoBase * 0.09).toFixed(2);
+            const FONDO_PENSIONES_BASE = (sueldoBase * 0.09).toFixed(2);
+            deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_BASE * 10) / 10).toFixed(2);
           }
           if (!employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.AFILIADO === true) {
-            deducciones.CUOTA_SINDICAL = (sueldoBase * 0.01).toFixed(2);
+            const CUOTA_SINDICAL_BASE = (sueldoBase * 0.01).toFixed(2);
+            deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_BASE * 10) / 10).toFixed(2);
           }
 
-          deducciones.IMSS = (sueldoBase * 0.041219).toFixed(2);
+          const IMSS_BASE = (sueldoBase * 0.041219).toFixed(2);
+          deducciones.IMSS = (Math.round(IMSS_BASE * 10) / 10).toFixed(2);
 
           break;
 
@@ -2096,10 +2351,17 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
             }
           }
 
-          const sueldoCC = parseFloat(percepciones.sueldo_base);
-          const estimulo = parseFloat(percepciones.estimulo);
+          const quinquenioCC = Object.entries(percepciones)
+            .find(([key]) => key.startsWith("QUINQUENIOS"))?.[1] || 0;
 
-          const sueldoGravableCC = sueldoCC + estimulo;
+          const sueldoGravableCC = (
+            parseFloat(percepciones.sueldo_base) +
+            parseFloat(percepciones.canasta_basica) +
+            parseFloat(percepciones.psm) +
+            parseFloat(percepciones.estimulo) +
+            parseFloat(percepciones.api_contrato) +
+            parseFloat(quinquenioCC)
+          ).toFixed(2);
 
           const isrDataCC = await querysql(
             "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
@@ -2127,13 +2389,15 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           let isrFinalCC = isrBrutoCC - subsidioCC;
           if (isrFinalCC < 0) isrFinalCC = 0;
 
-          deducciones.ISR = isrFinalCC.toFixed(2);
+          deducciones.ISR = (Math.round(isrFinalCC * 10) / 10).toFixed(2);
 
           if (employee.FECHA_NOMBRAMIENTO) {
-            deducciones.FONDO_PENSIONES = (sueldoCC * 0.09).toFixed(2);
+            const FONDO_PENSIONES_CC = (parseFloat(percepciones.sueldo_base) * 0.09).toFixed(2);
+            deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_CC * 10) / 10).toFixed(2);
           }
 
-          deducciones.IMSS = (sueldoCC * 0.041219).toFixed(2);
+          const IMSS_CC = (parseFloat(percepciones.sueldo_base) * 0.041219).toFixed(2);
+          deducciones.IMSS = (Math.round(IMSS_CC * 10) / 10).toFixed(2);
 
           break;
 
@@ -2173,10 +2437,18 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
             }
           }
 
-          const sueldoCN = parseFloat(percepciones.sueldo_base);
-          const estimuloCN = parseFloat(percepciones.estimulo);
+          const quinquenioCN = Object.entries(percepciones)
+            .find(([key]) => key.startsWith("QUINQUENIOS"))?.[1] || 0;
 
-          const sueldoGravableCN = sueldoCN + estimuloCN;
+          const sueldoGravableCN = (
+            parseFloat(percepciones.sueldo_base) +
+            parseFloat(percepciones.canasta_basica) +
+            parseFloat(percepciones.psm) +
+            parseFloat(percepciones.estimulo) +
+            parseFloat(percepciones.api_contrato) +
+            parseFloat(quinquenioCN)
+          ).toFixed(2);
+
 
           const isrDataCN = await querysql(
             "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
@@ -2204,17 +2476,20 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           let isrFinalCN = isrBrutoCN - subsidioCN;
           if (isrFinalCN < 0) isrFinalCN = 0;
 
-          deducciones.ISR = isrFinalCN.toFixed(2);
+          deducciones.ISR = (Math.round(isrFinalCN * 10) / 10).toFixed(2);
 
           if (employee.FECHA_NOMBRAMIENTO) {
-            deducciones.FONDO_PENSIONES = (sueldoCN * 0.09).toFixed(2);
+            const FONDO_PENSIONES_CN = (parseFloat(percepciones.sueldo_base) * 0.09).toFixed(2);
+            deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_CN * 10) / 10).toFixed(2);
           }
 
           if (employee.SINDICATO?.AFILIADO === true) {
-            deducciones.CUOTA_SINDICAL = (sueldoCN * 0.01).toFixed(2);
+            const CUOTA_SINDICAL_CN = (parseFloat(percepciones.sueldo_base) * 0.01).toFixed(2);
+            deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_CN * 10) / 10).toFixed(2);
           }
 
-          deducciones.IMSS = (sueldoCN * 0.041219).toFixed(2);
+          const IMSS_CN = (parseFloat(percepciones.sueldo_base) * 0.041219).toFixed(2);
+          deducciones.IMSS = (Math.round(IMSS_CN * 10) / 10).toFixed(2);
 
           break;
 
@@ -2251,11 +2526,16 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
             }
           }
 
-          const sueldoMM = parseFloat(percepciones.sueldo_base);
-          const rdl = parseFloat(percepciones.rdl);
-          const comp = parseFloat(percepciones.comp_fija_garan);
+          const quinquenioMms = Object.entries(percepciones)
+            .find(([key]) => key.startsWith("QUINQUENIOS"))?.[1] || 0;
 
-          const sueldoGravableMM = sueldoMM + rdl + comp;
+          const sueldoGravableMM = (
+            parseFloat(percepciones.sueldo_base) +
+            parseFloat(percepciones.psm) +
+            parseFloat(percepciones.comp_fija_garan) +
+            parseFloat(percepciones.api_mms) +
+            parseFloat(quinquenioMms)
+          ).toFixed(2);
 
           const isrDataMM = await querysql(
             "SELECT * FROM catalogo_isr WHERE ? > limite_inf AND ? < limite_sup",
@@ -2283,22 +2563,23 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           let isrFinalMM = isrBrutoMM - subsidioMM;
           if (isrFinalMM < 0) isrFinalMM = 0;
 
-          deducciones.ISR = isrFinalMM.toFixed(2);
+          deducciones.ISR = (Math.round(isrFinalMM * 10) / 10).toFixed(2);
 
-          deducciones.IMSS = (sueldoMM * 0.041219).toFixed(2);
+          const IMSS_MMS = (parseFloat(percepciones.sueldo_base) * 0.041219).toFixed(2);
+          deducciones.IMSS = (Math.round(IMSS_MMS * 10) / 10).toFixed(2);
 
           const CAT_SEGURO = await querysql(
             "SELECT * FROM seg_vida WHERE nivel = ?",
             [employee.NIVEL],
           );
 
-          deducciones.SEGURO_VIDA = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
+          const SEGURO_VIDA_MMS = parseFloat(CAT_SEGURO[0].seg_vida).toFixed(2);
+          deducciones.SEGURO_VIDA = (Math.round(SEGURO_VIDA_MMS * 10) / 10).toFixed(2);
 
           if (employee.FECHA_NOMBRAMIENTO) {
-            deducciones.FONDO_PENSIONES = (sueldoMM * 0.09).toFixed(2);
+            const FONDO_PENSIONES_MMS = (parseFloat(percepciones.sueldo_base) * 0.09).toFixed(2);
+            deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_MMS * 10) / 10).toFixed(2);
           }
-
-          deducciones.ISR = parseFloat(deducciones.ISR) - parseFloat(percepciones.isr_rdl);
 
           delete percepciones.isr_rdl;
           delete percepciones.rdl;

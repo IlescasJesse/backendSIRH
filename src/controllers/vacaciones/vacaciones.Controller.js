@@ -35,6 +35,17 @@ vacacionesController.getProfile = async (req, res) => {
 
     let totalDays = 0;
     const emp = employee[0];
+
+    const status_plaza = await query("PLAZAS", {
+      NUMPLA: emp.NUMPLA_ORIGEN ? emp.NUMPLA_ORIGEN : employee[0].NUMPLA,
+    });
+
+    if (!status_plaza || status_plaza.length === 0) {
+      return res.status(404).json({ message: "Plaza no encontrada" });
+    }
+
+    emp.status_plaza = status_plaza;
+
     const vacFechaStr =
       emp && emp.VACACIONES && emp.VACACIONES.FECHA_VACACIONES
         ? String(emp.VACACIONES.FECHA_VACACIONES).trim()
