@@ -753,16 +753,16 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
         const sueldoBase = parseFloat(percepciones.sueldo_base);
 
         // Determinar si la quincena actual es de 16 días (segunda quincena de mes con 31 días) para aunmentar el día de ajuste
-        const now = new Date();
-        const day = now.getDate();
-        const month = now.getMonth() + 1;
-        const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
+        // const now = new Date();
+        // const day = now.getDate();
+        // const month = now.getMonth() + 1;
+        // const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
 
         let sueldoGravableB;
-        if (isSegundaQuincena16Dias) {
-          const diaAjuste = percepciones.sueldo_base / 30;
-          percepciones.dia_ajuste = diaAjuste.toFixed(2);
-        }
+        // if (isSegundaQuincena16Dias) {
+        //   const diaAjuste = percepciones.sueldo_base / 30;
+        //   percepciones.dia_ajuste = diaAjuste.toFixed(2);
+        // }
 
         const quinquenioBase =
           obtenerQuinquenio(
@@ -2242,16 +2242,16 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
           const sueldoBase = parseFloat(percepciones.sueldo_base);
 
           // Determinar si la quincena actual es de 16 días (segunda quincena de mes con 31 días) para aunmentar el día de ajuste
-          const now = new Date();
-          const day = now.getDate();
-          const month = now.getMonth() + 1;
-          const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
+          // const now = new Date();
+          // const day = now.getDate();
+          // const month = now.getMonth() + 1;
+          // const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
 
           let sueldoGravableB;
-          if (isSegundaQuincena16Dias) {
-            const diaAjuste = percepciones.sueldo_base / 30;
-            percepciones.dia_ajuste = diaAjuste.toFixed(2);
-          }
+          // if (isSegundaQuincena16Dias) {
+          //   const diaAjuste = percepciones.sueldo_base / 30;
+          //   percepciones.dia_ajuste = diaAjuste.toFixed(2);
+          // }
 
           const quinquenioBase = Object.entries(percepciones)
             .find(([key]) => key.startsWith("QUINQUENIOS"))?.[1] || 0;
