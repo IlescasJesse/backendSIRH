@@ -4,6 +4,7 @@ const calendarController = require("../../controllers/calendar/calendar.Controll
 const verifyToken = require("../../middleware/authMiddleware");
 
 router.get("/getCalendar", verifyToken, calendarController.getCalendar);
+router.get("/getFullCalendar", verifyToken, calendarController.getFullCalendar);
 router.put("/changeStatus", verifyToken, calendarController.changeStatus);
 
 module.exports = router;

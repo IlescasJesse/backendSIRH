@@ -71,6 +71,46 @@ calendarController.getCalendar = async (req, res) => {
   }
 };
 
+// Función para obtener todos los datos del calendario sin filtrar por quincena
+calendarController.getFullCalendar = async (req, res) => {
+  try {
+
+    // Realizar la consulta a MongoDB para obtener los datos de las
+    const data = await query("CALENDARIO");
+
+    // Organizar los datos en arrays separados por quincena
+    const organizedData = {};
+    data.forEach((item) => {
+      const fecha = moment(item.FECHA, "DD-MM-YYYY");
+      const mes = fecha.month() + 1; // Los meses en moment son 0-11
+      const dia = fecha.date();
+      const [primeraQuincena, segundaQuincena] = quincenasPorMes[mes];
+
+      // Determinar a qué quincena pertenece el día
+      const quincena =
+        dia <= primeraQuincena
+          ? (mes - 1) * 2 + 1 // Primera quincena del mes
+          : (mes - 1) * 2 + 2; // Segunda quincena del mes
+
+      if (!organizedData[quincena]) {
+        organizedData[quincena] = [];
+      }
+      organizedData[quincena].push(item);
+    });
+
+    // Convertir el objeto en un array de arrays
+    const result = Object.keys(organizedData)
+      .sort((a, b) => a - b) // Asegurar que las quincenas estén en orden
+      .map((key) => organizedData[key]);
+
+    // Enviar el resultado
+    res.send(result);
+  } catch (error) {
+    console.error("Error en la consulta a MongoDB:", error);
+    res.status(500).send("Error en la consulta");
+  }
+};
+
 calendarController.changeStatus = async (req, res) => {
   const { _id, HABIL, MOTIVO } = req.body;
   const currentDateTime = moment()
