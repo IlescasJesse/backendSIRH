@@ -2822,4 +2822,521 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     res.status(500).json({ message: 'Error al generar el archivo Excel.' });
   }
 };
+
+reportesPersonalController.getReportVacationsArea = async (req, res) => {
+  try {
+    const { ADSCRIPCION, CLAVE, SUBNIVELES } = req.body;
+    let claveParaQuery = CLAVE;
+    const include104 = CLAVE === 102 || CLAVE === '102';
+    let claves = [];
+    const toTitleCase = (text) => {
+      if (!text || typeof text !== 'string') return '';
+
+      // Separar texto respetando lo que esté entre comillas
+      const parts = text.split(/(".*?")/);
+
+      return parts
+        .map((part) => {
+          // Si está entre comillas, no modificar
+          if (part.startsWith('"') && part.endsWith('"')) {
+            return part;
+          }
+
+          // Procesar normalmente
+          return part
+            .toLowerCase()
+            .split(' ')
+            .map((word, idx) => {
+              if (!word) return '';
+
+              const smallWords = ['de', 'la', 'las', 'el', 'los', 'y', 'e', 'en', 'a', 'por', 'para', 'con', 'del', 'al'];
+
+              if (idx > 0 && smallWords.includes(word)) {
+                return word;
+              }
+
+              return word.charAt(0).toUpperCase() + word.slice(1);
+            })
+            .join(' ');
+        })
+        .join('');
+    };
+
+    if (ADSCRIPCION !== 'TODAS') {
+
+      const adscripciones = await querysql(
+        `WITH RECURSIVE jerarquia AS ( SELECT id_adscripcion, nombre, clave, parent_id FROM adscripciones WHERE clave = ${claveParaQuery} UNION ALL SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id FROM adscripciones a INNER JOIN jerarquia j ON a.parent_id = j.id_adscripcion ) SELECT * FROM jerarquia;`
+      );
+      claves = adscripciones.map(a => a.clave);
+
+      // Si la clave solicitada es 102, incluir también 104 en la lista de claves
+      if (include104 && !claves.includes(104)) {
+        claves.push(104);
+      }
+
+      const ancestros = await querysql(
+        `
+      WITH RECURSIVE padres AS (
+        SELECT id_adscripcion, nombre, clave, parent_id, 0 AS nivel
+        FROM adscripciones
+        WHERE clave = ?
+        UNION ALL
+        SELECT a.id_adscripcion, a.nombre, a.clave, a.parent_id, padres.nivel + 1
+        FROM adscripciones a
+        JOIN padres ON padres.parent_id = a.id_adscripcion
+      )
+      SELECT * FROM padres ORDER BY nivel DESC;
+      `,
+        [claveParaQuery]
+      );
+
+      const nombres = ancestros
+        .filter(item => String(item.clave) !== String(claveParaQuery))
+        .filter(item => item.parent_id !== null)
+        .map(item => item.nombre);
+
+      adscripcionDisplay = nombres.join('. ');
+
+    } else {
+      const adscripciones = await querysql(`SELECT clave FROM adscripciones;`);
+      claves = adscripciones.map(a => a.clave);
+    }
+
+    const employees = await query("PLANTILLA", { status: 1 });
+
+    if (!employees || employees.length === 0) {
+      return res
+        .status(202)
+        .json({ message: "No hay empleados con los filtros especificados" });
+    }
+
+    let empleadosFiltrados = employees;
+
+    if (CLAVE) {
+      let claveArray = SUBNIVELES
+        ? claves.map(c => Number(c)) // 🔥 usa toda la jerarquía
+        : (Array.isArray(CLAVE) ? CLAVE : [CLAVE]).map(c => Number(c));
+
+      if (claveArray.includes(102)) {
+        claveArray = [...new Set([...claveArray, 104])];
+      }
+
+      empleadosFiltrados = employees.filter((emp) => {
+
+        // 🔍 claves donde está asignado (ASIG_LAB)
+        const clavesAsignadas = (emp.STATUS_EMPLEADO || [])
+          .filter(se => se.STATUS === "ASIG_LAB")
+          .map(se => Number(se.CLAVE))
+          .filter(c => !isNaN(c));
+
+        // 🔥 CASO 1: Tiene asignación → SOLO usar esas
+        if (clavesAsignadas.length > 0) {
+          return clavesAsignadas.some(c => claveArray.includes(c));
+        }
+
+        // 🔥 CASO 2: No tiene asignación → usar clave base
+        return claveArray.includes(Number(emp.CLAVE));
+      });
+
+      empleadosFiltrados = empleadosFiltrados.map((emp) => {
+
+        const asignaciones = (emp.STATUS_EMPLEADO || [])
+          .filter(se => se.STATUS === "ASIG_LAB");
+
+        const clavesAsignadas = asignaciones
+          .map(se => Number(se.CLAVE))
+          .filter(c => !isNaN(c));
+
+        // 🔥 Si tiene asignación válida
+        if (clavesAsignadas.length > 0) {
+
+          const asignacionValida = asignaciones.find(se =>
+            claveArray.includes(Number(se.CLAVE))
+          );
+
+          if (asignacionValida) {
+            return {
+              ...emp,
+
+              // ✅ CLAVE correcta
+              CLAVE: Number(asignacionValida.CLAVE),
+
+              // ✅ ADSCRIPCIÓN correcta (la asignada)
+              ADSCRIPCION: asignacionValida.LUGAR_COMISIONADO || emp.ADSCRIPCION
+            };
+          }
+        }
+
+        // 🔥 Si NO tiene asignación
+        return {
+          ...emp,
+          CLAVE: Number(emp.CLAVE),
+          ADSCRIPCION: emp.ADSCRIPCION
+        };
+      });
+    }
+
+    const ExcelJS = require("exceljs");
+    const moment = require("moment");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("PLANTILLA");
+    worksheet.pageSetup = {
+      orientation: "landscape",
+      paperSize: 1,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: {
+        left: 0.5,
+        right: 0.5,
+        top: 0.75,
+        bottom: 0.75,
+        header: 0.3,
+        footer: 0.3,
+      },
+      printTitlesRow: "1:18",
+    };
+
+    const path = require('path');
+
+    // Imagen izquierda
+    const imageId1 = workbook.addImage({
+      filename: path.join(__dirname, '../../assets/img/logo-sefin.png'),
+      extension: 'png'
+    });
+
+    worksheet.addImage(imageId1, {
+      tl: { col: 0, row: 0 },
+      ext: { width: 400, height: 65 }
+    });
+
+    // Imagen derecha
+    const imageId2 = workbook.addImage({
+      filename: path.join(__dirname, '../../assets/img/header_logo_secretaria_honestidad.jpg'),
+      extension: 'jpg'
+    });
+
+    worksheet.addImage(imageId2, {
+      tl: { col: 8, row: 0 },
+      ext: { width: 479, height: 20 }
+    });
+
+    worksheet.columns = [
+      { header: "Nombre", key: "NOMBRE", width: 50 },
+      { header: "Categoría", key: "NOMCATE", width: 30 },
+      { header: "1", key: "PERIODO1", width: 7 },
+      { header: "2", key: "PERIODO2", width: 7 },
+      { header: "3", key: "PERIODO3", width: 7 },
+      { header: "4", key: "PERIODO4", width: 7 },
+      { header: "Días", key: "DIAS", width: 11 },
+      { header: "Fechas", key: "FECHA", width: 60 },
+      { header: "Observaciones", key: "ADSCRIPCION", width: 65 },
+    ];
+
+    worksheet.spliceRows(1, 0, [], []);
+
+    worksheet.mergeCells('A3:I3');
+    worksheet.getCell('A3').value = 'Fecha: ' + moment().locale('es').format('D [de] MMMM [del] YYYY');
+    worksheet.getCell('A3').alignment = { horizontal: 'right', vertical: 'middle' };
+
+    worksheet.mergeCells('A5:I5');
+    worksheet.getCell('A5').value = 'GOBIERNO DEL ESTADO DE OAXACA';
+    worksheet.getCell('A5').alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getCell('A5').font = { bold: true };
+
+    worksheet.mergeCells('A6:I6');
+    worksheet.getCell('A6').value = 'SECRETARÍA DE FINANZAS';
+    worksheet.getCell('A6').alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getCell('A6').font = { bold: true };
+
+    worksheet.mergeCells('A7:I7');
+    worksheet.getCell('A7').value = 'DEPARTAMENTO DE RECURSOS HUMANOS';
+    worksheet.getCell('A7').alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getCell('A7').font = { bold: true };
+
+    worksheet.mergeCells('A8:I8');
+    worksheet.getCell('A8').value = 'LISTA DE PERSONAL CON SU PERIODO VACACIONAL';
+    worksheet.getCell('A8').alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getCell('A8').font = { bold: true };
+
+    worksheet.getCell('A10').value = 'Órgano Público:';
+    worksheet.getCell('A10').alignment = { horizontal: 'left', vertical: 'middle' };
+    worksheet.getCell('A10').font = { bold: true };
+
+    worksheet.getCell('B10').value = 'Secretaría de Finanzas del Poder Ejecutivo del Gobierno del Estado de Oaxaca';
+    worksheet.getCell('B10').alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.getCell('A12').value = 'Área Administrativa:';
+    worksheet.getCell('A12').alignment = { horizontal: 'left', vertical: 'middle' };
+    worksheet.getCell('A12').font = { bold: true };
+
+    worksheet.getCell('B12').value = toTitleCase(adscripcionDisplay);
+    worksheet.getCell('B12').alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.mergeCells('A14:A15');
+    worksheet.mergeCells('B14:B15');
+    worksheet.mergeCells('C14:F14');
+    worksheet.mergeCells('G14:G15');
+    worksheet.mergeCells('H14:H15');
+    worksheet.mergeCells('I14:I15');
+
+    worksheet.getCell('A14').value = 'Nombre';
+    worksheet.getCell('B14').value = 'Categoría';
+    worksheet.getCell('C14').value = 'Períodos';
+    worksheet.getCell('C15').value = '1';
+    worksheet.getCell('D15').value = '2';
+    worksheet.getCell('E15').value = '3';
+    worksheet.getCell('F15').value = '4';
+    worksheet.getCell('G14').value = 'Días';
+    worksheet.getCell('H14').value = 'Fechas';
+    worksheet.getCell('I14').value = 'Observaciones';
+
+    if (ADSCRIPCION && ADSCRIPCION !== 'TODAS') {
+      const adscripFriendly = toTitleCase(ADSCRIPCION);
+      const infoRow = worksheet.addRow([`Área de Adscripción: ${adscripFriendly}`]);
+      worksheet.mergeCells(`A${infoRow.number}:I${infoRow.number}`);
+
+      const cell = worksheet.getCell(`A${infoRow.number}`);
+
+      // separar texto
+      const prefix = 'Área de Adscripción: ';
+      const value = adscripFriendly; // mantiene mayúsculas/minúsculas
+      const fullText = prefix + value;
+
+      cell.value = fullText;
+      cell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+      // ExcelJS no admite rich text en una célula merge directamente muy bien,
+      // se usa "richText" si estás en versión compatible:
+      cell.value = {
+        richText: [
+          { text: prefix, font: { bold: true, italic: false, name: 'Arial', size: 10 } },
+          { text: value, font: { bold: false, italic: true, name: 'Arial', size: 10 } },
+        ],
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+
+      // fallback si no soporta richText:
+      if (!cell.value || !cell.value.richText) {
+        cell.font = { name: 'Arial', size: 10, italic: true };
+      }
+    }
+
+    worksheet.getRow(14).height = 35;
+    worksheet.getRow(15).height = 25;
+
+    const headerCells = [
+      'A14', 'B14', 'C14', 'G14', 'H14', 'I14', 'C15', 'D15', 'E15', 'F15'
+    ];
+    headerCells.forEach((cell) => {
+      const c = worksheet.getCell(cell);
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
+      c.font = { bold: true, size: 10 };
+      c.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    // Obtener jerarquía de adscripciones
+    const jerarquia = await querysql(`
+      WITH RECURSIVE jerarquia AS (
+        SELECT 
+          id_adscripcion,
+          nombre,
+          clave,
+          parent_id,
+          CAST(LPAD(clave, 5, '0') AS CHAR(100)) AS path
+        FROM adscripciones
+        WHERE parent_id IS NULL
+        
+        UNION ALL
+        
+        SELECT 
+          a.id_adscripcion,
+          a.nombre,
+          a.clave,
+          a.parent_id,
+          CONCAT(j.path, '-', LPAD(a.clave, 5, '0'))
+        FROM adscripciones a
+        INNER JOIN jerarquia j 
+          ON a.parent_id = j.id_adscripcion
+      )
+      SELECT id_adscripcion, nombre, clave, parent_id, path FROM jerarquia ORDER BY path
+    `);
+
+    // Crear mapa de orden jerárquico
+    const pathMap = new Map();
+    jerarquia.forEach(item => {
+      pathMap.set(item.clave, item.path);  // ← Mapear por item.clave
+    });
+
+    // Agrupar empleados por condición laboral (Base / Contrato / Otros)
+    const groupedEmployees = {
+      BASE: [],
+      NOMBRAMIENTO: [],
+      MANDOS_MEDIOS: [],
+      CONTRATO_CONFIANZA: [],
+      CONTRATO_CONTRATO: [],
+    };
+
+    const toCondition = (tipo) => {
+      const code = String(tipo || '').toUpperCase();
+      if (code === 'M51' || code === 'F51') return 'BASE';
+      if (code === 'FCO' || code === '511') return 'NOMBRAMIENTO';
+      if (code === 'FCT' || code === 'CCT') return 'CONTRATO_CONFIANZA';
+      if (code === 'F53' || code === 'M53') return 'CONTRATO_CONTRATO';
+      if (code === 'FMM' || code === 'MMS') return 'MANDOS_MEDIOS';
+    };
+
+    for (const item of empleadosFiltrados) {
+      const condition = toCondition(item.TIPONOM);
+      if (!condition) {
+        console.warn('TIPONOM no reconocido en getPlantillaReportArea:', item.TIPONOM, item.NUMPLA);
+        continue;
+      }
+      groupedEmployees[condition].push(item);
+    }
+
+    const sections = [
+      { key: 'BASE', title: 'Plaza por condición laboral: Base' },
+      { key: 'NOMBRAMIENTO', title: 'Plaza por condición laboral: Nombramiento Confianza' },
+      { key: 'CONTRATO_CONFIANZA', title: 'Plaza por condición laboral: Contrato Confianza' },
+      { key: 'CONTRATO_CONTRATO', title: 'Plaza por condición laboral: Contrato Contrato' },
+      { key: 'MANDOS_MEDIOS', title: 'Plaza por condición laboral: Mandos Medios y Superiores' },
+    ];
+
+    Object.keys(groupedEmployees).forEach(key => {
+      groupedEmployees[key].sort((a, b) => {
+        const pathA = pathMap.get(a.CLAVE) || '';
+        const pathB = pathMap.get(b.CLAVE) || '';
+        return pathA.localeCompare(pathB);
+      });
+    });
+
+    for (const section of sections) {
+      const group = groupedEmployees[section.key];
+
+      const rowHeader = worksheet.addRow([section.title]);
+      worksheet.mergeCells(`A${rowHeader.number}:I${rowHeader.number}`);
+      const headerCell = worksheet.getCell(`A${rowHeader.number}`);
+      headerCell.font = { bold: true };
+      rowHeader.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      });
+
+      // Si no hay empleados, agregar fila de "Sin personal"
+      if (!group || group.length === 0) {
+        const rowEmpty = worksheet.addRow(['Sin personal en esta modalidad']);
+
+        // Aplicar bordes a cada celda de A a H
+        for (let col = 1; col <= 8; col++) {
+          const cell = rowEmpty.getCell(col);
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+          cell.alignment = { vertical: 'middle' };
+        }
+
+        // Mergear después de aplicar bordes
+        const emptyCell = worksheet.getCell(`A${rowEmpty.number}`);
+        emptyCell.font = { size: 10 };
+        emptyCell.alignment = { vertical: 'middle' };
+
+        continue;
+      }
+
+      // Empleados de esta adscripción
+      for (const emp of group) {
+
+        const formatearFecha = (value) => {
+          if (!value) return "";
+          const fecha = moment(value);
+          return fecha.isValid()
+            ? fecha.locale("es").format("D [DE] MMMM [DEL] YYYY").toUpperCase()
+            : "";
+        };
+
+        const formatearRangoFechas = (fechas) => {
+          const inicio = fechas?.FECHA_INICIO;
+          const fin = fechas?.FECHA_FIN;
+
+          const textoInicio = formatearFecha(inicio);
+          const textoFin = formatearFecha(fin);
+
+          if (textoInicio && textoFin) return `DEL ${textoInicio} AL ${textoFin}`;
+          if (textoInicio) return `DEL ${textoInicio}`;
+          if (textoFin) return `AL ${textoFin}`;
+          return "SIN DERECHO A VACACIONES";
+        };
+
+        const row = worksheet.addRow({
+          NOMBRE: `${emp.APE_PAT || ''} ${emp.APE_MAT || ''} ${emp.NOMBRES || ''}`.trim(),
+          NOMCATE: emp.NOMCATE || '',
+          PERIODO1: `${emp.VACACIONES?.PERIODO === 1 ? 'X' : ''}`,
+          PERIODO2: `${emp.VACACIONES?.PERIODO === 2 ? 'X' : ''}`,
+          PERIODO3: `${emp.VACACIONES?.PERIODO === 3 ? 'X' : ''}`,
+          PERIODO4: `${emp.VACACIONES?.PERIODO === 4 ? 'X' : ''}`,
+          DIAS: Number(emp.VACACIONES?.DIAS || 0),
+          FECHA: emp.TIPONOM !== 'FMM' && emp.TIPONOM !== 'MMS' ? formatearRangoFechas(emp.VACACIONES?.FECHAS) : '',
+          ADSCRIPCION: SUBNIVELES === true ? emp?.ADSCRIPCION : '',
+        });
+
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+          if (cell.col === 3 || cell.col === 4 || cell.col === 5 || cell.col === 6 || cell.col === 7) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          } else {
+            cell.alignment = { vertical: 'middle', wrapText: true };
+          }
+        });
+      }
+    }
+
+    worksheet.eachRow({ includeEmpty: true }, (row) => {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = {
+          ...cell.font,
+          name: 'Arial',
+          size: 10,
+        };
+      });
+    });
+
+    const fechaStr = moment().format('YYYY-MM-DD_HH-mm-ss');
+    const fileName = `PLANTILLA_${fechaStr}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+
+    const lastRow = worksheet.rowCount;
+    worksheet.pageSetup.printArea = `A1:I${lastRow}`;
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error al generar el archivo Excel:', error.message);
+    res.status(500).json({ message: 'Error al generar el archivo Excel.' });
+  }
+};
 module.exports = reportesPersonalController;
