@@ -33,4 +33,10 @@ router.post(
   reportesPersonalController.getPlantillaReportArea,
 );
 
+router.post(
+  "/getReportVacationsArea",
+  verifyToken,
+  reportesPersonalController.getReportVacationsArea,
+);
+
 module.exports = router;
