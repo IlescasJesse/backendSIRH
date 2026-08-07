@@ -1919,7 +1919,10 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     worksheet.spliceRows(1, 0, [], []);
 
     worksheet.mergeCells('A3:I3');
-    worksheet.getCell('A3').value = 'Fecha: ' + moment().locale('es').format('D [de] MMMM [del] YYYY');
+    const fechaReporte = req.body.FECHA_BACKUP
+      ? moment(req.body.FECHA_BACKUP, 'YYYY-MM-DD').locale('es')
+      : moment().locale('es');
+    worksheet.getCell('A3').value = 'Fecha: ' + fechaReporte.format('D [de] MMMM [del] YYYY');
     worksheet.getCell('A3').alignment = { horizontal: 'right', vertical: 'middle' };
 
     worksheet.mergeCells('A5:I5');
@@ -2593,6 +2596,30 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       return { percepciones, deducciones };
     }
 
+    // Progreso granular por empleado, solo para el flujo retroactivo (ya
+    // conoce este evento por el switch/backdrop del frontend). El reporte en
+    // vivo no lo necesita porque ya es rápido.
+    const ioProgreso = req.body.FECHA_BACKUP ? req.app.get("io") : null;
+    const usernameProgreso = req.user?.username;
+    const totalEmpleadosProgreso = empleadosFiltrados.length;
+    let empleadosProcesados = 0;
+
+    function emitirProgresoNomina() {
+      if (!ioProgreso || !usernameProgreso) return;
+      empleadosProcesados++;
+      const esUltimo = empleadosProcesados === totalEmpleadosProgreso;
+      if (empleadosProcesados % 5 !== 0 && !esUltimo) return;
+      const porcentaje = totalEmpleadosProgreso
+        ? Math.round((empleadosProcesados / totalEmpleadosProgreso) * 100)
+        : 0;
+      ioProgreso.to(`USER_${usernameProgreso}`).emit("reporte-retroactivo-progreso", {
+        mensaje: `Generando reporte: ${empleadosProcesados}/${totalEmpleadosProgreso} empleados`,
+        status: "en_progreso",
+        porcentaje,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     for (const section of sections) {
       const group = groupedEmployees[section.key];
 
@@ -2637,6 +2664,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       // Empleados de esta adscripción
       for (const emp of group) {
         const { percepciones, deducciones } = await procesarNomina(emp);
+        emitirProgresoNomina();
 
         const sumarPercepciones = (obj) => {
           return Object.entries(obj || {}).reduce((acc, [key, val]) => {

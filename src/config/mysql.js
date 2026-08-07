@@ -1,12 +1,26 @@
 const mysql = require("mysql2/promise");
 require("dotenv").config();
+const { AsyncLocalStorage } = require("async_hooks");
+
+// Igual que en mongo.js: permite que un request (reporte retroactivo)
+// fuerce temporalmente la base de datos MySQL sin tocar los controladores
+// que ya usan querysql().
+const dbContext = new AsyncLocalStorage();
+
+function withDatabase(dbName, fn) {
+  return dbContext.run({ dbName }, fn);
+}
+
+function currentDb() {
+  return dbContext.getStore()?.dbName || process.env.SQLDB;
+}
 
 async function querysql(sql, params) {
   const connection = await mysql.createConnection({
     host: process.env.HOSTSQL,
     user: process.env.USERSQL,
     password: process.env.PWDSQL,
-    database: process.env.SQLDB,
+    database: currentDb(),
     port: process.env.SQLPORT,
   });
 
@@ -40,4 +54,4 @@ async function ping() {
   }
 }
 
-module.exports = { querysql, ping };
+module.exports = { querysql, ping, withDatabase };

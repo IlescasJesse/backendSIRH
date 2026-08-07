@@ -81,6 +81,7 @@ app.use("/api/personal", require("./routes/personal/reportes.routes"));
 app.use("/api/personal", require("./routes/personal/delegaciones.routes"));
 app.use("/api/personal", require("./routes/personal/adscripcionProyecto.routes"));
 app.use("/api/personal", require("./routes/personal/sueldos.routes"));
+app.use("/api/personal", require("./routes/personal/reportesRetroactivos.routes"));
 
 //rutas para incidencias
 app.use(

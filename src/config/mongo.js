@@ -1,15 +1,34 @@
 const { MongoClient } = require("mongodb");
+const { AsyncLocalStorage } = require("async_hooks");
 require("dotenv").config();
 
 const client = new MongoClient(process.env.MONGO_URI);
-let db;
+const dbCache = new Map();
+let connectPromise = null;
+
+// Permite que un request (ej. reporte retroactivo) fuerce temporalmente
+// la base de datos que deben usar query()/insertOne()/etc. sin tocar
+// los controladores que ya las usan.
+const dbContext = new AsyncLocalStorage();
+
+function withDatabase(dbName, fn) {
+  return dbContext.run({ dbName }, fn);
+}
+
+async function ensureConnected() {
+  if (!connectPromise) {
+    connectPromise = client.connect();
+  }
+  return connectPromise;
+}
 
 async function connect() {
-  if (!db) {
-    await client.connect();
-    db = client.db(process.env.DB);
+  await ensureConnected();
+  const dbName = dbContext.getStore()?.dbName || process.env.DB;
+  if (!dbCache.has(dbName)) {
+    dbCache.set(dbName, client.db(dbName));
   }
-  return db;
+  return dbCache.get(dbName);
 }
 
 async function query(collectionName, query) {
@@ -67,6 +86,12 @@ async function findById(collectionName, id) {
   return result;
 }
 
+async function dropDatabase(dbName) {
+  await ensureConnected();
+  await client.db(dbName).dropDatabase();
+  dbCache.delete(dbName);
+}
+
 module.exports = {
   connect,
   query,
@@ -77,4 +102,6 @@ module.exports = {
   deleteOne,
   deleteMany,
   findById,
+  withDatabase,
+  dropDatabase,
 };

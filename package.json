@@ -8,7 +8,8 @@
     "backup:manual": "node scripts/backup/backup.js",
     "snapshot": "node scripts/backup/snapshot_completo.js",
     "talones:enero-feb1": "node scripts/talones/generar_enero_feb1.js",
-    "talones:reconstruir-hoy": "node scripts/talones/reconstruir_hasta_hoy.js --confirm"
+    "talones:reconstruir-hoy": "node scripts/talones/reconstruir_hasta_hoy.js --confirm",
+    "seed:local": "node scripts/seed/seedLocalDb.js"
   },
   "keywords": [],
   "author": "",
