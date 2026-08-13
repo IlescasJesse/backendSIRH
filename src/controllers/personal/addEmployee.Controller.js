@@ -884,7 +884,7 @@ employeeController.newPlaza = async (req, res) => {
       status: 2,
     });
     const bitacoraResult = await insertOne("BITACORA", {
-      plantilla_id: plantillaResult.insertedId,
+      id_plantilla: plantillaResult.insertedId,
       created_at: new Date(),
       personal: [
         {
@@ -907,7 +907,7 @@ employeeController.newPlaza = async (req, res) => {
       { _id: plantillaResult.insertedId },
       {
         $set: {
-          bitacora_id: bitacoraResult.insertedId,
+          ID_BITACORA: bitacoraResult.insertedId,
           ID_CTRL_ASSIST: new ObjectId(),
           ID_CTRL_ASIST: new ObjectId(),
           ID_CTRL_TALON: new ObjectId(),
