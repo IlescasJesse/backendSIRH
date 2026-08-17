@@ -469,7 +469,6 @@ router.post("/bajas/ejecutar/:bajaId", async (req, res) => {
             APE_PAT: null,
             APE_MAT: "VACANTE",
             NOMBRES: null,
-            AREA_RESP: null,
             VACACIONES: {
               PERIODO: 0,
               FECHA_VACACIONES: null,

@@ -131,7 +131,6 @@ agenda.define("bajasExtemporaneas", async (job) => {
             APE_PAT: null,
             APE_MAT: "VACANTE",
             NOMBRES: null,
-            AREA_RESP: null,
             VACACIONES: {
               PERIODO: 0,
               FECHA_VACACIONES: null,
@@ -732,7 +731,7 @@ agenda.define("limpiarStatusEmpleado", async (job) => {
 
         const hasAsignLab = nuevosStatus.some((item) => item.STATUS === "ASIG_LAB");
         if (!hasAsignLab) {
-          updateFields.AREA_RESP = getAreaResp(empleado.ADSCRIPCION, empleado.PROYECTO);
+          updateFields.AREA_RESP = empleado.AREA_RESP_LAST ?? empleado.AREA_RESP;
         }
 
         if (nuevosStatus.length !== statusEmpleado.length) {

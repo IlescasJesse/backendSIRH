@@ -464,84 +464,97 @@ incidenciasController.updateCardInformation = async (req, res) => {
 incidenciasController.updateStatusEmployee = async (req, res) => {
   const data = req.body;
   const user = req.user;
-  const STATUS_EMPLEADO = data.STATUS_EMPLEADO; // Ahora es un arreglo de objetos de estado
+  const STATUS_EMPLEADO = data.STATUS_EMPLEADO;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
+
   try {
-    // Buscar en PLANTILLA y PLANTILLA_FORANEA
     const [resultPlantilla = [], resultForanea = []] = await Promise.all([
       query("PLANTILLA", { _id: new ObjectId(data._id) }),
       query("PLANTILLA_FORANEA", { _id: new ObjectId(data._id) }),
     ]);
 
-    const result = resultPlantilla.length
-      ? resultPlantilla
-      : resultForanea.length
-        ? resultForanea
-        : [];
+    const result = resultPlantilla.length ? resultPlantilla : resultForanea.length ? resultForanea : [];
+
     if (!result || result.length === 0) {
       return res.status(404).send({ error: "Employee not found" });
     }
 
+    const targetCollection = resultPlantilla.length ? "PLANTILLA" : "PLANTILLA_FORANEA";
 
-    // Determinar colección a actualizar
-    const targetCollection = resultPlantilla.length
-      ? "PLANTILLA"
-      : "PLANTILLA_FORANEA";
+    const prevStatus = Array.isArray(result[0].STATUS_EMPLEADO) ? result[0].STATUS_EMPLEADO : result[0].STATUS_EMPLEADO ? [result[0].STATUS_EMPLEADO] : [];
 
-    const prevStatus = result[0].STATUS_EMPLEADO || []; // Ahora asumimos que es un arreglo (o vacío si es objeto/undefined)
+    const incomingStatuses = Array.isArray(STATUS_EMPLEADO) ? STATUS_EMPLEADO : [STATUS_EMPLEADO].filter(Boolean);
 
-    // Iterar sobre cada estado en el nuevo STATUS_EMPLEADO
-    for (let i = 0; i < STATUS_EMPLEADO.length; i++) {
-      const status = STATUS_EMPLEADO[i];
-      const hsy_data = {
-        ...status, // Extender el objeto de estado actual
-        currentDateTime,
-        last_status: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].STATUS : (prevStatus.STATUS || null),
-        last_lugarComisionado: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].LUGAR_COMISIONADO : (prevStatus.LUGAR_COMISIONADO || null),
-        last_desde: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].DESDE : (prevStatus.DESDE || null),
-        last_hasta: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].HASTA : (prevStatus.HASTA || null),
-        last_proyecto: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].PROYECTO : (prevStatus.PROYECTO || null),
-        last_clave: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].CLAVE : (prevStatus.CLAVE || null),
-        last_folio: (Array.isArray(prevStatus) && prevStatus[i]) ? prevStatus[i].FOLIO : (prevStatus.FOLIO || null),
-        id_employee: new ObjectId(data._id),
-      };
-      delete hsy_data._id; // Remover si está presente
-      await insertOne("HSY_STATUS_EMPLEADO", hsy_data);
+    const hasStatusChange = JSON.stringify(prevStatus) !== JSON.stringify(incomingStatuses);
+
+    const hasAreaChange =
+      data.AREA_RESP !== undefined &&
+      data.AREA_RESP !== null &&
+      result[0].AREA_RESP !== data.AREA_RESP;
+
+    if (hasStatusChange) {
+      for (let i = 0; i < incomingStatuses.length; i++) {
+        const status = incomingStatuses[i];
+        const hsy_data = {
+          ...status,
+          currentDateTime,
+          last_status: Array.isArray(prevStatus) && prevStatus[i] ? prevStatus[i].STATUS : prevStatus.STATUS || null,
+          last_lugarComisionado: Array.isArray(prevStatus) && prevStatus[i] ? prevStatus[i].LUGAR_COMISIONADO : prevStatus.LUGAR_COMISIONADO || null,
+          last_desde: Array.isArray(prevStatus) && prevStatus[i] ? prevStatus[i].DESDE : prevStatus.DESDE || null,
+          last_hasta: Array.isArray(prevStatus) && prevStatus[i] ? prevStatus[i].HASTA : prevStatus.HASTA || null,
+          last_clave: Array.isArray(prevStatus) && prevStatus[i] ? prevStatus[i].CLAVE : prevStatus.CLAVE || null,
+          last_folio: Array.isArray(prevStatus) && prevStatus[i] ? prevStatus[i].FOLIO : prevStatus.FOLIO || null,
+          id_employee: new ObjectId(data._id),
+        };
+
+        delete hsy_data._id;
+        await insertOne("HSY_STATUS_EMPLEADO", hsy_data);
+      }
     }
 
-    const updateFields = { STATUS_EMPLEADO }; // Ahora el arreglo completo
-    if (data.AREA_RESP !== undefined && data.AREA_RESP !== null) {
+    const updateFields = { STATUS_EMPLEADO };
+
+    if (hasAreaChange) {
       updateFields.AREA_RESP = data.AREA_RESP;
+      updateFields.AREA_RESP_LAST = result[0].AREA_RESP;
     }
 
     let statusChangeDescription = "";
-    if (STATUS_EMPLEADO.some(s => s.STATUS === null)) {
+    if (STATUS_EMPLEADO.some((s) => s.STATUS === null)) {
       statusChangeDescription = "AHORA NO TIENE NINGUN STATUS";
-    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "COM_SDCL")) {
+    } else if (STATUS_EMPLEADO.some((s) => s.STATUS === "COM_SDCL")) {
       statusChangeDescription = "AHORA CUENTA CON COMISIÓN AL SINDICATO";
-    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "COM_LAB")) {
+    } else if (STATUS_EMPLEADO.some((s) => s.STATUS === "COM_LAB")) {
       statusChangeDescription = "AHORA CUENTA CON COMISIÓN LABORAL";
-    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "ASIG_LAB")) {
+    } else if (STATUS_EMPLEADO.some((s) => s.STATUS === "ASIG_LAB")) {
       statusChangeDescription = "AHORA CUENTA CON ASIGNACIÓN LABORAL";
-    } else if (STATUS_EMPLEADO.some(s => s.STATUS === "EXIMA")) {
+    } else if (STATUS_EMPLEADO.some((s) => s.STATUS === "EXIMA")) {
       statusChangeDescription = "AHORA CUENTA CON EXIMA";
     }
 
-    const userAction = {
-      username: user.username,
-      module: "AEI-EE",
-      action: `CAMBIO DE STATUS DEL EMPLEADO "${result[0].APE_PAT} ${result[0].APE_MAT} ${result[0].NOMBRES}" ${statusChangeDescription}`,
-      timestamp: currentDateTime,
-    };
+    const shouldLogUserAction = hasStatusChange || hasAreaChange;
+
+    if (shouldLogUserAction) {
+      const userAction = {
+        username: user.username,
+        module: "AEI-EE",
+        action: hasAreaChange
+          ? `CAMBIO EL ÁREA RESPONSABLE DEL EMPLEADO "${result[0].APE_PAT} ${result[0].APE_MAT} ${result[0].NOMBRES}"`
+          : `CAMBIO DE STATUS DEL EMPLEADO "${result[0].APE_PAT} ${result[0].APE_MAT} ${result[0].NOMBRES}" ${statusChangeDescription}`,
+        timestamp: currentDateTime,
+      };
+
+      await insertOne("USER_ACTIONS", userAction);
+    }
 
     await updateOne(
       targetCollection,
       { _id: new ObjectId(data._id) },
-      { $set: updateFields },
+      { $set: updateFields }
     );
-    await insertOne("USER_ACTIONS", userAction);
+
     const employee = result[0];
     res.status(200).send({
       message: "Employee status updated successfully",
@@ -986,6 +999,7 @@ incidenciasController.newForeigner = async (req, res) => {
     const plazaPlantilla = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
     const plazaForanea = await query("PLANTILLA_FORANEA", {
       NUMPLA: data.NUMPLA,
+      status: 1
     });
     if (plazaPlantilla.length > 0 || plazaForanea.length > 0) {
       return res.status(409).json({
@@ -998,10 +1012,12 @@ incidenciasController.newForeigner = async (req, res) => {
       const tarjetaPlantilla = await query("PLANTILLA", {
         NUMTARJETA: data.NUMTARJETA,
         AREA_RESP: data.AREA_RESP,
+        status: 1
       });
       const tarjetaForanea = await query("PLANTILLA_FORANEA", {
         NUMTARJETA: data.NUMTARJETA,
         AREA_RESP: data.AREA_RESP,
+        status: 1
       });
       if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
         return res.status(409).json({
@@ -1057,7 +1073,7 @@ incidenciasController.updateForeigner = async (req, res) => {
   try {
     const plazaPlantilla = await query("PLANTILLA", { NUMPLA: data.NUMPLA, _id: { $ne: new ObjectId(data._id) } });
     const plazaForanea = await query("PLANTILLA_FORANEA", {
-      NUMPLA: data.NUMPLA, _id: { $ne: new ObjectId(data._id) }
+      NUMPLA: data.NUMPLA, _id: { $ne: new ObjectId(data._id) }, status: 1
     });
     if (plazaPlantilla.length > 0 || plazaForanea.length > 0) {
       return res.status(409).json({
@@ -1070,12 +1086,14 @@ incidenciasController.updateForeigner = async (req, res) => {
       const tarjetaPlantilla = await query("PLANTILLA", {
         NUMTARJETA: data.NUMTARJETA,
         AREA_RESP: data.AREA_RESP,
-        _id: { $ne: new ObjectId(data._id) }
+        _id: { $ne: new ObjectId(data._id) },
+        status: 1
       });
       const tarjetaForanea = await query("PLANTILLA_FORANEA", {
         NUMTARJETA: data.NUMTARJETA,
         AREA_RESP: data.AREA_RESP,
-        _id: { $ne: new ObjectId(data._id) }
+        _id: { $ne: new ObjectId(data._id) },
+        status: 1
       });
       if (tarjetaPlantilla.length > 0 || tarjetaForanea.length > 0) {
         return res.status(409).json({
@@ -1109,6 +1127,7 @@ incidenciasController.deleteForeigner = async (req, res) => {
 
     const plazaForanea = await query("PLANTILLA_FORANEA", {
       _id: new ObjectId(data._id),
+      status: 1
     });
 
     if (plazaForanea.length === 0) {
