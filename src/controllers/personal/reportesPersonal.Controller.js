@@ -1848,17 +1848,6 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
       empleadosFiltrados = [...activos, vacantes[0]];
     }
 
-    // Cargar licencias activas
-    const licenciasActivas = await query("LICENCIAS", { status: 1 });
-
-    // Crear un Set con los IDs de empleados en licencias
-    const empleadosEnLicencia = new Set();
-    licenciasActivas.forEach((lic) => {
-      if (lic.id_employee) {
-        empleadosEnLicencia.add(String(lic.id_employee));
-      }
-    });
-
     const ExcelJS = require("exceljs");
     const moment = require("moment");
     const workbook = new ExcelJS.Workbook();
@@ -1907,8 +1896,8 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
     worksheet.columns = [
       { header: "Nombre", key: "NOMBRE", width: 50 },
       { header: "Categoría", key: "NOMCATE", width: 30 },
-      { header: "Si", key: "LICENCIA_SI", width: 11 },
-      { header: "No", key: "LICENCIA_NO", width: 11 },
+      { header: "Si", key: "COMISION_SI", width: 11 },
+      { header: "No", key: "COMISION_NO", width: 11 },
       { header: "Área a la que esta comisionado", key: "LUGAR_COMISIONADO", width: 15 },
       { header: "Periodo de Ausencia o Comisión", key: "PERIODO", width: 15 },
       { header: "Percepción mensual", key: "PERCEPCION", width: 15 },
@@ -2691,10 +2680,30 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
               ? 'V A C A N T E'
               : `${emp.APE_PAT || ''} ${emp.APE_MAT || ''} ${emp.NOMBRES || ''}`.trim(),
           NOMCATE: emp.NOMCATE || '',
-          LICENCIA_SI: empleadosEnLicencia.has(String(emp._id)) ? 'X' : '',
-          LICENCIA_NO: empleadosEnLicencia.has(String(emp._id)) ? '' : 'X',
-          LUGAR_COMISIONADO: '',
-          PERIODO: '',
+          COMISION_SI: emp.STATUS_EMPLEADO?.some(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB") ? 'X' : '',
+          COMISION_NO: !emp.STATUS_EMPLEADO?.some(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB") ? 'X' : '',
+          LUGAR_COMISIONADO: emp.STATUS_EMPLEADO?.find(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB")?.LUGAR_COMISIONADO || "",
+          PERIODO: (() => {
+            const comision = emp.STATUS_EMPLEADO?.find(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB");
+
+            if (!comision?.DESDE && !comision?.HASTA) return "";
+
+            const formatearFecha = fecha => {
+              if (!fecha) return "";
+
+              const [anio, mes, dia] = fecha.split("-");
+              return `${dia}${mes}${anio}`;
+            };
+
+            const desde = formatearFecha(comision.DESDE);
+            const hasta = formatearFecha(comision.HASTA);
+
+            if (desde && hasta) return `${desde} AL ${hasta}`;
+            if (desde) return desde;
+            if (hasta) return hasta;
+
+            return "";
+          })(),
           PERCEPCION: parseFloat(percepcionNeta),
           SUELDO_BASE: parseFloat(percepciones?.sueldo_base || 0),
           ADSCRIPCION: SUBNIVELES === true ? emp?.ADSCRIPCION : ''
