@@ -1807,6 +1807,7 @@ incidenciasController.printAsistenceCards = async (req, res) => {
   const queryFilter = {
     NUMTARJETA: { $in: TARJETAS.map((num) => parseInt(num, 10)) },
     AREA_RESP: AREA_RESP ? { $eq: AREA_RESP } : undefined,
+    status: 1,
   };
 
   const [plantilla = [], foranea = []] = await Promise.all([
