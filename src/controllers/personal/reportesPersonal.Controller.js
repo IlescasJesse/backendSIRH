@@ -807,7 +807,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
           const FONDO_PENSIONES_BASE = (sueldoBase * 0.09).toFixed(2);
           deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_BASE * 10) / 10).toFixed(2);
         }
-        if (!employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.AFILIADO === true) {
+        if (!employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.CUOTA_SINDICAL === true) {
           const CUOTA_SINDICAL_BASE = (sueldoBase * 0.01).toFixed(2);
           deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_BASE * 10) / 10).toFixed(2);
         }
@@ -948,7 +948,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
           deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_CN * 10) / 10).toFixed(2);
         }
 
-        if (employee.SINDICATO?.AFILIADO === true) {
+        if (employee.SINDICATO?.CUOTA_SINDICAL === true) {
           const CUOTA_SINDICAL_CN = (parseFloat(percepciones.sueldo_base) * 0.01).toFixed(2);
           deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_CN * 10) / 10).toFixed(2);
         }
@@ -2292,7 +2292,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
             const FONDO_PENSIONES_BASE = (sueldoBase * 0.09).toFixed(2);
             deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_BASE * 10) / 10).toFixed(2);
           }
-          if (!employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.AFILIADO === true) {
+          if (!employee.CUBRIENDO_LICENCIA && employee.SINDICATO?.CUOTA_SINDICAL === true) {
             const CUOTA_SINDICAL_BASE = (sueldoBase * 0.01).toFixed(2);
             deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_BASE * 10) / 10).toFixed(2);
           }
@@ -2475,7 +2475,7 @@ reportesPersonalController.getPlantillaReportArea = async (req, res) => {
             deducciones.FONDO_PENSIONES = (Math.round(FONDO_PENSIONES_CN * 10) / 10).toFixed(2);
           }
 
-          if (employee.SINDICATO?.AFILIADO === true) {
+          if (employee.SINDICATO?.CUOTA_SINDICAL === true) {
             const CUOTA_SINDICAL_CN = (parseFloat(percepciones.sueldo_base) * 0.01).toFixed(2);
             deducciones.CUOTA_SINDICAL = (Math.round(CUOTA_SINDICAL_CN * 10) / 10).toFixed(2);
           }
