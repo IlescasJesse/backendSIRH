@@ -289,7 +289,7 @@ incidenciasController.getProfile = async (req, res) => {
 
     const emp = employee[0];
 
-    if (emp.SINDICATO) {
+    if (emp.SINDICATO && emp.SINDICATO.DELEGACION) {
       const delegados = await querysql(`
       SELECT * FROM delegaciones
       WHERE delegacion = ?`,
