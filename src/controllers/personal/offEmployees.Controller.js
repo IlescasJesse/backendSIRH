@@ -74,14 +74,23 @@ offEmployeeController.getDatatoOff = async (req, res) => {
       NOMBRES: emp.NOMBRES,
       NUMEMP: emp.NUMEMP,
       NUMPLA: emp.NUMPLA,
-      DIRECCION_COMPLETA: emp.DIRECCION ? [
-        `${emp.DIRECCION.DOMICILIO} ${emp.DIRECCION.NUM_EXT}`,
-        emp.DIRECCION.COLONIA,
-        emp.DIRECCION.LOCALIDAD,
-        emp.DIRECCION.MUNICIPIO,
-        emp.DIRECCION.ESTADO,
-      ].filter(Boolean).join(', ') + '.' : emp.DOMICILIO,
+      DIRECCION_COMPLETA: emp.DIRECCION ? (() => {
+        const domicilio = [emp.DIRECCION.DOMICILIO, emp.DIRECCION.NUM_EXT].filter(Boolean).join(' ');
 
+        const interior = emp.DIRECCION.NUM_INT ? `INT. ${emp.DIRECCION.NUM_INT}` : '';
+
+        const parts = [
+          [domicilio, interior].filter(Boolean).join(', '),
+          emp.DIRECCION.COLONIA,
+          emp.DIRECCION.LOCALIDAD,
+          emp.DIRECCION.MUNICIPIO,
+          emp.DIRECCION.ESTADO,
+        ].filter(Boolean);
+
+        return parts.join(', ') + '.';
+      })() : emp.DOMICILIO,
+
+      DOMICILIO: emp.DOMICILIO,
       CP: emp.CP,
       CLAVECAT: emp.CLAVECAT,
       CATEGORIA_DESCRIPCION: categoria[0]?.DESCRIPCION || "No encontrado",

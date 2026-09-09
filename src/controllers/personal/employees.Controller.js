@@ -123,14 +123,19 @@ employeeController.getProfileData = async (req, res) => {
     }
 
     if (employee[0].DIRECCION) {
+      const domicilio = [employee[0].DIRECCION.DOMICILIO, employee[0].DIRECCION.NUM_EXT].filter(Boolean).join(' ');
+
+      const interior = employee[0].DIRECCION.NUM_INT ? `INT. ${employee[0].DIRECCION.NUM_INT}` : '';
+
       employee[0].DIRECCION_COMPLETA = [
-        `${employee[0].DIRECCION.DOMICILIO} ${employee[0].DIRECCION.NUM_EXT}`,
+        [domicilio, interior].filter(Boolean).join(', '),
         employee[0].DIRECCION.COLONIA,
         employee[0].DIRECCION.LOCALIDAD,
         employee[0].DIRECCION.MUNICIPIO,
         employee[0].DIRECCION.ESTADO,
-      ].filter(Boolean).join(', ') + '.',
-        employee[0].CP = employee[0].DIRECCION.CP;
+      ].filter(Boolean).join(', ') + '.';
+
+      employee[0].CP = employee[0].DIRECCION.CP;
     } else {
       employee[0].DIRECCION_COMPLETA = employee[0].DOMICILIO;
     }
