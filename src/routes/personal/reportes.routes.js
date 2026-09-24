@@ -2,41 +2,24 @@ const { Router } = require("express");
 const router = Router();
 const reportesPersonalController = require("../../controllers/personal/reportesPersonal.Controller");
 const verifyToken = require("../../middleware/authMiddleware");
+const { requirePermission } = require("../../middleware/permissionsMiddleware");
 
-router.get(
-  "/getReportLicenses",
-  verifyToken,
-  reportesPersonalController.getReportLicenses,
-);
+// Ruta para obtener buscar a los empleados de acuerdo a filtros y la generación del reporte
+router.post("/getDataPersonalizada", verifyToken, requirePermission(['PSL-RP']), reportesPersonalController.getDataPersonalizada);
 
-router.post(
-  "/getDataPersonalizada",
-  verifyToken,
-  reportesPersonalController.getDataPersonalizada,
-);
+// Ruta para generar y descargar el reporte de la plantilla activa en excel
+router.get("/getPlantillaXLSX/:status", verifyToken, requirePermission(['PSL-RP']), reportesPersonalController.getPlantillaXLSX);
 
-router.get(
-  "/getPlantillaXLSX/:status",
-  verifyToken,
-  reportesPersonalController.getPlantillaXLSX,
-);
+// Ruta para generar y descargar el reporte de área actualmente
+router.post("/getPlantillaReportArea", verifyToken, requirePermission(['PSL-RP']), reportesPersonalController.getPlantillaReportArea);
 
-router.post(
-  "/getBajasBetweenDates",
-  verifyToken,
-  reportesPersonalController.getBajasBetweenDates,
-);
+// Ruta para generar y descargar el reporte de las bajas entre un rango de fechas
+router.post("/getBajasBetweenDates", verifyToken, requirePermission(['PSL-RP']), reportesPersonalController.getBajasBetweenDates);
 
-router.post(
-  "/getPlantillaReportArea",
-  verifyToken,
-  reportesPersonalController.getPlantillaReportArea,
-);
+// Ruta para generar y descargar el reporte de las licencias activas
+router.get("/getReportLicenses", verifyToken, requirePermission(['PSL-RP']), reportesPersonalController.getReportLicenses);
 
-router.post(
-  "/getReportVacationsArea",
-  verifyToken,
-  reportesPersonalController.getReportVacationsArea,
-);
+// Ruta para generar y descargar el reporte de vacaciones de empleados por área
+router.post("/getReportVacationsArea", verifyToken, requirePermission(['PSL-RPV']), reportesPersonalController.getReportVacationsArea);
 
 module.exports = router;

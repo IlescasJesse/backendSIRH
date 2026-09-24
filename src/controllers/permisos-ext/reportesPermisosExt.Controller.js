@@ -30,6 +30,12 @@ reportesPermisosExtController.printReport = async (req, res) => {
         ],
     });
 
+    if (!permisosExt || permisosExt.length === 0) {
+        return res.status(404).json({
+            message: "No se encontraron permisos para el empleado.",
+        });
+    }
+
     const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
         query("PLANTILLA", { _id: new ObjectId(_id) }),
         query("PLANTILLA_FORANEA", { _id: new ObjectId(_id) }),

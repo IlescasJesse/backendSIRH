@@ -5,13 +5,12 @@ const { query, insertOne, updateOne } = require("../../config/mongo");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { ObjectId } = require("mongodb");
+const { loginLimiter } = require("../../middleware/rateLimitMiddleware");
 
-// Secret key para JWT (misma que en authMiddleware)
-const SECRET_KEY =
-  "639ucb29m39h4vyfkn0j4a7fq45ib2fiaojoomon57bhr7t86wuybuj9tc4meqx4";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Login específico para app móvil
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   const { username, password, deviceId } = req.body;
 
   console.log("\n=== LOGIN MÓVIL ===");
@@ -65,7 +64,7 @@ router.post("/login", async (req, res) => {
         username: user.username,
         role: user.role || "user",
       },
-      SECRET_KEY,
+      JWT_SECRET,
       { expiresIn: "7d" },
     );
 

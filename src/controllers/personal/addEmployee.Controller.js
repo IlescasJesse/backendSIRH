@@ -395,27 +395,66 @@ employeeController.makeProposal = async (req, res) => {
         return res.status(500).json({ message: "Adscripciones is empty" });
       }
 
-      adscripciones.forEach((adscription) => {
-        switch (adscription.nivel) {
-          case 1:
-            LEVEL1 = adscription.nombre;
-            break;
-          case 2:
-            LEVEL2 = adscription.nombre;
-            break;
-          case 3:
-            LEVEL3 = adscription.nombre;
-            break;
-          case 4:
-            LEVEL4 = adscription.nombre;
-            break;
-          case 5:
-            LEVEL5 = adscription.nombre;
-            break;
-          default:
-            console.error("Nivel desconocido:", adscription.nivel);
-        }
+      // Detectar si hay niveles duplicados 
+      const nivelCounts = {};
+      adscripciones.forEach(a => {
+        nivelCounts[a.nivel] = (nivelCounts[a.nivel] || 0) + 1;
       });
+
+      const hasConflict = Object.values(nivelCounts).some(count => count > 1);
+      if (hasConflict) {
+        // Si hay elementos del mismo nivel, ordenar por parent_id para identificar padre/hijo
+        adscripciones.sort((a, b) => {
+          if (a.nivel !== b.nivel) return a.nivel - b.nivel;
+          if (a.id === b.parent_id) return -1;
+          if (b.id === a.parent_id) return 1;
+          return 0;
+        });
+
+        adscripciones.forEach((adscription, index) => {
+          if (index + 1 <= 5) {
+            switch (index + 1) {
+              case 1:
+                LEVEL1 = adscription.nombre;
+                break;
+              case 2:
+                LEVEL2 = adscription.nombre;
+                break;
+              case 3:
+                LEVEL3 = adscription.nombre;
+                break;
+              case 4:
+                LEVEL4 = adscription.nombre;
+                break;
+              case 5:
+                LEVEL5 = adscription.nombre;
+                break;
+            }
+          }
+        });
+      } else {
+        adscripciones.forEach((adscription) => {
+          switch (adscription.nivel) {
+            case 1:
+              LEVEL1 = adscription.nombre;
+              break;
+            case 2:
+              LEVEL2 = adscription.nombre;
+              break;
+            case 3:
+              LEVEL3 = adscription.nombre;
+              break;
+            case 4:
+              LEVEL4 = adscription.nombre;
+              break;
+            case 5:
+              LEVEL5 = adscription.nombre;
+              break;
+            default:
+              console.error("Nivel desconocido:", adscription.nivel);
+          }
+        });
+      }
     } catch (error) {
       console.error("Error obteniendo adscripciones:", error);
       return res
@@ -737,7 +776,7 @@ employeeController.saveEmployee = async (req, res) => {
     await updateOne(
       "PLANTILLA",
       { NUMPLA: data.NUMPLA },
-      { $set: { ...data, status: 1 } },
+      { $set: { ...data, status: 1, ID_CTRL_ASIST: new ObjectId() } },
     );
     await updateOne(
       "PLANTILLA",
@@ -829,6 +868,37 @@ employeeController.updateEmployee = async (req, res) => {
     res.status(500).json({ message: "Error updating employee", error });
   }
 };
+
+employeeController.addCategory = async (req, res) => {
+  const { CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA } = req.body;
+
+  try {
+    // Validar que los campos requeridos no sean undefined
+    if (!CLAVE_CATEGORIA || !DESCRIPCION || !NIVEL || !T_NOMINA) {
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son obligatorios" });
+    }
+
+    // Insertar la nueva categoría en la base de datos
+    const result = await querysql(
+      `INSERT INTO categorias_catalogo (CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA) VALUES (?, ?, ?, ?)`,
+      [CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA],
+    );
+
+    res.status(201).json({ message: "Categoría agregada correctamente" });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      res.status(409).json({ message: "La categoría ya existe" });
+    } else if (error.code === "ER_BAD_FIELD_ERROR") {
+      res.status(404).json({ message: "No se pudo agregar la categoría" });
+    } else {
+      console.error("Error adding category:", error);
+      res.status(500).json({ message: "Error interno del servidor", error });
+    }
+  }
+};
+
 //funcion para crear una nueva plaza en la plantilla
 employeeController.newPlaza = async (req, res) => {
   const { data } = req.body;
@@ -908,7 +978,6 @@ employeeController.newPlaza = async (req, res) => {
       {
         $set: {
           ID_BITACORA: bitacoraResult.insertedId,
-          ID_CTRL_ASSIST: new ObjectId(),
           ID_CTRL_ASIST: new ObjectId(),
           ID_CTRL_TALON: new ObjectId(),
           ID_CTRL_NOM: new ObjectId(),
@@ -1201,9 +1270,6 @@ employeeController.reinstallEmployee = async (req, res) => {
 
     if (dataToSave.ID_CTRL_ASIST && typeof dataToSave.ID_CTRL_ASIST === 'string') {
       dataToSave.ID_CTRL_ASIST = new ObjectId(dataToSave.ID_CTRL_ASIST);
-    }
-    if (dataToSave.ID_CTRL_ASSIST && typeof dataToSave.ID_CTRL_ASSIST === 'string') {
-      dataToSave.ID_CTRL_ASSIST = new ObjectId(dataToSave.ID_CTRL_ASSIST);
     }
     if (dataToSave.ID_CTRL_TALON && typeof dataToSave.ID_CTRL_TALON === 'string') {
       dataToSave.ID_CTRL_TALON = new ObjectId(dataToSave.ID_CTRL_TALON);

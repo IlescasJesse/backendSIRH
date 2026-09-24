@@ -29,10 +29,11 @@ async function getAdscripciones(nombre) {
     if (result.length > 0) {
       const adscription = result[0];
       adscriptions.push({
+        id: adscription.id_adscripcion,
         nombre: adscription.nombre,
         nivel: adscription.nivel,
         clave: adscription.clave,
-        // Agrega otros campos si los necesitas, como tipo o parent_id
+        parent_id: adscription.parent_id
       });
       currentId = adscription.parent_id; // Siguiente padre
     } else {

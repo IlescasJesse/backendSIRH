@@ -7,14 +7,53 @@ const http = require("http");
 const { Server } = require("socket.io");
 const { startAgenda } = require("./config/agenda");
 const { requestLogger, errorLogger } = require("./middleware/loggerMiddleware");
-
+const helmet = require("helmet");
+const cookieParser = require("cookie-parser");
+const socketAuth = require("./middleware/socketAuth");
 require("dotenv").config();
+
+const allowedOrigins = [
+  "https://sirh.local"
+].filter(Boolean);
 
 const app = express();
 
+app.set("trust proxy", 1);
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+      },
+    },
+  })
+);
+app.use(cookieParser());
+
 app.set("port", process.env.PORT || 3000);
 app.use(morgan("dev"));
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origen no permitido por CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 
@@ -23,14 +62,19 @@ app.use(requestLogger);
 
 app.use(
   session({
-    secret: "your_secret_key",
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
-      ttl: 6 * 60 * 60, // 6 horas en segundos
+      ttl: 6 * 60 * 60,
     }),
-    cookie: { maxAge: 6 * 60 * 60 * 1000 }, // 6 horas en milisegundos
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      maxAge: 6 * 60 * 60 * 1000,
+    },
   })
 );
 
@@ -39,37 +83,36 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:4040",
+    origin: allowedOrigins,
+    credentials: true,
     methods: ["GET", "POST"],
   },
 });
+
+io.use(socketAuth);
 
 app.set("io", io);
 
 io.on("connection", (socket) => {
   console.log("🟢 Cliente conectado:", socket.id);
 
-  socket.on("join", ({ username, permissions }) => {
-    console.log("📥 Join recibido:", { username, permissions });
+  socket.on("join", () => {
+    const { username, permissions = [] } = socket.user;
 
-    if (username) socket.join(`USER_${username}`);
+    socket.join(`USER_${username}`);
 
-    if (permissions?.length) {
-      permissions.forEach(permission => {
-        socket.join(`PERMISSION_${permission}`);
-      });
+    for (const permission of permissions) {
+      socket.join(`PERMISSION_${permission}`);
     }
 
-    console.log("📌 Salas del socket:", [...socket.rooms]);
+    console.log("Socket autenticado:", username);
+    console.log("Salas del socket:", [...socket.rooms]);
   });
 
   socket.on("disconnect", () => {
     console.log("🔴 Cliente desconectado:", socket.id);
   });
 });
-
-
-
 
 // rutas para personal
 app.use("/api/personal", require("./routes/personal/login.routes"));
@@ -84,10 +127,9 @@ app.use("/api/personal", require("./routes/personal/sueldos.routes"));
 app.use("/api/personal", require("./routes/personal/reportesRetroactivos.routes"));
 
 //rutas para incidencias
-app.use(
-  "/api/control-asistencia",
-  require("./routes/incidencias/incidencias.routes")
-);
+app.use("/api/control-asistencia", require("./routes/incidencias/incidencias.routes"));
+app.use("/api/control-asistencia", require("./routes/incidencias/reportes.routes"));
+
 //rutas para permisos extraordinarios
 app.use("/api/permisos-ext", require("./routes/permisos-ext/permisosExt.routes"));
 app.use("/api/permisos-ext", require("./routes/permisos-ext/reportes.routes"));
@@ -95,10 +137,7 @@ app.use("/api/permisos-ext", require("./routes/permisos-ext/reportes.routes"));
 app.use("/api/vacaciones", require("./routes/vacaciones/vacaciones.routes"));
 //rutas para gafetes
 app.use("/api/gafetes", require("./routes/gafetes/gafetes.routes"));
-app.use(
-  "/api/control-asistencia",
-  require("./routes/incidencias/reportes.routes")
-);
+
 //rutas para talones
 app.use("/api/talon", require("./routes/talones/talones.routes"));
 // rutas para utilidades

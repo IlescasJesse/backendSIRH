@@ -2,7 +2,9 @@ const { Router } = require("express");
 const router = Router();
 const verifyToken = require("../../middleware/authMiddleware");
 const delegacionesController = require("../../controllers/personal/delegaciones.Controller");
+const { requirePermission } = require("../../middleware/permissionsMiddleware");
 
-router.get("/getDelegaciones", verifyToken, delegacionesController.getDelegaciones);
+// Ruta para obtener las delegaciones sindicales
+router.get("/getDelegaciones", verifyToken, requirePermission(['PSL-AS']), delegacionesController.getDelegaciones);
 
 module.exports = router;

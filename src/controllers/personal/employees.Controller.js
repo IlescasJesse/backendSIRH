@@ -14,15 +14,6 @@ const employeeController = {};
 const { ObjectId } = require("mongodb");
 const { updateOne } = require("../../config/mongo");
 
-// Función para obtener todos los empleados
-employeeController.getEmployees = async (req, res) => {
-  try {
-    const employees = await query("PLANTILLA", {});
-    res.status(200).json(employees);
-  } catch (err) {
-    res.status(500).json({ message: "Error retrieving employees", error: err });
-  }
-};
 let historial;
 
 employeeController.getProfileData = async (req, res) => {
@@ -773,31 +764,7 @@ employeeController.recategorizeEmployee = async (req, res) => {
     res.status(500).json({ message: "Error al actualizar el empleado", error });
   }
 };
-employeeController.getUserActions = async (req, res) => {
-  res.status(200).json("");
-  // try {
-  //   const actions = await query("USER_ACTIONS", {});
-  //   const users = await query("USUARIOS", {});
 
-  //   // Excluir acciones cuyo texto comience con "CONSULTÓ" (case-insensitive)
-  //   const filteredActions = actions.filter((a) => {
-  //     const text = (a.action || "").toString().trim();
-  //     return !/^CONSULTÓ/i.test(text);
-  //   });
-
-  //   filteredActions.forEach((action) => {
-  //     const matchedUser = users.find((u) => u.username === action.username);
-  //     if (matchedUser) {
-  //       action.name = matchedUser.name;
-  //     }
-  //   });
-
-  //   res.send(filteredActions);
-  // } catch (error) {
-  //   console.error("Error fetching user actions:", error);
-  //   res.status(500).json({ error: "An error occurred while fetching data" });
-  // }
-};
 employeeController.getUserActionsPersonal = async (req, res) => {
   try {
     const actions = await query("USER_ACTIONS", {});
@@ -820,35 +787,6 @@ employeeController.getUserActionsPersonal = async (req, res) => {
   } catch (error) {
     console.error("Error fetching user actions:", error);
     res.status(500).json({ error: "An error occurred while fetching data" });
-  }
-};
-employeeController.addCategory = async (req, res) => {
-  const { CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA } = req.body;
-
-  try {
-    // Validar que los campos requeridos no sean undefined
-    if (!CLAVE_CATEGORIA || !DESCRIPCION || !NIVEL || !T_NOMINA) {
-      return res
-        .status(400)
-        .json({ message: "Todos los campos son obligatorios" });
-    }
-
-    // Insertar la nueva categoría en la base de datos
-    const result = await querysql(
-      `INSERT INTO categorias_catalogo (CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA) VALUES (?, ?, ?, ?)`,
-      [CLAVE_CATEGORIA, DESCRIPCION, NIVEL, T_NOMINA],
-    );
-
-    res.status(201).json({ message: "Categoría agregada correctamente" });
-  } catch (error) {
-    if (error.code === "ER_DUP_ENTRY") {
-      res.status(403).json({ message: "La categoría ya existe" });
-    } else if (error.code === "ER_BAD_FIELD_ERROR") {
-      res.status(404).json({ message: "No se pudo agregar la categoría" });
-    } else {
-      console.error("Error adding category:", error);
-      res.status(500).json({ message: "Error interno del servidor", error });
-    }
   }
 };
 

@@ -88,7 +88,6 @@ gafetesController.getProfile = async (req, res) => {
       action: `CONSULTÓ EL PERFIL DE GAFETES DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
     };
     await insertOne("USER_ACTIONS", userAction);
-    console.log("Profile data:", ASIST_PROFILE);
     res.send(ASIST_PROFILE);
   } catch (error) {
     console.error("Error fetching profile:", error);

@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { query } = require("../config/mongo");
-const SECRET_KEY =
-  "639ucb29m39h4vyfkn0j4a7fq45ib2fiaojoomon57bhr7t86wuybuj9tc4meqx4";
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const verifyToken = async (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
@@ -13,12 +13,15 @@ const verifyToken = async (req, res, next) => {
     return res.status(403).json({ message: "No token provided" });
   }
 
+  if (!JWT_SECRET) {
+    console.error("❌ JWT_SECRET no está definido en el entorno");
+    return res.status(500).json({ message: "Configuración de seguridad incompleta" });
+  }
+
   try {
-    // Primero verificar el token JWT
-    const decoded = jwt.verify(token, SECRET_KEY);
+    const decoded = jwt.verify(token, JWT_SECRET);
     console.log("✓ Token JWT válido para:", decoded.username);
 
-    // Verificar sesión en SESIONES (web) o SESIONES_MOBILE (móvil)
     const [sessionWeb, sessionMobile] = await Promise.all([
       query("SESIONES", { jwt: token }),
       query("SESIONES_MOBILE", { jwt: token }),
@@ -33,7 +36,6 @@ const verifyToken = async (req, res, next) => {
 
     console.log("✓ Sesión encontrada en DB");
 
-    // Verificar que el username en el token exista en la base de datos
     const users = await query("USUARIOS", { username: decoded.username });
     if (users.length === 0) {
       console.log("❌ Usuario no existe en DB:", decoded.username);

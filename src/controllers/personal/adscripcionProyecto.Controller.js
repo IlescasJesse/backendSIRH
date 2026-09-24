@@ -336,7 +336,7 @@ adscripcionProyectoController.getProyectos = async (req, res) => {
 adscripcionProyectoController.newProyecto = async (req, res) => {
     const { user } = req;
     const currentDateTime = new Date().toLocaleString("es-MX", {
-        timeZone: "Amer ica/Mexico_City",
+        timeZone: "America/Mexico_City",
     });
     try {
         const { proyecto, unidad_responsable, unidad_ejecutora, obra_actividad } = req.body;
