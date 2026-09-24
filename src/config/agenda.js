@@ -17,7 +17,7 @@ require("dotenv").config();
 // Crear instancia de Agenda conectada a MongoDB SIRH2026
 const agenda = new Agenda({
   db: {
-    address: `${process.env.MONGO_URI}/SIRH2026`,
+    address: process.env.MONGO_URI,
     collection: "AGENDA_LOGS",
   },
   processEvery: "5 seconds", // Verificar trabajos cada minuto
