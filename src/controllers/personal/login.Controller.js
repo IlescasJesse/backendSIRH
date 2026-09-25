@@ -50,11 +50,14 @@ loginController.loginUser = async (req, res) => {
       expiresIn: "6h"
     });
 
-    res.cookie("token", token, {
+    // El JWT viaja en el body y el front lo guarda en su propia cookie "token"
+    // (legible por JS). El back NO debe setear una cookie con ese mismo nombre:
+    // al ser httpOnly, el front no puede leerla ni sobrescribirla y el guard
+    // lo regresa al login. Se borra la que hayan dejado versiones anteriores.
+    res.clearCookie("token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 6 * 60 * 60 * 1000,
       path: "/"
     });
 
