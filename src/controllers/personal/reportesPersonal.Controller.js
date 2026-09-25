@@ -1038,9 +1038,9 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
   try {
     // Obtener el parámetro status de los params de la ruta y convertirlo a entero
-    const statusParam = req.params.status ? parseInt(req.params.status, 10) : 1;
+    const statusParam = req.params.status ? req.params.status.split(',').map(Number) : [1];
 
-    const filtro = { status: statusParam };
+    const filtro = { status: { $in: statusParam } };
 
     const plantilla = await query("PLANTILLA", filtro);
 
@@ -1273,7 +1273,8 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
         TOTAL_DEDUCCIONES: Number(totalDeducciones.toFixed(2)) || 0.00,
         NETO: Number(percepcionNeta.toFixed(2)) || 0.00,
 
-        NOMBRE_COMPLETO: `${item.APE_PAT || ""} ${item.APE_MAT || ""} ${item.NOMBRES || ""}`.trim(),
+        NOMBRE_COMPLETO: item.status === 1 ? `${item.APE_PAT || ""} ${item.APE_MAT || ""} ${item.NOMBRES || ""}`.trim()
+          : item.status === 3 ? 'PROPUESTA POR APLICAR' : 'VACANTE',
 
         CLAVE: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.CLAVE || item.CLAVE,
         ADSCRIPCION: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || item.ADSCRIPCION,

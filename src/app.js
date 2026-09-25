@@ -13,6 +13,7 @@ const socketAuth = require("./middleware/socketAuth");
 require("dotenv").config();
 
 const allowedOrigins = [
+  "http://localhost:4200",
   "https://sirh.local"
 ].filter(Boolean);
 
