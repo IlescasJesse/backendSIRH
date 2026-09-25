@@ -10,6 +10,18 @@ const bodyParser = require("body-parser");
 
 const registerController = {};
 
+// Campos que el formulario de usuarios puede modificar en updateUser.
+const CAMPOS_EDITABLES_USUARIO = [
+  "name",
+  "sex",
+  "phone",
+  "username",
+  "email",
+  "rol",
+  "module",
+  "permissions",
+];
+
 registerController.getAllUsers = async (req, res) => {
   try {
     const data = await query("USUARIOS", {});
@@ -80,9 +92,19 @@ registerController.updateUser = async (req, res) => {
   });
 
   try {
-    const existingUser = await query("USUARIOS", {
-      _id: new ObjectId(data._id)
-    });
+    // Se identifica por _id si viene y es válido; si no, por username (como lo
+    // manda el formulario del front, que no incluye _id). Ambos deben ser
+    // string/ObjectId válido para no aceptar operadores tipo { $ne: null }.
+    let filter;
+    if (typeof data._id === "string" && ObjectId.isValid(data._id)) {
+      filter = { _id: new ObjectId(data._id) };
+    } else if (typeof data.username === "string" && data.username) {
+      filter = { username: data.username };
+    } else {
+      return res.status(400).json({ message: "Falta identificar al usuario" });
+    }
+
+    const existingUser = await query("USUARIOS", filter);
 
     if (existingUser.length === 0) {
       return res.status(404).json({
@@ -90,7 +112,10 @@ registerController.updateUser = async (req, res) => {
       });
     }
 
-    if (data.username !== existingUser[0].username) {
+    if (
+      typeof data.username === "string" &&
+      data.username !== existingUser[0].username
+    ) {
       const usernameExists = await query("USUARIOS", {
         username: data.username
       });
@@ -102,11 +127,17 @@ registerController.updateUser = async (req, res) => {
       }
     }
 
-    const { _id, ...userData } = data;
+    // Solo se actualizan los campos que edita el formulario. Antes se hacía
+    // $set con todo el body, lo que permitía escribir password (sin hash),
+    // status, lastSesion u otros campos internos.
+    const userData = {};
+    for (const campo of CAMPOS_EDITABLES_USUARIO) {
+      if (data[campo] !== undefined) userData[campo] = data[campo];
+    }
 
     await updateOne(
       "USUARIOS",
-      { _id: new ObjectId(_id) },
+      { _id: existingUser[0]._id },
       {
         $set: userData
       }
