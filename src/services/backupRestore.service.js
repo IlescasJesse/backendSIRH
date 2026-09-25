@@ -1,5 +1,7 @@
 const { execFile, spawn } = require("child_process");
 const path = require("path");
+const os = require("os");
+const crypto = require("crypto");
 const fs = require("fs/promises");
 const fsSync = require("fs");
 const zlib = require("zlib");
@@ -45,26 +47,54 @@ function resolveMongorestoreBin() {
   return "mongorestore";
 }
 
-function runMongorestore(args, timeoutMs = 60000) {
-  return new Promise((resolve, reject) => {
-    execFile(
-      resolveMongorestoreBin(),
-      args,
-      { timeout: timeoutMs, maxBuffer: 1024 * 1024 * 20 },
-      (error, stdout, stderr) => {
-        if (error) {
-          if (error.killed) {
-            return reject(new Error("mongorestore excedió el tiempo de espera"));
-          }
-          if (error.code === "ENOENT") {
-            return reject(new Error("mongorestore no está instalado en este servidor"));
-          }
-          return reject(new Error(stderr?.trim() || error.message));
-        }
-        resolve({ stdout, stderr });
-      }
-    );
+// mongorestore debe autenticarse con las mismas credenciales que la app
+// (MONGO_URI). Se pasan por un archivo --config temporal (0600) y no como
+// argumento, para que la contraseña no quede visible en `ps`. Se le quita el
+// nombre de base del path del URI porque mongorestore no permite combinarlo
+// con --nsInclude/--nsFrom/--nsTo; authSource y demás opciones se conservan.
+async function writeMongorestoreConfig() {
+  if (!process.env.MONGO_URI) return null;
+
+  const uri = new URL(process.env.MONGO_URI);
+  uri.pathname = "/";
+
+  const configPath = path.join(
+    os.tmpdir(),
+    `mongorestore-${process.pid}-${crypto.randomBytes(8).toString("hex")}.yaml`
+  );
+  await fs.writeFile(configPath, `uri: ${JSON.stringify(uri.toString())}\n`, {
+    mode: 0o600,
   });
+  return configPath;
+}
+
+async function runMongorestore(args, timeoutMs = 60000) {
+  const configPath = await writeMongorestoreConfig();
+  const finalArgs = configPath ? [`--config=${configPath}`, ...args] : args;
+
+  try {
+    return await new Promise((resolve, reject) => {
+      execFile(
+        resolveMongorestoreBin(),
+        finalArgs,
+        { timeout: timeoutMs, maxBuffer: 1024 * 1024 * 20 },
+        (error, stdout, stderr) => {
+          if (error) {
+            if (error.killed) {
+              return reject(new Error("mongorestore excedió el tiempo de espera"));
+            }
+            if (error.code === "ENOENT") {
+              return reject(new Error("mongorestore no está instalado en este servidor"));
+            }
+            return reject(new Error(stderr?.trim() || error.message));
+          }
+          resolve({ stdout, stderr });
+        }
+      );
+    });
+  } finally {
+    if (configPath) await fs.rm(configPath, { force: true });
+  }
 }
 
 function mysqlEnv() {
