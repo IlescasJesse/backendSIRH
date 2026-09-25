@@ -174,13 +174,168 @@ offEmployeeController.saveDataOff = async (req, res) => {
       data.fechaProceso = null;
     }
 
+    // --- Procesamiento inmediato para bajas con fecha anterior o actual ---
+    const fechaBaja = moment(data.discharge_date, ["YYYY-MM-DD", "DD/MM/YYYY"]);
+    const hoy = moment().startOf("day");
+
+    const debeProcesarInmediatamente =
+      data.reason !== "L-PRRO" &&
+      fechaBaja.isValid() &&
+      fechaBaja.isBefore(hoy, "day");
+
+    if (debeProcesarInmediatamente) {
+      const limpiezaPlantilla = {
+        CONSEC: null,
+        CURP: null,
+        RFC: null,
+        AFILIACI: null,
+        NUMEMP: null,
+        NUMQUIN: 0,
+        FECHA_INGRESO: null,
+        SANGRE: null,
+        AVISAR: null,
+        TEL_EMERGENCIA1: null,
+        TEL_EMERGENCIA2: null,
+        NUMTARJETA: null,
+        TURNOMAT: null,
+        TURNOVES: null,
+        SABADO: null,
+        SEXO: null,
+        ESTADO_CIVIL: null,
+        NACIONAL: null,
+        LUGARNAC: null,
+        CP: null,
+        TEL_PERSONAL: null,
+        MADRE: null,
+        PADRE: null,
+        ALERGIA: null,
+        TIPOPAG: null,
+        BANCO: null,
+        FOLNORTE: 0,
+        CUENTA: null,
+        FORBANA: null,
+        NOMINA: null,
+        EMAIL: null,
+        DOMICILIO: null,
+        PROFES: null,
+        FECHA_NAC: null,
+        APE_PAT: null,
+        APE_MAT: "VACANTE",
+        NOMBRES: null,
+        VACACIONES: {
+          PERIODO: 0,
+          FECHA_VACACIONES: null,
+          DIAS: null,
+          FECHAS: {
+            FECHA_INICIO: null,
+            FECHA_FINAL: null,
+          },
+        },
+        status: 2,
+        STATUS_EMPLEADO: null,
+        DIRECCION: {
+          CP: 0,
+          ESTADO: null,
+          MUNICIPIO: null,
+          LOCALIDAD: null,
+          COLONIA: null,
+          DOMICILIO: null,
+          NUM_EXT: null,
+        },
+        CONYUGE: null,
+        DIRECCION_FISCAL: {
+          CP: 0,
+          ESTADO: null,
+          MUNICIPIO: null,
+          LOCALIDAD: null,
+          BARRIO: null,
+          DOMICILIO: null,
+          NUM_EXT: null,
+        },
+        EMAIL_INSTITUCIONAL: null,
+        ESTADONAC: null,
+        ESTUDIOS: null,
+        FECHA_NOMBRAMIENTO: null,
+        SINDICATO: {
+          AFILIADO: false,
+          DELEGACION: null,
+          DELEGADO: null,
+          FECHA_AFILIACION: null,
+        },
+        FECHA_ENTRADA_DEFINITIVA: null,
+        GASCOM: 0,
+        GUARDE: 0,
+        NACIONALIDAD: null,
+        NUMPLA_ORIGEN: null,
+        PARENTESCO: null,
+        SUELDO_GRV: 0,
+        TEL_CASA: null,
+        TIPONOM: data.TIPONOM || null,
+        MOD_ANTE: data.MOD_ANTE || data.TIPONOM || null,
+      };
+
+      let plantillaResult = null;
+
+      if (data.id_employee) {
+        try {
+          plantillaResult = await updateOne(
+            "PLANTILLA",
+            { _id: new ObjectId(String(data.id_employee)) },
+            { $set: limpiezaPlantilla }
+          );
+        } catch (errorIdObjectId) {
+          console.warn(
+            `id_employee no válido como ObjectId (${data.id_employee}): ${errorIdObjectId.message}`
+          );
+        }
+      }
+
+      if (!plantillaResult || plantillaResult.matchedCount === 0) {
+        plantillaResult = await updateOne(
+          "PLANTILLA",
+          { _id: String(data.id_employee) },
+          { $set: limpiezaPlantilla }
+        );
+      }
+
+      if (
+        (!plantillaResult || plantillaResult.matchedCount === 0) &&
+        data.NUMPLA !== undefined &&
+        data.NUMPLA !== null
+      ) {
+        const numplaValue = String(data.NUMPLA);
+        const numplaAsNumber = Number(numplaValue);
+        const filtrosNumpla = [{ NUMPLA: numplaValue }];
+
+        if (!Number.isNaN(numplaAsNumber)) {
+          filtrosNumpla.push({ NUMPLA: numplaAsNumber });
+        }
+
+        plantillaResult = await updateOne(
+          "PLANTILLA",
+          { $or: filtrosNumpla },
+          { $set: limpiezaPlantilla }
+        );
+      }
+
+      await updateOne(
+        "PLAZAS",
+        { NUMPLA: data.NUMPLA },
+        { $set: { status: 2 } }
+      );
+
+      await updateOne(
+        "BAJAS",
+        { _id: data._id },
+        { $set: { PROCESADO: true, fechaProceso: new Date() } }
+      );
+    }
+
     // CAMBIAR TIPONOM SEGUN LA LOGICA
     if (data.TIPONOM === "FCO") {
-      // NOMBRAMIENTO CONFIANZA FORANEO cambia a CONTRATO CONFIANZA FORANEO
       data.TIPONOM = "FCT";
       data.MOD_ANTE = "FCO";
     } else if (data.TIPONOM === "511") {
-      // NOMBRAMIENTO CONFIANZA CENTRAL cambia a CONTRATO CONFIANZA CENTRAL
       data.TIPONOM = "CCT";
       data.MOD_ANTE = "511";
     } else {
@@ -223,16 +378,13 @@ offEmployeeController.saveDataOff = async (req, res) => {
       }
     }
 
-    const employee = await query("PLANTILLA", {
-      _id: new ObjectId(data.id_employee),
-    });
+    const employeeBase = {
+      ...emp,
+      TIPONOM: data.TIPONOM,
+    };
 
-    const employee_old = await query("PLANTILLA", {
-      _id: new ObjectId(data.id_employee),
-    });
-    employee_old[0].TIPONOM = data.TIPONOM;
     const licenseData = {
-      ...employee_old[0],
+      ...employeeBase,
       discharge_date: data.discharge_date,
       reason: data.reason,
       end_date: data.end_date || null,
@@ -246,7 +398,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
       try {
         licenseData.status = 1;
         const insertResult = await insertOne("LICENCIAS", licenseData);
-        // adaptarse a la forma en que insertOne retorna el id
         const newLicenseId =
           insertResult.insertedId ||
           insertResult._id ||
@@ -265,18 +416,11 @@ offEmployeeController.saveDataOff = async (req, res) => {
           STATUS_LICENCIA: 1,
         });
       } catch (error) {
-        console.error(
-          "Error al procesar el motivo de baja por licencia",
-          error,
-        );
-        res
-          .status(500)
-          .json({ message: "Error al procesar el motivo de baja" });
+        console.error("Error al procesar el motivo de baja por licencia", error);
+        res.status(500).json({ message: "Error al procesar el motivo de baja" });
         return;
       }
     } else if (data.reason === "L-PRRO") {
-
-      // Paso 1: Consultar el documento actual
       const existingLicense = await query("HSY_LICENCIAS", {
         id_licencia: new ObjectId(data.id_licencia)
       });
@@ -287,17 +431,14 @@ offEmployeeController.saveDataOff = async (req, res) => {
 
       const currentEndDate = existingLicense[0].end_date;
 
-      // Inicio: día siguiente al end_date actual
       if (!currentEndDate || !moment(currentEndDate, ['DD/MM/YYYY', 'YYYY-MM-DD']).isValid()) {
-        // Primera prórroga: usar discharge_date + 1 día
         prorrogStart = moment(existingLicense[0].discharge_date, ['DD/MM/YYYY', 'YYYY-MM-DD']).add(1, 'days').format('YYYY-MM-DD');
       } else {
-        // Prórrogas posteriores: usar end_date + 1 día
         prorrogStart = moment(currentEndDate, ['DD/MM/YYYY', 'YYYY-MM-DD']).add(1, 'days').format('YYYY-MM-DD');
       }
+
       const prorrogEnd = data.new_end_date ?? null;
 
-      // Paso 3: Preparar el update
       const updateFields = {
         $set: {
           "end_date": prorrogEnd,
@@ -312,34 +453,22 @@ offEmployeeController.saveDataOff = async (req, res) => {
 
       await updateOne(
         "HSY_LICENCIAS",
-        {
-          id_licencia: new ObjectId(data.id_licencia)
-        },
+        { id_licencia: new ObjectId(data.id_licencia) },
         updateFields,
       );
 
       await updateOne(
         "LICENCIAS",
-        {
-          _id: new ObjectId(data.id_licencia)
-        },
-        {
-          $set: {
-            end_date: prorrogEnd,
-          },
-        },
+        { _id: new ObjectId(data.id_licencia) },
+        { $set: { end_date: prorrogEnd } },
       );
 
-      // Consultar la plaza para obtener el array previousOcuppants
       const plaza = await query("PLAZAS", { NUMPLA: Number(data.NUMPLA) });
 
       if (plaza.length > 0) {
         const plazaDoc = plaza[0];
-        const updateSet = {
-          FECHA_TERMINO: prorrogEnd,
-        };
+        const updateSet = { FECHA_TERMINO: prorrogEnd };
 
-        // Si el array previousOcuppants existe y tiene elementos, actualizar el último
         if (plazaDoc.previousOcuppants && plazaDoc.previousOcuppants.length > 0) {
           const lastIndex = plazaDoc.previousOcuppants.length - 1;
           updateSet[`previousOcuppants.${lastIndex}.FECHA_TERMINO`] = prorrogEnd;
@@ -347,21 +476,14 @@ offEmployeeController.saveDataOff = async (req, res) => {
 
         await updateOne(
           "PLAZAS",
-          {
-            NUMPLA: Number(data.NUMPLA)
-          },
-          {
-            $set: updateSet,
-          },
+          { NUMPLA: Number(data.NUMPLA) },
+          { $set: updateSet },
         );
       } else {
-        // Si no se encuentra la plaza, puedes manejar el error o continuar
         console.warn("Plaza no encontrada para NUMPLA:", data.NUMPLA);
       }
     }
-    if (employee.length > 0 && data.reason !== "L-PRRO") {
-      // Empleado dado de baja
-    }
+
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error al guardar los datos" });
@@ -379,21 +501,6 @@ offEmployeeController.saveDataOff = async (req, res) => {
     DOMICILIO1 = domicilioParts[0];
     DOMICILIO2 = domicilioParts.slice(1).join(",");
   }
-
-  const months = [
-    "ENERO",
-    "FEBRERO",
-    "MARZO",
-    "ABRIL",
-    "MAYO",
-    "JUNIO",
-    "JULIO",
-    "AGOSTO",
-    "SEPTIEMBRE",
-    "OCTUBRE",
-    "NOVIEMBRE",
-    "DICIEMBRE",
-  ];
 
   let formattedDate = "";
   if (data.reason === "L-PRRO") {
@@ -466,6 +573,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
     RR: RR,
     DEF: DEF,
   };
+
   const userAction = {
     username: user.username,
     module: "PSL-BE",
@@ -533,6 +641,7 @@ offEmployeeController.saveDataOff = async (req, res) => {
     return;
   }
 };
+
 //Funcino para obtener las bajas recientes
 offEmployeeController.getRecentCasualties = async (req, res) => {
   const currentYear = new Date().getFullYear();
