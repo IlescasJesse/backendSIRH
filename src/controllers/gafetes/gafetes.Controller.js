@@ -52,7 +52,15 @@ gafetesController.getProfile = async (req, res) => {
     const emp = employee[0];
 
     if (emp.DIRECCION) {
-      const domicilio = [emp.DIRECCION.DOMICILIO, emp.DIRECCION.NUM_EXT].filter(Boolean).join(' ');
+      const numExt = emp.DIRECCION.NUM_EXT?.trim();
+
+      const numExtValido =
+        numExt &&
+        numExt.toUpperCase() !== 'SIN NÚMERO' &&
+        numExt.toUpperCase() !== 'SIN NUMERO' &&
+        numExt.toUpperCase() !== 'S/N';
+
+      const domicilio = [emp.DIRECCION.DOMICILIO, numExtValido ? `# ${numExt}` : numExt].filter(Boolean).join(' ');
 
       const interior = emp.DIRECCION.NUM_INT ? `INT. ${emp.DIRECCION.NUM_INT}` : '';
 
