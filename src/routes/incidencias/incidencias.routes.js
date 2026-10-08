@@ -59,7 +59,8 @@ router.get("/perfil-incidencia/:id", verifyToken, requirePermission(
     'AEI-PEP',
     'AEI-JT',
     'AEI-IP',
-    'AEI-CM'
+    'AEI-CM',
+    'AEI-VPEX'
   ]), incidenciasController.getProfile);
 
 // Ruta para obtener las incidencias de un empleado
@@ -79,7 +80,8 @@ router.get("/getIncidencia/:id", verifyToken, requirePermission(
     'AEI-PEP',
     'AEI-JT',
     'AEI-IP',
-    'AEI-CM'
+    'AEI-CM',
+    'AEI-VPEX'
   ]), incidenciasController.getIncidencias);
 
 // Ruta para guardas las incidencias de un empleado

@@ -27,6 +27,7 @@ router.get("/getemployee/:queryParam", verifyToken, requirePermission(
     'AEI-JT',
     'AEI-IP',
     'AEI-CM',
+    'AEI-VPEX',
     'PEX-PI',
     'PEX-PEX',
     'PEX-VE',
