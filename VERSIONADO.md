@@ -1,5 +1,9 @@
 # Criterio de commits y versionado — SIRH y SIAST
 
+> ⚠️ **Antes de cada `git push`, corre `git pull --rebase`.**
+> El bot de versionado agrega un commit (`chore(release): vX.Y.Z`) después de cada push;
+> sin el rebase, tu siguiente push será rechazado. Ver [VERSIONADO.md](VERSIONADO.md).
+
 Aplica a los 3 repositorios:
 
 | Sistema | Repositorio | Rama de producción | Versión actual |
