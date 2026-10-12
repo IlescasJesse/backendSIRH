@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.1.2 — 2026-10-12 · ARREGLO
+
+- Cambios para generar el reporte perzonalizado de acuerdo a nuevos filtros y mostrar ciertos campos en el excel generado — Isidro Noé Salvador Jiménez (`8ae9372`)
+
 ## v2.1.1 — 2026-10-12
 
 - Restaurar `/api/personal/getEmployees` para la sincronización de SIAST, protegida con el permiso `SVC-SIAST` (también en `/getinternalInformation`) — Jesse Ilescas (`aa738cd`)
