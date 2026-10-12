@@ -18,7 +18,8 @@ router.get("/getinternalInformation", verifyToken, requirePermission(
         'PSL-RPV',
         'AEI-CL',
         'AEI-EE',
-        'GF-RG'
+        'GF-RG',
+        'SVC-SIAST'
     ]), addEmployeeController.internalInformation);
 
 // Ruta para obtener la información de un municipio de acuerdo a su código postal

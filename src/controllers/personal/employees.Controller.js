@@ -14,6 +14,16 @@ const employeeController = {};
 const { ObjectId } = require("mongodb");
 const { updateOne } = require("../../config/mongo");
 
+// Función para obtener todos los empleados. La consume SIAST (cuenta de servicio
+// con permiso SVC-SIAST) para sincronizar su catálogo de empleados.
+employeeController.getEmployees = async (req, res) => {
+  try {
+    const employees = await query("PLANTILLA", {});
+    res.status(200).json(employees);
+  } catch (err) {
+    res.status(500).json({ message: "Error retrieving employees", error: err });
+  }
+};
 let historial;
 
 employeeController.getProfileData = async (req, res) => {

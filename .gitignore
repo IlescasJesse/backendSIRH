@@ -3,6 +3,9 @@ src/docs/
 logs/
 backups/
 db_BACKUPS/
+firmas/
 *.zip
 .env
 .env.*
+pdfs/
+.claude/

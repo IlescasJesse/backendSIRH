@@ -5,6 +5,9 @@ const verifyToken = require("../../middleware/authMiddleware");
 const incidenciasController = require("../../controllers/incidencias/incidencias.Controller");
 const { requirePermission, requireAnyPermission } = require("../../middleware/permissionsMiddleware");
 
+// Ruta para que SIAST sincronice empleados (solo cuenta de servicio con SVC-SIAST)
+router.get("/getEmployees", verifyToken, requirePermission(['SVC-SIAST']), employeeController.getEmployees);
+
 // Ruta para realizar la búsqueda del empleado
 router.get("/getemployee/:queryParam", verifyToken, requirePermission(
   [

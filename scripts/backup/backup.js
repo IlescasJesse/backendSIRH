@@ -7,8 +7,18 @@ const { createWriteStream, mkdirSync, existsSync, readdirSync, unlinkSync, rmSyn
 
 const BACKUP_DIR = path.resolve(__dirname, "../../backups");
 const RETENTION_DAYS = 7;
-const MYSQLDUMP_PATH = "C:\\xampp\\mysql\\bin\\mysqldump.exe";
-const MONGODUMP_PATH = "C:\\Program Files\\MongoDB\\Tools\\100\\bin\\mongodump.exe";
+// Rutas configurables por .env; si no, se usa la primera que exista.
+function resolverBinario(envVar, candidatos) {
+  if (process.env[envVar]) return process.env[envVar];
+  return candidatos.find((p) => existsSync(p)) || candidatos[0];
+}
+const MYSQLDUMP_PATH = resolverBinario("MYSQLDUMP_PATH", [
+  "C:\\Program Files\\MySQL\\MySQL Server 8.4\\bin\\mysqldump.exe",
+  "C:\\xampp\\mysql\\bin\\mysqldump.exe",
+]);
+const MONGODUMP_PATH = resolverBinario("MONGODUMP_PATH", [
+  "C:\\Program Files\\MongoDB\\Tools\\100\\bin\\mongodump.exe",
+]);
 
 function getTimestamp() {
   const now = new Date();
@@ -92,14 +102,14 @@ async function runBackup({ onLog } = {}) {
       emit(`Error respaldando MySQL: ${err.message}`, "ERROR");
     }
 
-    // 2. MongoDB dump (usando URI + nsInclude para compatibilidad)
+    // 2. MongoDB dump (--nsInclude es opción de mongorestore, no de mongodump)
     const mongoDir = path.join(tmpDir, "mongo_sirh2026");
     emit("Respaldando MongoDB (SIRH2026)...");
     try {
       const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017";
       const dbName = process.env.DB || "SIRH2026";
       execSync(
-        `"${MONGODUMP_PATH}" --uri="${mongoUri}" --nsInclude="${dbName}.*" --out="${mongoDir}"`,
+        `"${MONGODUMP_PATH}" --uri="${mongoUri}" --db="${dbName}" --out="${mongoDir}"`,
         {
           stdio: "pipe",
           encoding: "utf-8",
@@ -126,6 +136,13 @@ async function runBackup({ onLog } = {}) {
       emit(`Error respaldando MongoDB: ${err.message}`, "ERROR");
     }
 
+    // Si ambos dumps fallaron no se genera un zip vacío ni se borran backups buenos
+    const mysqlOk = !results.mysql?.error;
+    const mongoOk = !results.mongo?.error;
+    if (!mysqlOk && !mongoOk) {
+      throw new Error("Fallaron MySQL y MongoDB; no se generó backup");
+    }
+
     // 3. Create final ZIP
     emit("Comprimiendo backup...");
     await new Promise((resolve, reject) => {
@@ -150,12 +167,18 @@ async function runBackup({ onLog } = {}) {
     // 4. Cleanup temp
     rmSync(tmpDir, { recursive: true, force: true });
 
-    // 5. Cleanup old backups
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    results.duration = parseFloat(duration);
+
+    // 5. Cleanup old backups (solo si el backup quedó completo)
+    if (!mysqlOk || !mongoOk) {
+      const error = `Backup parcial (${mysqlOk ? "MongoDB" : "MySQL"} falló); no se borraron backups anteriores`;
+      emit(error, "ERROR");
+      return { success: false, results, zipPath, error };
+    }
     cleanupOldBackups();
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     emit(`Backup completado en ${duration}s → ${zipPath}`, "SUCCESS");
-    results.duration = parseFloat(duration);
 
     return { success: true, results, zipPath };
 

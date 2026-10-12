@@ -91,7 +91,12 @@ async function createSnapshot() {
     log("Respaldando MySQL...");
     try {
       const sqlFile = path.join(tmpDir, `mysql_sirh_${timestamp}.sql`);
-      const dumpPath = "C:\\xampp\\mysql\\bin\\mysqldump.exe";
+      const dumpPath =
+        process.env.MYSQLDUMP_PATH ||
+        ["C:\\Program Files\\MySQL\\MySQL Server 8.4\\bin\\mysqldump.exe", "C:\\xampp\\mysql\\bin\\mysqldump.exe"].find(
+          (p) => existsSync(p)
+        ) ||
+        "C:\\xampp\\mysql\\bin\\mysqldump.exe";
       const dumpOut = execSync(
         `"${dumpPath}" --host="${process.env.HOSTSQL || "localhost"}" --user="${process.env.USERSQL || "root"}" --port=${process.env.SQLPORT || 3306} "${process.env.SQLDB || "sirh"}" --routines --events --triggers`,
         {

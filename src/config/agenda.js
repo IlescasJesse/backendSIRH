@@ -24,6 +24,12 @@ const agenda = new Agenda({
   maxConcurrency: 20,
 });
 
+// Sin este handler, un error de conexión de Agenda (ej. timeout de Mongo)
+// queda sin capturar y tumba todo el proceso.
+agenda.on("error", (err) => {
+  console.error("Error de conexión en Agenda:", err.message);
+});
+
 // Función helper para registrar actividad de tareas
 async function registrarActividadAgenda(datosActividad) {
   try {
