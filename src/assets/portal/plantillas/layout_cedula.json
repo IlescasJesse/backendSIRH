@@ -1,0 +1,310 @@
+[
+{
+"x": 311.5,
+"y": 580.06,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "Por ausencia y con fundamento en el artículo"
+},
+{
+"x": 311.5,
+"y": 595.54,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "1"
+},
+{
+"x": 317.6,
+"y": 595.54,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "28"
+},
+{
+"x": 333.0,
+"y": 595.54,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "del Reglamento Interno de la Secretaría"
+},
+{
+"x": 311.5,
+"y": 610.9,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "de Finanzas del Poder Ejecutivo del Estado"
+},
+{
+"x": 311.5,
+"y": 626.38,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "vigente; suscribe la"
+},
+{
+"x": 415.5,
+"y": 626.38,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "Jefa"
+},
+{
+"x": 440.8,
+"y": 626.38,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "del"
+},
+{
+"x": 461.5,
+"y": 626.38,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "Departamento"
+},
+{
+"x": 311.5,
+"y": 641.86,
+"sz": 10.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "de Recursos Humanos."
+},
+{
+"x": 311.5,
+"y": 688.2,
+"sz": 10.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "L.A. Laura Concepción Martínez Gutiérrez"
+},
+{
+"x": 219.2,
+"y": 97.82,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "CÉDULA DE ADSCRIPCIÓN DE LA PLAZA"
+},
+{
+"x": 270.2,
+"y": 111.74,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "SECTOR CENTRAL"
+},
+{
+"x": 85.1,
+"y": 139.58,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "NOMBRE DEL EMPLEADO:"
+},
+{
+"x": 85.1,
+"y": 181.34,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "PUESTO, NIVEL Y CATEGORÍA:"
+},
+{
+"x": 85.1,
+"y": 223.01,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "DEPENDENCIA O SECRETARÍA:"
+},
+{
+"x": 230.6,
+"y": 223.01,
+"sz": 9.0,
+"b": false,
+"dir": [
+1,
+0
+],
+"t": "SECRETARÍA DE FINANZAS"
+},
+{
+"x": 85.1,
+"y": 264.77,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "SUBSECRETARÍA:"
+},
+{
+"x": 85.1,
+"y": 306.53,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "ÓRGANO AUXILIAR:"
+},
+{
+"x": 85.1,
+"y": 348.17,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "ÓRGANO DESCONCENTRADO:"
+},
+{
+"x": 85.1,
+"y": 389.95,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "DIRECCIÓN:"
+},
+{
+"x": 85.1,
+"y": 431.59,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "UNIDAD O COORDINACIÓN:"
+},
+{
+"x": 85.1,
+"y": 459.43,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "DEPARTAMENTO:"
+},
+{
+"x": 85.1,
+"y": 487.27,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "ÁREA U OFICINA:"
+},
+{
+"x": 120.5,
+"y": 515.14,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "FECHA DE ELABORACIÓN:"
+},
+{
+"x": 127.7,
+"y": 570.7,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "A T E N T A M E N T E"
+},
+{
+"x": 113.4,
+"y": 640.3,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "L.F.C.P. PAOLA PORRAS PÉREZ"
+},
+{
+"x": 120.5,
+"y": 654.12,
+"sz": 9.0,
+"b": true,
+"dir": [
+1,
+0
+],
+"t": "DIRECTORA ADMINISTRATIVA"
+}
+]

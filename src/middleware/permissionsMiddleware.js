@@ -1,10 +1,11 @@
 const requirePermission = (permissions = []) => {
+    const required = [].concat(permissions);
     return (req, res, next) => {
         const userPermissions = req.user?.permissions || [];
 
         const hasAccess =
             userPermissions.includes("*") ||
-            permissions.some((perm) => userPermissions.includes(perm));
+            required.some((perm) => userPermissions.includes(perm));
 
         if (hasAccess) {
             return next();

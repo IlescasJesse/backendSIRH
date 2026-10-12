@@ -14,7 +14,8 @@ require("dotenv").config();
 
 const allowedOrigins = [
   "http://localhost:4200",
-  "https://sirh.local"
+  "https://sirh.local",
+  ...(process.env.FRONTEND_URL || "").split(",").map((o) => o.trim()),
 ].filter(Boolean);
 
 const app = express();
@@ -116,6 +117,9 @@ io.on("connection", (socket) => {
 });
 
 // rutas para personal
+// Versión del back (pública, para mostrarla en el login)
+app.get("/api/version", (req, res) => res.json({ version: require("../package.json").version }));
+
 app.use("/api/personal", require("./routes/personal/login.routes"));
 app.use("/api/personal", require("./routes/personal/employees.routes"));
 app.use("/api/personal", require("./routes/personal/register.routes"));
@@ -151,6 +155,11 @@ app.use("/api/mobile/monitor", require("./routes/monitor/mobile.routes"));
 
 // rutas para notificaciones
 app.use("/api/notificaciones", require("./routes/notificaciones/notificaciones.routes"));
+
+// Portal de Documentos Digitales — Fase 1: solo RH expide a nombre de
+// empleados. Login RFC de empleados (EMPLEADOS_ACCESO) se monta en fase 2.
+app.use("/api/portal-admin", require("./routes/portal/portalAdmin.routes"));
+app.use("/api/verificacion", require("./routes/portal/verificacion.routes"));
 
 // Middleware de manejo de errores (debe ir al final)
 app.use(errorLogger);

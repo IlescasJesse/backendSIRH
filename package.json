@@ -52,5 +52,8 @@
   "allowScripts": {
     "sharp@0.34.5": true,
     "tesseract.js@7.0.0": true
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

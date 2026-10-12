@@ -45,10 +45,10 @@ async function insertOne(collectionName, document) {
   return result;
 }
 
-async function updateOne(collectionName, filter, update) {
+async function updateOne(collectionName, filter, update, options = {}) {
   const database = await connect();
   const collection = database.collection(collectionName);
-  const result = await collection.updateOne(filter, update);
+  const result = await collection.updateOne(filter, update, options);
   return result;
 }
 
@@ -92,6 +92,17 @@ async function dropDatabase(dbName) {
   dbCache.delete(dbName);
 }
 
+// Login sin Turnstile (front sin internet): se deja pasar si {ip, username}
+// verificaron Turnstile con éxito en los últimos 5 días (login.Controller.js).
+// El índice TTL borra el registro solo; se llama una vez al arrancar (index.js).
+const TURNSTILE_TTL_SEGUNDOS = 5 * 24 * 60 * 60;
+async function ensureTurnstileIndex() {
+  const database = await connect();
+  await database
+    .collection("TURNSTILE_VERIFICACIONES")
+    .createIndex({ fecha: 1 }, { expireAfterSeconds: TURNSTILE_TTL_SEGUNDOS });
+}
+
 module.exports = {
   connect,
   query,
@@ -104,4 +115,5 @@ module.exports = {
   findById,
   withDatabase,
   dropDatabase,
+  ensureTurnstileIndex,
 };

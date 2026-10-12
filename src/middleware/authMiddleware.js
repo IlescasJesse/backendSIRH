@@ -1,7 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { query } = require("../config/mongo");
-
 const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET no está definido en el .env");
+}
 
 const verifyToken = async (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];

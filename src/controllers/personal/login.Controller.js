@@ -7,12 +7,76 @@ const {
   insertOne
 } = require("../../config/mongo");
 const { ObjectId } = require("mongodb");
+const { verificarTurnstile } = require("../../utils/turnstile");
 const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET no está definido en el .env");
+}
+
+const TURNSTILE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
+
+// Verificación humana del login (Cloudflare Turnstile), con modo sin internet:
+//  - Con turnstileToken: se valida contra Cloudflare; si pasa, se registra
+//    {ip, username} para poder saltarse el widget hasta 5 días.
+//  - Sin turnstileToken (el front no pudo cargar el widget): se deja pasar
+//    solo si {ip, username} ya verificaron en los últimos 5 días.
+// Devuelve true si el login puede continuar; si no, ya respondió el error.
+async function pasaVerificacionHumana(req, res, username) {
+  // Turnstile solo funciona con el front en https (dominio con certificado); por http con IP
+  // el widget nunca entrega token y nadie podría entrar. Por eso el gate se activa solo con
+  // TURNSTILE_ACTIVO=true en el .env, además de CLOUDFLARE_TURNSTILE_SECRET_KEY. Al activarlo,
+  // poner también turnstileSiteKey en el environment del front.
+  if (process.env.TURNSTILE_ACTIVO !== "true" || !process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY) {
+    return true;
+  }
+
+  const ip = req.ip;
+  const turnstileToken = req.body?.turnstileToken;
+
+  if (turnstileToken) {
+    const { success } = await verificarTurnstile(turnstileToken, ip);
+    if (!success) {
+      res.status(400).json({
+        message: "No se pudo verificar la seguridad de tu conexión, intenta de nuevo",
+      });
+      return false;
+    }
+
+    await updateOne(
+      "TURNSTILE_VERIFICACIONES",
+      { ip, username },
+      { $set: { ip, username, fecha: new Date() } },
+      { upsert: true }
+    );
+    return true;
+  }
+
+  const haceCincoDias = new Date(Date.now() - TURNSTILE_TTL_MS);
+  const verificaciones = await query("TURNSTILE_VERIFICACIONES", {
+    ip,
+    username,
+    fecha: { $gte: haceCincoDias },
+  });
+
+  if (verificaciones.length === 0) {
+    res.status(428).json({
+      message: "Se requiere verificación de seguridad. Verifica tu conexión a internet e intenta de nuevo.",
+    });
+    return false;
+  }
+
+  return true;
+}
 
 loginController.loginUser = async (req, res) => {
   const data = req.body;
+  const username = typeof data.username === "string" ? data.username : "";
 
   try {
+    if (!(await pasaVerificacionHumana(req, res, username))) {
+      return;
+    }
+
     const users = await query("USUARIOS", {
       username: data.username
     });
