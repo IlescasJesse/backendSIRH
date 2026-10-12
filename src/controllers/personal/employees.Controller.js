@@ -107,11 +107,10 @@ employeeController.getProfileData = async (req, res) => {
       employeeId: new ObjectId(id),
     });
 
-    if (faceRecognition && faceRecognition.length > 0) {
-      employee[0].FACE_RECOGNITION = true;
-    } else {
-      employee[0].FACE_RECOGNITION = false;
-    }
+    const vectorFacial = faceRecognition[0];
+
+    employee[0].FACE_RECOGNITION = Boolean(vectorFacial);
+    employee[0].FECHA_INICIO_ASISTENCIA = vectorFacial?.fechaInicioAsistencia || null;
 
     if (employee[0].DIRECCION) {
       const domicilio = [employee[0].DIRECCION.DOMICILIO, employee[0].DIRECCION.NUM_EXT].filter(Boolean).join(' ');
