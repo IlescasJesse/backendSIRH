@@ -72,5 +72,7 @@ router.post("/afiliarSindicato", verifyToken, requirePermission(['PSL-AS']), emp
 // Ruta para obtener las acciones de usuarios dentro del módulo de personal
 router.get("/getUserActionsPersonal", verifyToken, requireAnyPermission(), employeeController.getUserActionsPersonal);
 
+// Ruta para imprimir la ficha técnica del empleado
+router.get("/printFichaTecnica/:id", employeeController.printFichaTecnica);
 
 module.exports = router;
