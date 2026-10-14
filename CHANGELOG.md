@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.1.3 — 2026-10-14 · ARREGLO
+
+- Cambios para imprimir la ficha técnica del empleado, así como solución a error al consultar el perfil unificado de los empleados de nombramiento — Isidro Noé Salvador Jiménez (`ff34e5f`)
+
 ## v2.1.2 — 2026-10-12 · ARREGLO
 
 - Cambios para generar el reporte perzonalizado de acuerdo a nuevos filtros y mostrar ciertos campos en el excel generado — Isidro Noé Salvador Jiménez (`8ae9372`)
