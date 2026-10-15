@@ -1,5 +1,8 @@
 const { query, insertOne } = require("../../config/mongo");
 const { querysql } = require("../../config/mysql");
+const fs = require("fs");
+const path = require("path");
+const { PDFDocument, StandardFonts } = require("pdf-lib");
 const moment = require("moment");
 const getCustomQuarter = (date) => {
   const month = moment(date, "YYYY-MM-DD").month() + 1;
@@ -1467,6 +1470,354 @@ employeeController.getUnifiedProfileData = async (req, res) => {
     res.status(500).json({ message: "Error al buscar el empleado", error: error.message ?? String(error) });
   }
 };
+
+employeeController.printFichaTecnica = async (req, res) => {
+  const { id } = req.params;
+  const user = req.user;
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/Mexico_City",
+  });
+
+  const pdfTemplatePath = path.resolve(__dirname, "../../templates/templateFichaTecnica.pdf");
+
+  if (!fs.existsSync(pdfTemplatePath)) {
+    return res.status(404).json({ message: "Template PDF no encontrado", path: pdfTemplatePath });
+  }
+
+  try {
+    const [employeePlantilla = [], employeeLicencia = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(id), status: 1 }),
+      query("LICENCIAS", { _id: new ObjectId(id), status: 1 }),
+    ]);
+
+    const employee = employeePlantilla[0] || employeeLicencia[0];
+
+    if (!employee) {
+      return res.status(404).json({ error: "Employee not found" });
+    }
+
+    const status_plaza = await query("PLAZAS", { NUMPLA: employee.NUMPLA_ORIGEN ? employee.NUMPLA_ORIGEN : employee.NUMPLA });
+
+    if (!status_plaza || status_plaza.length === 0) {
+      return res.status(404).json({ message: "Place not found" });
+    }
+
+    const plaza = status_plaza[0];
+
+    // Cargar PDF
+    const pdfBytes = fs.readFileSync(pdfTemplatePath);
+    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+
+    // Obtener campos del formulario y mapear nombres reales
+    const form = pdfDoc.getForm();
+    const fieldsByName = Object.fromEntries(
+      form.getFields().map((f) => [f.getName(), f]),
+    );
+
+    function calcularEdad(curp) {
+      if (!curp || typeof curp !== "string" || curp.length < 10) {
+        return "";
+      }
+
+      const fecha = curp.substring(4, 10);
+
+      if (!/^\d{6}$/.test(fecha)) {
+        return "";
+      }
+
+      const anio = Number(fecha.substring(0, 2));
+      const mes = Number(fecha.substring(2, 4));
+      const dia = Number(fecha.substring(4, 6));
+
+      const anioActual = new Date().getFullYear();
+      const anioCortoActual = anioActual % 100;
+
+      const anioCompleto =
+        anio <= anioCortoActual ? 2000 + anio : 1900 + anio;
+
+      const nacimiento = new Date(anioCompleto, mes - 1, dia);
+
+      // Validar que la fecha de nacimiento sea real.
+      if (
+        nacimiento.getFullYear() !== anioCompleto ||
+        nacimiento.getMonth() !== mes - 1 ||
+        nacimiento.getDate() !== dia
+      ) {
+        return "";
+      }
+
+      const hoy = new Date();
+
+      let edad = hoy.getFullYear() - anioCompleto;
+
+      if (
+        hoy.getMonth() < nacimiento.getMonth() ||
+        (hoy.getMonth() === nacimiento.getMonth() &&
+          hoy.getDate() < nacimiento.getDate())
+      ) {
+        edad--;
+      }
+
+      if (edad < 0) {
+        return "";
+      }
+
+      return `${edad} ${edad === 1 ? "AÑO" : "AÑOS"}`;
+    }
+
+
+    const tipoNomMapping = {
+      'F51': 'BASE FORÁNEA',
+      'M51': 'BASE CENTRAL',
+      'FCT': 'CONTRATO CONFIANZA FORANEO',
+      'CCT': 'CONTRATO CONFIANZA CENTRAL',
+      'FCO': 'NOMBRAMIENTO CONFIANZA FORANEO',
+      '511': 'NOMBRAMIENTO CONFIANZA CENTRAL',
+      'F53': 'CONTRATO FORÁNEO',
+      'M53': 'CONTRATO CENTRAL',
+      'FMM': "MANDOS MEDIOS FORÁNEOS",
+      'MMS': "MANDOS MEDIOS CENTRAL",
+    };
+
+    async function obtenerDelegado(delegacion) {
+      if (!delegacion || typeof delegacion !== "string") {
+        return "";
+      }
+
+      const delegados = await querysql(`
+      SELECT * FROM delegaciones
+      WHERE delegacion = ?`,
+        [delegacion],
+      );
+      return delegados.length > 0 ? delegados[0].delegado : '';
+    }
+
+
+    const statusArray = Array.isArray(employee.STATUS_EMPLEADO) ? employee.STATUS_EMPLEADO : [];
+
+    const s1 = statusArray[0] || {};
+    const s2 = statusArray[1] || {};
+
+    const obtenerTextoStatus = (status) => {
+      const statusMessages = {
+        COM_SDCL: () =>
+          `${employee?.SEXO === 'M' ? 'COMISIÓNADA' : 'COMISIÓNADO'} SINDICALMENTE EN: "${status.LUGAR_COMISIONADO || 'NO ESPECIFICADO'}"`,
+
+        COM_LAB: () =>
+          `${employee?.SEXO === 'M' ? 'COMISIÓNADA' : 'COMISIÓNADO'} LABORALMENTE EN: "${status.LUGAR_COMISIONADO || 'NO ESPECIFICADO'}"`,
+
+        ASIG_LAB: () => {
+          const lugar = status.LUGAR_COMISIONADO || '';
+          const articulo = lugar.trim().toUpperCase().startsWith('DEPARTAMENTO') ? 'EL' : 'LA';
+
+          return `${employee?.SEXO === 'M' ? 'ASIGNADA' : 'ASIGNADO'} LABORALMENTE EN ${articulo}: "${lugar}" CON LA CLAVE: "${status.CLAVE || ''}"`;
+        },
+
+        EXIMA: () =>
+          `EXIMA AUTORIZADA`,
+
+        LIC_ENF: () =>
+          `LICENCIA POR ENFERMEDAD`,
+      };
+
+      return statusMessages[status.STATUS]?.() || '';
+    };
+
+    const historialOcupantes = Array.isArray(plaza.previousOcuppants)
+      ? plaza.previousOcuppants.filter(ocupante => ocupante != null)
+      : [];
+
+    const ultimoOcupante = historialOcupantes.at(-1) || null;
+    const penultimoOcupante = historialOcupantes.at(-2) || null;
+
+    const motivoMapping = {
+      'R-DEF': 'RENUNCIA - DEFINITIVA',
+      'R-OCA': 'RENUNCIA - POR OCUPAR OTRO CARGO',
+      'R-JUB': 'RENUNCIA - POR JUBILACIÓN',
+      'R-PEN': 'RENUNCIA - POR PENSIÓN',
+      'L-IBASE': 'LICENCIA - INDEFINIDA A BASE',
+      'L-SS': 'LICENCIA - SIN GOCE DE SUELDO',
+      'L-PRRO': 'LICENCIA - PRÓRROGA',
+      'RR': 'RECISIÓN O REVOCACIÓN',
+      'DEF': 'DEFUNCIÓN'
+    };
+
+    const fieldMapping = {
+      FECHA_ACTUAL: moment().format('DD/MM/YYYY'),
+      ELABORO: `GENERADO POR: ${user.name}`,
+      APE_PAT: employee.APE_PAT ?? "",
+      APE_MAT: employee.APE_MAT ?? "",
+      NOMBRES: employee.NOMBRES ?? "",
+      EDAD: calcularEdad(employee.CURP),
+      SEXO: employee.SEXO ?? "",
+      DOMICILIO: employee.DIRECCION?.DOMICILIO ?? employee.DOMICILIO ?? "",
+      NUM_EXT: employee.DIRECCION?.NUM_EXT ?? "",
+      NUM_INT: employee.DIRECCION?.NUM_INT ?? "",
+      COLONIA: employee.DIRECCION?.COLONIA ?? "",
+      MUNICIPIO: employee.DIRECCION?.MUNICIPIO ?? "",
+      CP: employee.DIRECCION?.CP ?? employee.CP ?? "",
+      ESTADO: employee.DIRECCION?.ESTADO ?? "",
+      LUGARNAC: employee.LUGARNAC ?? "",
+      NACIONALIDAD: employee.NACIONALIDAD ?? "",
+      FECHA_NAC: employee.FECHA_NAC ? moment(employee.FECHA_NAC).format("DD-MM-YYYY") : "",
+      TEL_PERSONAL: employee.TEL_PERSONAL ?? "",
+      EMAIL: employee.EMAIL ?? "",
+      CURP: employee.CURP ?? "",
+      RFC: employee.RFC ?? "",
+      ESTADO_CIVIL: employee.ESTADO_CIVIL ?? "",
+      CONYUGE: employee.CONUYUGE ?? "",
+      NUM_HIJOS: employee.NUM_HIJOS ?? "",
+      AFILIACI: employee.AFILIACI ?? "",
+      ALERGIA: employee.ALERGIA ?? "",
+      SANGRE: employee.SANGRE ?? "",
+      AVISAR: employee.AVISAR ?? "",
+      TEL_EMERGENCIA1: employee.TEL_EMERGENCIA1 ?? "",
+      TEL_EMERGENCIA2: employee.TEL_EMERGENCIA2 ?? "",
+      PROFESION1: (() => {
+        const nivelEstudio = employee?.ESTUDIOS?.PRIMER_ESTUDIO?.NIVEL_ESTUDIO;
+        if (nivelEstudio) {
+          const profes = employee?.ESTUDIOS?.PRIMER_ESTUDIO?.PROFES;
+          const cedulaProfes = employee?.ESTUDIOS?.PRIMER_ESTUDIO?.CEDULA;
+
+          let resultado = '';
+          if (['BACHILLERATO', 'PREPARATORIA', 'LICENCIATURA', 'INGENIERÍA', 'MAESTRIA', 'DOCTORADO'].includes(nivelEstudio)) {
+            resultado = nivelEstudio;
+            if (profes) {
+              resultado += ` ${profes}`;
+            }
+            if (cedulaProfes !== null) {
+              resultado += `, CON CEDULA PROFESIONAL: ${cedulaProfes}`;
+            }
+          } else {
+            resultado = `${nivelEstudio}`;
+          }
+          return resultado;
+        }
+        return employee?.PROFES || '';
+      })(),
+      PROFESION2: (() => {
+        const nivelEstudio = employee?.ESTUDIOS?.SEGUNDO_ESTUDIO?.NIVEL_ESTUDIO;
+        if (nivelEstudio) {
+          const profes = employee?.ESTUDIOS?.SEGUNDO_ESTUDIO?.PROFES;
+          const cedulaProfes = employee?.ESTUDIOS?.SEGUNDO_ESTUDIO?.CEDULA;
+
+          let resultado = '';
+          if (['BACHILLERATO', 'PREPARATORIA', 'LICENCIATURA', 'INGENIERÍA', 'MAESTRIA', 'DOCTORADO'].includes(nivelEstudio)) {
+            resultado = nivelEstudio;
+            if (profes) {
+              resultado += ` ${profes}`;
+            }
+            if (cedulaProfes !== null) {
+              resultado += `, CON CEDULA PROFESIONAL: ${cedulaProfes}`;
+            }
+          } else {
+            resultado = `${nivelEstudio}`;
+          }
+          return resultado;
+        }
+        return '';
+      })(),
+
+      NUMPLA: employee.NUMPLA ?? "",
+      NUMEMP: employee.NUMEMP ?? "",
+      TIPONOM: tipoNomMapping[employee.TIPONOM] ?? employee.TIPONOM,
+      CLAVECAT: employee.CLAVECAT ?? "",
+      NOMCATE: employee.NOMCATE ?? "",
+      NIVEL: employee.NIVEL ?? "",
+      FECHA_INGRESO: employee.FECHA_INGRESO ? moment(employee.FECHA_INGRESO).format("DD-MM-YYYY") : "",
+      FECHA_NOMBRAMIENTO: employee.FECHA_NOMBRAMIENTO ? moment(employee.FECHA_NOMBRAMIENTO).format("DD-MM-YYYY") : "",
+      ADSCRIPCION: employee.ADSCRIPCION ?? "",
+      PROYECTO: employee.PROYECTO ?? "",
+      CLAVE: employee.CLAVE ?? "",
+      NUMQUIN: employee.NUMQUIN ?? "",
+      NUMTARJETA: employee.NUMTARJETA ?? "",
+      HORARIO: employee.TURNOMAT ? employee.TURNOMAT : employee.TURNOVES ? employee.TURNOVES : "",
+      DELEGACION: employee.SINDICATO?.DELEGACION ?? "",
+      DELEGADO: employee.SINDICATO?.DELEGACION ? await obtenerDelegado(employee.SINDICATO.DELEGACION) : "",
+
+      STATUS1: obtenerTextoStatus(s1),
+      FECHA_INICIO_1: s1.DESDE ? moment(s1.DESDE).format("DD-MM-YYYY") : "",
+      FECHA_TERMINO_1: s1.HASTA ? moment(s1.HASTA).format("DD-MM-YYYY") : "",
+      STATUS2: obtenerTextoStatus(s2),
+      FECHA_INICIO_2: s2.DESDE ? moment(s2.DESDE).format("DD-MM-YYYY") : "",
+      FECHA_TERMINO_2: s2.HASTA ? moment(s2.HASTA).format("DD-MM-YYYY") : "",
+
+      ULTIMO_OCUPANTE: ultimoOcupante?.NOMBRE ?? "",
+      MOTIVO_BAJA_ULTIMO: motivoMapping[ultimoOcupante?.MOTIVO_BAJA] ?? ultimoOcupante?.MOTIVO_BAJA ?? "",
+      FECHA_BAJA_ULTIMO: ultimoOcupante?.FECHA_BAJA ? moment(ultimoOcupante?.FECHA_BAJA).format("DD-MM-YYYY") : "",
+
+      PENULTIMO_OCUPANTE: penultimoOcupante?.NOMBRE ?? "",
+      MOTIVO_BAJA_PENULTIMO: motivoMapping[penultimoOcupante?.MOTIVO_BAJA] ?? penultimoOcupante?.MOTIVO_BAJA ?? "",
+      FECHA_BAJA_PENULTIMO: penultimoOcupante?.FECHA_BAJA ? moment(penultimoOcupante?.FECHA_BAJA).format("DD-MM-YYYY") : "",
+    };
+
+    const missing = [];
+    for (const [pdfFieldName, value] of Object.entries(fieldMapping)) {
+      const fld = fieldsByName[pdfFieldName];
+      if (fld) {
+        try {
+          fld.setText(String(value || ""));
+        } catch (err) {
+          console.warn(
+            `No se pudo rellenar el campo "${pdfFieldName}": `,
+            err.message || err,
+          );
+        }
+      } else {
+        missing.push(pdfFieldName);
+      }
+    }
+    if (missing.length)
+      console.info(
+        "Campos no encontrados en el PDF (ajustar mapping):",
+        missing,
+      );
+
+    // Regenerar appearance streams usando una fuente embebida
+    try {
+      const helvFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      try {
+        form.updateFieldAppearances(helvFont);
+      } catch (uErr) {
+        console.warn("No se pudo actualizar apariencias de campos:", uErr);
+      }
+    } catch (embedErr) {
+      console.warn("No se pudo embeber la fuente para apariencias:", embedErr);
+    }
+
+    // No aplanamos por defecto (evita corrupción). Use ?flatten=1 para aplanar si quieres.
+    if (req.query && req.query.flatten === "1") {
+      form.flatten();
+    }
+
+    const pdfBytesOutput = await pdfDoc.save();
+
+    const nombreArchivo = `FICHA_TECNICA_${employee.APE_PAT || ""}_${employee.APE_MAT || ""}_${employee.NOMBRES || ""}.pdf`
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+      .replace(/\s+/g, "_");
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${nombreArchivo}"`
+    );
+
+    const userAction = {
+      username: user.username,
+      module: "PSL",
+      action: `IMPRIMIÓ LA FICHA TÉCNICA DEL EMPLEADO: "${employee.APE_PAT || ''} ${employee.APE_MAT || ''} ${employee.NOMBRES || ''}"`,
+      timestamp: currentDateTime,
+    };
+
+    await insertOne("USER_ACTIONS", userAction);
+
+    return res.status(200).send(Buffer.from(pdfBytesOutput));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al generar el documento PDF", error });
+  }
+};
+
 
 // Exportamos el controlador de empleados
 module.exports = employeeController;
