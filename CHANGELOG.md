@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.2.0 — 2026-10-15 · MENOR
+
+- Agregar función para la impresión de la ficha técnica del empleado — Isidro Noé Salvador Jiménez (`53c6a6d`)
+
 ## v2.1.2 — 2026-10-12 · ARREGLO
 
 - Cambios para generar el reporte perzonalizado de acuerdo a nuevos filtros y mostrar ciertos campos en el excel generado — Isidro Noé Salvador Jiménez (`8ae9372`)
