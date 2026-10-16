@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.3.0 — 2026-10-16 · MENOR
+
+- Agregar función para comparar el excel de nómina con la información de la BD y encontrar las diferencias que existan para generar un excel con dicha información — Isidro Noé Salvador Jiménez (`7f5d1ef`)
+
 ## v2.2.0 — 2026-10-15 · MENOR
 
 - Agregar función para la impresión de la ficha técnica del empleado — Isidro Noé Salvador Jiménez (`53c6a6d`)
