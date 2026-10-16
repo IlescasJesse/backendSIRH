@@ -75,7 +75,7 @@ router.get("/getUserActionsPersonal", verifyToken, requireAnyPermission(), emplo
 // Ruta para imprimir la ficha técnica del empleado
 router.get("/printFichaTecnica/:id", verifyToken, requirePermission(
   [
-    'PSL - RE',
+    'PSL-RE',
     'PSL-IP',
     'PSL-VE',
     'PSL-EI',

@@ -41,6 +41,7 @@
     "moment-timezone": "^0.5.47",
     "mongoose": "^8.8.3",
     "morgan": "^1.10.0",
+    "multer": "^2.4.0",
     "mysql2": "^3.11.5",
     "path": "^0.12.7",
     "pdf-lib": "^1.17.1",

@@ -1,8 +1,9 @@
-const { query } = require("../../config/mongo");
+const { query, insertOne } = require("../../config/mongo");
 const path = require("path");
 const { querysql } = require("../../config/mysql");
 const moment = require("moment");
 const { ObjectId } = require("mongodb");
+const ExcelJS = require("exceljs");
 const reportesPersonalController = {};
 
 reportesPersonalController.getReportLicenses = async (req, res) => {
@@ -4100,4 +4101,378 @@ reportesPersonalController.getReportVacationsArea = async (req, res) => {
     res.status(500).json({ message: 'Error al generar el archivo Excel.' });
   }
 };
+
+reportesPersonalController.getDifferencesBetweenPayroll = async (req, res) => {
+  const user = req.user;
+  const currentDateTime = new Date().toLocaleString("en-US", {
+    timeZone: "America/Mexico_City",
+  });
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Debes seleccionar un archivo Excel." });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+
+    await workbook.xlsx.load(req.file.buffer);
+
+    const worksheet = workbook.worksheets[0];
+
+    if (!worksheet || worksheet.rowCount < 1) {
+      return res.status(400).json({ message: "El archivo Excel no contiene información." });
+    }
+
+    // Normalizar valores para realizar comparaciones
+    const normalizar = (valor) => {
+      if (valor === null || valor === undefined) return "";
+
+      return String(valor).trim().toUpperCase();
+    };
+
+    // Obtener los encabezados de la primera fila
+    const encabezados = {};
+
+    worksheet.getRow(1).eachCell((cell, colNumber) => {
+      encabezados[normalizar(cell.value)] = colNumber;
+    });
+
+    // Aceptar NUP o NUE como encabezado
+    const columnaRFC = encabezados.RFC;
+    const columnaNUP = encabezados.NUP;
+    const columnaCLAVE = encabezados.CLAVE;
+    const columnaNOMCATE = encabezados.DESCRI;
+
+    if (!columnaRFC || !columnaNUP || !columnaCLAVE) {
+      return res.status(400).json({
+        message:
+          "El Excel debe contener los encabezados RFC, NUP o NUE y CLAVE en la primera fila.",
+      });
+    }
+
+    // Leer las filas del Excel
+    const filasExcel = [];
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      const rfc = normalizar(row.getCell(columnaRFC).value);
+
+      // Ignorar filas sin RFC
+      if (!rfc) return;
+
+      const columnaNombre = encabezados.NOMBRE;
+
+      filasExcel.push({
+        filaExcel: rowNumber,
+        nombre: columnaNombre
+          ? String(row.getCell(columnaNombre).text || "").trim()
+          : "",
+        rfc,
+        nupExcel: normalizar(row.getCell(columnaNUP).value),
+        claveExcel: normalizar(row.getCell(columnaCLAVE).value),
+        nomcateExcel: normalizar(row.getCell(columnaNOMCATE).value),
+      });
+    });
+
+    if (filasExcel.length === 0) {
+      return res.status(400).json({
+        message: "No se encontraron filas con RFC en el Excel.",
+      });
+    }
+
+    const rfcs = [...new Set(filasExcel.map((fila) => fila.rfc))];
+
+    // Buscar empleados en MongoDB mediante tu función query
+    const empleadosBD = await query("PLANTILLA", {
+      RFC: {
+        $in: rfcs,
+      },
+      status: 1
+    });
+
+    // Agrupar resultados por RFC para detectar duplicados
+    const empleadosPorRFC = new Map();
+
+    for (const empleado of empleadosBD || []) {
+      const rfc = normalizar(empleado.RFC);
+
+      if (!empleadosPorRFC.has(rfc)) {
+        empleadosPorRFC.set(rfc, []);
+      }
+
+      empleadosPorRFC.get(rfc).push(empleado);
+    }
+
+    const resultados = [];
+
+    for (const fila of filasExcel) {
+      const coincidencias = empleadosPorRFC.get(fila.rfc) || [];
+
+      // RFC no encontrado en la base de datos
+      if (coincidencias.length === 0) {
+        resultados.push({
+          ...fila,
+          estado: "NO_ENCONTRADO",
+        });
+
+        continue;
+      }
+
+      const empleado = coincidencias[0];
+
+      const numplaBD = normalizar(empleado.NUMPLA);
+      const clavecatBD = normalizar(empleado.CLAVECAT);
+      const nomcateBD = normalizar(empleado.NOMCATE);
+
+      const diferencias = [];
+
+      if (fila.nupExcel !== numplaBD) {
+        diferencias.push("NUMPLA");
+      }
+
+      if (fila.claveExcel !== clavecatBD) {
+        diferencias.push("CLAVECAT");
+      }
+
+      // Solo devolver empleados que tengan diferencias
+      if (diferencias.length > 0) {
+        resultados.push({
+          ...fila,
+          numplaBD,
+          clavecatBD,
+          nomcateBD,
+          estado: "CON_DIFERENCIAS",
+        });
+      }
+    }
+
+    const resultadosDiferencias = resultados.filter(
+      (resultado) => resultado.estado === "CON_DIFERENCIAS"
+    );
+
+    const resultadosNoEncontrados = resultados.filter(
+      (resultado) => resultado.estado === "NO_ENCONTRADO"
+    );
+
+    const workbookResultado = new ExcelJS.Workbook();
+
+    workbookResultado.creator = "SIRH";
+    workbookResultado.created = new Date();
+
+    const worksheetResultado =
+      workbookResultado.addWorksheet("Diferencias");
+
+    const worksheetNoEncontrados =
+      workbookResultado.addWorksheet("No encontrados");
+
+    const configurarEncabezados = (hoja, tipo = "diferencias") => {
+      if (tipo === "diferencias") {
+        hoja.columns = [
+          { key: "nombre" },
+          { key: "rfc" },
+          { key: "numplaBD" },
+          { key: "clavecatBD" },
+          { key: "nomcateBD" },
+          { key: "nupExcel" },
+          { key: "claveExcel" },
+          { key: "nomcateExcel" },
+        ];
+
+        hoja.mergeCells("A1:A2");
+        hoja.getCell("A1").value = "NOMBRE";
+
+        hoja.mergeCells("B1:B2");
+        hoja.getCell("B1").value = "RFC";
+
+        hoja.mergeCells("C1:E1");
+        hoja.getCell("C1").value = "SIRH";
+
+        hoja.mergeCells("F1:H1");
+        hoja.getCell("F1").value = "NÓMINA";
+
+        hoja.getCell("C2").value = "NUMPLA";
+        hoja.getCell("D2").value = "CLAVECAT";
+        hoja.getCell("E2").value = "NOMCATE";
+        hoja.getCell("F2").value = "NUMPLA";
+        hoja.getCell("G2").value = "CLAVECAT";
+        hoja.getCell("H2").value = "NOMCATE";
+
+        ["C1", "C2", "D2", "E2"].forEach((celda) => {
+          hoja.getCell(celda).fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FF9D2449" },
+          };
+        });
+
+        ["F1", "F2", "G2", "H2"].forEach((celda) => {
+          hoja.getCell(celda).fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FF6C6E6D" },
+          };
+        });
+
+        hoja.autoFilter = { from: "A2", to: "B2" };
+      } else {
+        // SOLO para No encontrados: 2 columnas
+        hoja.columns = [
+          { key: "nombre" },
+          { key: "rfc" },
+        ];
+
+        hoja.getCell("A1").value = "NOMBRE";
+        hoja.getCell("B1").value = "RFC";
+
+        hoja.autoFilter = { from: "A1", to: "B1" };
+      }
+
+      // Formato común de encabezados
+      const filasEncabezado = tipo === "diferencias" ? [1, 2] : [1];
+      filasEncabezado.forEach((numeroFila) => {
+        hoja.getRow(numeroFila).eachCell((cell) => {
+          cell.font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+          };
+
+          cell.alignment = {
+            horizontal: "center",
+            vertical: "middle",
+            wrapText: false,
+          };
+
+          cell.border = {
+            top: { style: "thin", color: { argb: "FF000000" } },
+            left: { style: "thin", color: { argb: "FF000000" } },
+            bottom: { style: "thin", color: { argb: "FF000000" } },
+            right: { style: "thin", color: { argb: "FF000000" } },
+          };
+        });
+      });
+
+      if (tipo === "diferencias") {
+        ["C1", "D1", "E1", "F1", "G1", "H1", "C2", "D2", "E2", "F2", "G2", "H2"].forEach((celda) => {
+          hoja.getCell(celda).font = {
+            name: "Arial",
+            size: 10,
+            bold: true,
+            color: { argb: "FFFFFFFF" },
+          };
+        });
+      }
+
+      hoja.views = [{
+        state: "frozen",
+        ySplit: tipo === "diferencias" ? 2 : 1,
+      }];
+    };
+
+    configurarEncabezados(worksheetResultado);
+    configurarEncabezados(worksheetNoEncontrados, "noEncontrados");
+
+    // Empleados con diferencias o RFC duplicado
+    for (const resultado of resultadosDiferencias) {
+      worksheetResultado.addRow({
+        nombre: resultado.nombre,
+        rfc: resultado.rfc,
+        numplaBD: resultado.numplaBD,
+        clavecatBD: resultado.clavecatBD,
+        nomcateBD: resultado.nomcateBD,
+        nupExcel: resultado.nupExcel,
+        claveExcel: resultado.claveExcel,
+        nomcateExcel: resultado.nomcateExcel,
+      });
+    }
+
+    // Empleados cuyo RFC no fue encontrado
+    for (const resultado of resultadosNoEncontrados) {
+      worksheetNoEncontrados.addRow({
+        nombre: resultado.nombre,
+        rfc: resultado.rfc
+      });
+    }
+
+    const formatearFilas = (hoja, filasEncabezado = 2) => {
+      hoja.eachRow((row, rowNumber) => {
+        if (rowNumber <= filasEncabezado) return;
+
+        row.eachCell((cell) => {
+          cell.font = {
+            name: "Arial",
+            size: 10,
+          };
+
+          cell.border = {
+            top: { style: "thin", color: { argb: "FF000000" } },
+            left: { style: "thin", color: { argb: "FF000000" } },
+            bottom: { style: "thin", color: { argb: "FF000000" } },
+            right: { style: "thin", color: { argb: "FF000000" } },
+          };
+        });
+      });
+    };
+
+    formatearFilas(worksheetResultado, 2);
+    formatearFilas(worksheetNoEncontrados, 1);
+
+    // Configurar descarga del archivo
+    const fechaStr = moment().format("YYYY-MM-DD_HH-mm-ss");
+
+    const fileName = `DIFERENCIAS_NOMINA_${fechaStr}.xlsx`;
+
+    res.setHeader(
+      "X-Cambios-Encontrados",
+      String(resultadosDiferencias.length)
+    );
+    res.setHeader(
+      "X-Personas-No-Encontradas",
+      String(resultadosNoEncontrados.length)
+    );
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${fileName}"`
+    );
+
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "Content-Disposition, X-Cambios-Encontrados, X-Personas-No-Encontradas"
+    );
+
+    await workbookResultado.xlsx.write(res);
+
+    const userAction = {
+      username: user.username,
+      module: "PSL",
+      action: `COMPARÓ EL EXCEL DE NÓMINA CON LA PLANTILLA ACTUAL`,
+      timestamp: currentDateTime,
+    };
+
+    await insertOne("USER_ACTIONS", userAction);
+
+    return res.end();
+
+  } catch (error) {
+    console.error(
+      "Error al comparar el Excel con PLANTILLA:",
+      error
+    );
+
+    if (!res.headersSent) {
+      return res.status(500).json({
+        message: "Error al comparar el Excel con la base de datos.",
+      });
+    }
+
+    return res.end();
+  }
+}
 module.exports = reportesPersonalController;

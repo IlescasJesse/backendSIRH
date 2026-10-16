@@ -1685,7 +1685,7 @@ employeeController.printFichaTecnica = async (req, res) => {
             if (profes) {
               resultado += ` ${profes}`;
             }
-            if (cedulaProfes !== null) {
+            if (cedulaProfes) {
               resultado += `, CON CEDULA PROFESIONAL: ${cedulaProfes}`;
             }
           } else {
@@ -1707,7 +1707,7 @@ employeeController.printFichaTecnica = async (req, res) => {
             if (profes) {
               resultado += ` ${profes}`;
             }
-            if (cedulaProfes !== null) {
+            if (cedulaProfes) {
               resultado += `, CON CEDULA PROFESIONAL: ${cedulaProfes}`;
             }
           } else {
