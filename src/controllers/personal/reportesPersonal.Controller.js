@@ -4475,4 +4475,74 @@ reportesPersonalController.getDifferencesBetweenPayroll = async (req, res) => {
     return res.end();
   }
 }
+
+reportesPersonalController.getPlantillaModuleRecepcionEcon = async (req, res) => {
+
+  try {
+
+    const plantilla = await query("PLANTILLA", { status: 1 });
+
+    if (!plantilla || plantilla.length === 0) {
+      return res.status(404).json({ message: "No hay registros de plantilla." });
+    }
+
+    // Crea el libro y la hoja
+    const ExcelJS = require("exceljs");
+    const moment = require("moment");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("PLANTILLA");
+
+    const columnas = [
+      { header: "NUMEMP", key: "NUMEMP" },
+      { header: "NUMPLA", key: "NUMPLA" },
+      { header: "NOMBRE", key: "NOMBRE_COMPLETO" },
+      { header: "CLAVE", key: "CLAVE" },
+      { header: "AREA", key: "ADSCRIPCION" },
+      { header: "CLAVE_FISICAMENTE", key: "CLAVE_FISICAMENTE" },
+      { header: "AREA_FISICAMENTE", key: "ADSCRIPCION_FISICAMENTE" },
+      { header: "PROYECTO", key: "PROYECTO" },
+      { header: "TIPONOM", key: "TIPONOM" },
+      { header: "MOD_ANTE", key: "MOD_ANTE" },
+      { header: "CLAVECAT", key: "CLAVECAT" },
+      { header: "NOMCATE", key: "NOMCATE" },
+      { header: "NIVEL", key: "NIVEL" },
+      { header: "INGRESO", key: "FECHA_INGRESO" },
+      { header: "CURP", key: "CURP" },
+      { header: "RFC", key: "RFC" },
+      { header: "AFILIACION", key: "AFILIACI" },
+    ];
+
+    worksheet.columns = columnas;
+    worksheet.views = [{ state: "frozen", ySplit: 1 }];
+    worksheet.autoFilter = "A1:Q1";
+
+    // Agrega los datos
+    for (const item of plantilla) {
+      const fila = {
+        ...item,
+        NOMBRE_COMPLETO: `${item.APE_PAT || ""} ${item.APE_MAT || ""} ${item.NOMBRES || ""}`.trim(),
+        CLAVE_FISICAMENTE: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.CLAVE || "",
+        ADSCRIPCION_FISICAMENTE: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || "",
+      };
+
+      worksheet.addRow(fila);
+    };
+
+    worksheet.getRow(1).font = { bold: true };
+
+    // Genera el archivo y responde para descarga
+    const fileName = `PLANTILLA.xlsx`;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error al generar el archivo Excel:", error.message);
+    res.status(500).json({ message: "Error al generar el archivo Excel." });
+  }
+};
 module.exports = reportesPersonalController;

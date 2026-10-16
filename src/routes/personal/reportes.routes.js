@@ -43,4 +43,7 @@ router.post("/getReportVacationsArea", verifyToken, requirePermission(['PSL-RPV'
 // Ruta para comparar un Excel con la información de PLANTILLA
 router.post("/compararExcelNomina", verifyToken, requirePermission(['PSL-CPN']), upload.single("archivo"), reportesPersonalController.getDifferencesBetweenPayroll);
 
+// Ruta para generar el reporte en excel para los usuarios de percepción de económicos
+router.get("/getPlantillaModuleRecepcionEcon", reportesPersonalController.getPlantillaModuleRecepcionEcon);
+
 module.exports = router;
