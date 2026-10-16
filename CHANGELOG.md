@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.4.0 — 2026-10-16 · MENOR
+
+- Nueva función para generar el reporte de la plantilla con los campos solicitados para los usuarios del módulo de recepción de permisos económicos — Isidro Noé Salvador Jiménez (`3b205f8`)
+
 ## v2.3.1 — 2026-10-16 · ARREGLO
 
 - Correción de error al consultar el perfil unificado de los empleados de nombramiento tanto central como foráneo — Isidro Noé Salvador Jiménez (`7283921`)
