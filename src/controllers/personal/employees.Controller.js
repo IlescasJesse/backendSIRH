@@ -1222,6 +1222,9 @@ employeeController.getUnifiedProfileData = async (req, res) => {
             quinquenio[0][`quin_${employee[0].NUMQUIN}`];
         }
 
+        const quinquenioCN = Object.entries(percepciones)
+          .find(([key]) => key.startsWith("QUINQUENIOS"))?.[1] || 0;
+
         const sueldoGravableCN = (
           parseFloat(percepciones.sueldo_base) +
           parseFloat(percepciones.canasta_basica) +
