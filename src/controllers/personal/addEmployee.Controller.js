@@ -835,10 +835,9 @@ employeeController.updateEmployee = async (req, res) => {
     const id = data._id;
     delete data._id;
 
-    data.FECHA_NAC = data.FECHA_NAC ? new Date(data.FECHA_NAC) : null;
-    data.FECHA_INGRESO = data.FECHA_INGRESO ? new Date(data.FECHA_INGRESO) : null;
-    data.FECHA_NOMBRAMIENTO = data.FECHA_NOMBRAMIENTO ? new Date(data.FECHA_NOMBRAMIENTO) : null;
-
+    for (const campo of ["FECHA_NAC", "FECHA_INGRESO", "FECHA_NOMBRAMIENTO"]) {
+      if (campo in data) data[campo] = data[campo] ? new Date(data[campo]) : null;
+    }
 
     await updateOne(
       "PLANTILLA",
