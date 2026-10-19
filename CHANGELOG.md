@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.4.1 — 2026-10-19 · ARREGLO
+
+- Correción para que al momento de modificar la información de un empleado si no viene la fecha de nacimiento, fecha de ingreso o fecha de nombramiento no guarde como valor null y elimine el valor que ya se tiene en la BD — Isidro Noé Salvador Jiménez (`e0c5120`)
+
 ## v2.4.0 — 2026-10-16 · MENOR
 
 - Nueva función para generar el reporte de la plantilla con los campos solicitados para los usuarios del módulo de recepción de permisos económicos — Isidro Noé Salvador Jiménez (`3b205f8`)
