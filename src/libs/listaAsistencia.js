@@ -1,6 +1,6 @@
 // Estatus laboral "LISTA DE ASISTENCIA": la persona registra su asistencia en
-// lista. Puede tener incidencias como cualquiera, pero no lleva número de
-// tarjeta ni se le imprime tarjeta de asistencia.
+// lista en lugar de checar. Conserva su número de tarjeta (se busca, reporta y
+// genera incidencias igual); lo único que cambia es que no se imprime su tarjeta.
 const LISTA_ASIST = "LISTA_ASIST";
 const ETIQUETA_LISTA_ASIST = "LISTA DE ASISTENCIA";
 

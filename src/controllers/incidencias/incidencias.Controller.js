@@ -1625,12 +1625,6 @@ incidenciasController.asignarTarjeta = async (req, res) => {
     }
 
     const employee = result[0];
-    if (tieneListaAsistencia(employee.STATUS_EMPLEADO)) {
-      return res.status(409).json({
-        message: "El empleado registra su asistencia en lista de asistencia; no lleva número de tarjeta",
-        errorCode: "LISTA_ASISTENCIA",
-      });
-    }
     const targetCollection = resultPlantilla.length
       ? "PLANTILLA"
       : "PLANTILLA_FORANEA";
@@ -2698,7 +2692,8 @@ incidenciasController.getAllEmployeesByStatus = async (req, res) => {
         NOMBRE: `${emp.APE_PAT || ""} ${emp.APE_MAT || ""} ${emp.NOMBRES || ""}`.trim(),
         ADSCRIPCION: emp.ADSCRIPCION || "",
         TIPONOM: emp.TIPONOM || "",
-        NUMTARJETA: tieneListaAsistencia(emp.STATUS_EMPLEADO) ? "LISTA" : emp.NUMTARJETA || "",
+        NUMTARJETA: emp.NUMTARJETA || "",
+        LISTA_ASISTENCIA: tieneListaAsistencia(emp.STATUS_EMPLEADO),
         NUMPLA: emp.NUMPLA || "",
         NUMEMP: emp.NUMEMP || "",
         STATUS_EMPLEADO: (emp.STATUS_EMPLEADO || [])
