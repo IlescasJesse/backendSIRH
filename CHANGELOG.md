@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.8.0 — 2026-10-28 · MENOR
+
+- Agrega poner plaza en litigio y nombre limpio del ocupante anterior en personal — Jesse Ilescas (`0fcedbe`)
+
 ## v2.7.1 — 2026-10-28 · ARREGLO
 
 - Permite asignar tarjeta a personal con LISTA DE ASISTENCIA en control de asistencia — Jesse Ilescas (`985393d`)
