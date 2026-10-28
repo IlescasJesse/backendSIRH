@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.7.0 — 2026-10-28 · MENOR
+
+- Agrega estatus LISTA DE ASISTENCIA sin tarjeta en control de asistencia — Jesse Ilescas (`9b37cb2`)
+
 ## v2.6.0 — 2026-10-28 · MENOR
 
 - Agrega opción de reincorporar al ocupante anterior en término de litigio — Jesse Ilescas (`b710a40`)
