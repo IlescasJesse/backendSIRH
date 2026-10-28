@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.7.1 — 2026-10-28 · ARREGLO
+
+- Permite asignar tarjeta a personal con LISTA DE ASISTENCIA en control de asistencia — Jesse Ilescas (`985393d`)
+
 ## v2.7.0 — 2026-10-28 · MENOR
 
 - Agrega estatus LISTA DE ASISTENCIA sin tarjeta en control de asistencia — Jesse Ilescas (`9b37cb2`)
