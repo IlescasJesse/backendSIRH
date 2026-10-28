@@ -10,6 +10,8 @@ const { requestLogger, errorLogger } = require("./middleware/loggerMiddleware");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const socketAuth = require("./middleware/socketAuth");
+const mantenimientoMiddleware = require("./middleware/mantenimientoMiddleware");
+const { estadoActual } = require("./utils/avisosSistema");
 require("dotenv").config();
 
 const allowedOrigins = [
@@ -98,6 +100,11 @@ app.set("io", io);
 io.on("connection", (socket) => {
   console.log("🟢 Cliente conectado:", socket.id);
 
+  // Avisos del monitor: el cliente recibe el estado actual al conectarse/reconectarse.
+  estadoActual()
+    .then((estado) => socket.emit("sistema:estado", estado))
+    .catch((err) => console.error("Error enviando estado del sistema:", err.message));
+
   socket.on("join", () => {
     const { username, permissions = [] } = socket.user;
 
@@ -115,6 +122,10 @@ io.on("connection", (socket) => {
     console.log("🔴 Cliente desconectado:", socket.id);
   });
 });
+
+// Avisos del sistema y mantenimiento (se controlan desde el monitor)
+app.use(mantenimientoMiddleware);
+app.use("/api/sistema", require("./routes/sistema/sistema.routes"));
 
 // rutas para personal
 // Versión del back (pública, para mostrarla en el login)
