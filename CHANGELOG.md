@@ -2,6 +2,12 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.5.0 — 2026-10-28 · MENOR
+
+- Permite apagar Agenda y separar bases temporales por ambiente en configuración — Jesse Ilescas (`e3445e0`)
+- Agrega término de litigio para reactivar plazas con clave 105 en personal — Jesse Ilescas (`4b06f1e`)
+- Agrega avisos globales y modo mantenimiento controlados desde el monitor — Jesse Ilescas (`0e2955c`)
+
 ## v2.4.1 — 2026-10-19 · ARREGLO
 
 - Correción para que al momento de modificar la información de un empleado si no viene la fecha de nacimiento, fecha de ingreso o fecha de nombramiento no guarde como valor null y elimine el valor que ya se tiene en la BD — Isidro Noé Salvador Jiménez (`e0c5120`)
