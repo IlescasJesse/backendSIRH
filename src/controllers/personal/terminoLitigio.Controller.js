@@ -47,6 +47,15 @@ async function sugerenciaPrevia(idEmpleado) {
   };
 }
 
+// Último ocupante titular registrado en PLAZAS (a quien se reincorpora tras el litigio).
+async function ocupanteAnterior(numpla) {
+  if (numpla === undefined || numpla === null) return null;
+  const [plaza] = await query("PLAZAS", { NUMPLA: numpla });
+  const titulares = (plaza?.previousOcuppants || []).filter((o) => o.OWNER === true);
+  const ultimo = titulares[titulares.length - 1];
+  return ultimo ? { NOMBRE: ultimo.NOMBRE || "", MOTIVO_BAJA: ultimo.MOTIVO_BAJA || null } : null;
+}
+
 // FECHA_TERMINO "YYYY-MM-DD" válida y no futura (hora de México).
 function validarFecha(valor) {
   if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return null;
@@ -70,6 +79,8 @@ terminoLitigioController.getTerminoLitigio = async (req, res) => {
         : `La plaza no está en litigio: su clave actual es ${empleado.CLAVE ?? "sin clave"}.`,
       claveActual: empleado.CLAVE ?? null,
       adscripcionActual: empleado.ADSCRIPCION ?? null,
+      vacante: empleado.status === 2,
+      ocupanteAnterior: await ocupanteAnterior(empleado.NUMPLA),
       sugerencia: elegible ? await sugerenciaPrevia(empleado._id) : null,
     });
   } catch (error) {
@@ -82,7 +93,7 @@ terminoLitigioController.getTerminoLitigio = async (req, res) => {
 // Mongo es standalone (sin transacciones): se valida todo antes de escribir y la
 // primera escritura (PLANTILLA filtrada por CLAVE 105) decide; si no aplica, no se escribe nada.
 terminoLitigioController.terminoLitigio = async (req, res) => {
-  const { _id, NUMPLA, FECHA_TERMINO, ADSCRIPCION, CLAVE, AREA_RESP, OBSERVACIONES, OFICIO } =
+  const { _id, NUMPLA, FECHA_TERMINO, ADSCRIPCION, CLAVE, AREA_RESP, OBSERVACIONES, OFICIO, REINCORPORAR } =
     req.body || {};
   const { user } = req;
 
@@ -128,6 +139,22 @@ terminoLitigioController.terminoLitigio = async (req, res) => {
       return res.status(400).json({ message: "El número de oficio no puede pasar de 100 caracteres" });
     }
 
+    // REINCORPORAR: la plaza se libera para dar de alta de nuevo al ocupante anterior
+    // (la alta se hace después con el flujo normal de propuesta/alta).
+    if (REINCORPORAR !== undefined && typeof REINCORPORAR !== "boolean") {
+      return res.status(400).json({ message: "REINCORPORAR debe ser verdadero o falso" });
+    }
+    let reincorpora = null;
+    if (REINCORPORAR === true) {
+      if (empleado.status !== 2) {
+        return res.status(400).json({ message: "Solo se puede reincorporar al ocupante anterior si la plaza está vacante" });
+      }
+      reincorpora = await ocupanteAnterior(empleado.NUMPLA);
+      if (!reincorpora) {
+        return res.status(400).json({ message: "La plaza no tiene un ocupante anterior registrado para reincorporar" });
+      }
+    }
+
     // Mismo tipo que ya tenía el campo en la plantilla (número o texto).
     const claveNueva = typeof empleado.CLAVE === "string" ? String(CLAVE) : Number(CLAVE);
     const currentDateTime = ahoraMx();
@@ -141,6 +168,7 @@ terminoLitigioController.terminoLitigio = async (req, res) => {
       AREA_RESP_NUEVA: AREA_RESP,
       OBSERVACIONES: observaciones,
       OFICIO: oficio || null,
+      REINCORPORA: reincorpora?.NOMBRE || null,
       CAPTURADO_POR: user.username,
       CAPTURADO_EN: new Date(),
     };
@@ -176,6 +204,7 @@ terminoLitigioController.terminoLitigio = async (req, res) => {
       FECHA_TERMINO: fecha,
       OBSERVACIONES: observaciones,
       OFICIO: oficio || null,
+      REINCORPORA: reincorpora?.NOMBRE || null,
       currentDateTime,
       last_adscripcion: registro.ADSCRIPCION_ANTERIOR,
       last_clave: registro.CLAVE_ANTERIOR,
@@ -195,7 +224,8 @@ terminoLitigioController.terminoLitigio = async (req, res) => {
               autor: user.username,
               comentario:
                 `TÉRMINO DE LITIGIO ${fechaTxt}: PASA DE CLAVE ${registro.CLAVE_ANTERIOR} (${registro.ADSCRIPCION_ANTERIOR || ""}) ` +
-                `A CLAVE ${claveNueva} (${adscripcion})${oficio ? `. OFICIO: ${oficio}` : ""}. ${observaciones}`,
+                `A CLAVE ${claveNueva} (${adscripcion})${oficio ? `. OFICIO: ${oficio}` : ""}` +
+                `${reincorpora ? `. SE LIBERA PARA REINCORPORAR A: ${reincorpora.NOMBRE}` : ""}. ${observaciones}`,
               fecha: currentDateTime,
             },
           },
@@ -210,7 +240,13 @@ terminoLitigioController.terminoLitigio = async (req, res) => {
       timestamp: currentDateTime,
     });
 
-    res.status(200).json({ message: "Término de litigio registrado correctamente", _id: empleado._id });
+    res.status(200).json({
+      message: reincorpora
+        ? `Término de litigio registrado. Continúa con la propuesta de alta de ${reincorpora.NOMBRE} en la plaza ${empleado.NUMPLA}.`
+        : "Término de litigio registrado correctamente",
+      _id: empleado._id,
+      reincorpora: reincorpora ? { NUMPLA: empleado.NUMPLA, NOMBRE: reincorpora.NOMBRE } : null,
+    });
   } catch (error) {
     console.error("Error registrando término de litigio:", error);
     res.status(500).json({ message: "Error al registrar el término de litigio" });
