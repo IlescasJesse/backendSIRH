@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.6.0 — 2026-10-28 · MENOR
+
+- Agrega opción de reincorporar al ocupante anterior en término de litigio — Jesse Ilescas (`b710a40`)
+
 ## v2.5.0 — 2026-10-28 · MENOR
 
 - Permite apagar Agenda y separar bases temporales por ambiente en configuración — Jesse Ilescas (`e3445e0`)
