@@ -1621,6 +1621,9 @@ employeeController.printFichaTecnica = async (req, res) => {
 
         LIC_ENF: () =>
           `LICENCIA POR ENFERMEDAD`,
+
+        LISTA_ASIST: () =>
+          `REGISTRA SU ASISTENCIA EN LISTA DE ASISTENCIA`,
       };
 
       return statusMessages[status.STATUS]?.() || '';

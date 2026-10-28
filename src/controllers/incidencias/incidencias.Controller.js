@@ -19,6 +19,7 @@ const {
 } = require("date-fns");
 const { es } = require("date-fns/locale");
 const { querysql } = require("../../config/mysql");
+const { tieneListaAsistencia, validarListaAsistencia } = require("../../libs/listaAsistencia");
 const getCustomQuarter = (date) => {
   const month = moment(date, "YYYY-MM-DD").month() + 1;
   if (month >= 1 && month <= 4) return 1;
@@ -487,6 +488,9 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
 
     const incomingStatuses = Array.isArray(STATUS_EMPLEADO) ? STATUS_EMPLEADO : [STATUS_EMPLEADO].filter(Boolean);
 
+    const errorLista = validarListaAsistencia(incomingStatuses);
+    if (errorLista) return res.status(400).json({ message: errorLista });
+
     const hasStatusChange = JSON.stringify(prevStatus) !== JSON.stringify(incomingStatuses);
 
     const hasAreaChange =
@@ -524,6 +528,8 @@ incidenciasController.updateStatusEmployee = async (req, res) => {
     let statusChangeDescription = "";
     if (STATUS_EMPLEADO.some((s) => s.STATUS === null)) {
       statusChangeDescription = "AHORA NO TIENE NINGUN STATUS";
+    } else if (tieneListaAsistencia(STATUS_EMPLEADO)) {
+      statusChangeDescription = "AHORA REGISTRA SU ASISTENCIA EN LISTA DE ASISTENCIA";
     } else if (STATUS_EMPLEADO.some((s) => s.STATUS === "COM_SDCL")) {
       statusChangeDescription = "AHORA CUENTA CON COMISIÓN AL SINDICATO";
     } else if (STATUS_EMPLEADO.some((s) => s.STATUS === "COM_LAB")) {
@@ -996,6 +1002,9 @@ incidenciasController.newForeigner = async (req, res) => {
   };
   const data = req.body;
   try {
+    const errorLista = validarListaAsistencia(data.STATUS_EMPLEADO);
+    if (errorLista) return res.status(400).json({ message: errorLista });
+
     const plazaPlantilla = await query("PLANTILLA", { NUMPLA: data.NUMPLA });
     const plazaForanea = await query("PLANTILLA_FORANEA", {
       NUMPLA: data.NUMPLA,
@@ -1071,6 +1080,9 @@ incidenciasController.updateForeigner = async (req, res) => {
   };
   const data = req.body;
   try {
+    const errorLista = validarListaAsistencia(data.STATUS_EMPLEADO);
+    if (errorLista) return res.status(400).json({ message: errorLista });
+
     const plazaPlantilla = await query("PLANTILLA", { NUMPLA: data.NUMPLA, _id: { $ne: new ObjectId(data._id) } });
     const plazaForanea = await query("PLANTILLA_FORANEA", {
       NUMPLA: data.NUMPLA, _id: { $ne: new ObjectId(data._id) }, status: 1
@@ -1613,6 +1625,12 @@ incidenciasController.asignarTarjeta = async (req, res) => {
     }
 
     const employee = result[0];
+    if (tieneListaAsistencia(employee.STATUS_EMPLEADO)) {
+      return res.status(409).json({
+        message: "El empleado registra su asistencia en lista de asistencia; no lleva número de tarjeta",
+        errorCode: "LISTA_ASISTENCIA",
+      });
+    }
     const targetCollection = resultPlantilla.length
       ? "PLANTILLA"
       : "PLANTILLA_FORANEA";
@@ -1815,7 +1833,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
     query("PLANTILLA_FORANEA", queryFilter),
   ]);
 
-  let employees = [...plantilla, ...foranea];
+  // Quien registra su asistencia en lista no lleva tarjeta impresa.
+  let employees = [...plantilla, ...foranea].filter(
+    (emp) => !tieneListaAsistencia(emp.STATUS_EMPLEADO),
+  );
 
   if (employees.length === 0) {
     return res
@@ -2677,7 +2698,7 @@ incidenciasController.getAllEmployeesByStatus = async (req, res) => {
         NOMBRE: `${emp.APE_PAT || ""} ${emp.APE_MAT || ""} ${emp.NOMBRES || ""}`.trim(),
         ADSCRIPCION: emp.ADSCRIPCION || "",
         TIPONOM: emp.TIPONOM || "",
-        NUMTARJETA: emp.NUMTARJETA || "",
+        NUMTARJETA: tieneListaAsistencia(emp.STATUS_EMPLEADO) ? "LISTA" : emp.NUMTARJETA || "",
         NUMPLA: emp.NUMPLA || "",
         NUMEMP: emp.NUMEMP || "",
         STATUS_EMPLEADO: (emp.STATUS_EMPLEADO || [])

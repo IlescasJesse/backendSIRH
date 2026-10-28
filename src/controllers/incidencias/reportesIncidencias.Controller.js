@@ -1458,6 +1458,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
     else if (status === "COM_LAB") statusText = `"COMISIONADO LABORALMENTE"`;
     else if (status === "ASIG_LAB") statusText = `"ASIGNADO LABORALMENTE"`;
     else if (status === "EXIMA") statusText = `"CON EXIMA"`;
+    else if (status === "LISTA_ASIST") statusText = `"CON LISTA DE ASISTENCIA"`;
   }
 
   const employees = await query("PLANTILLA", filtro);
@@ -1526,7 +1527,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
         emp.LUGAR_COMISIONADO || "",
         emp.OBSERVACIONES || "",
       ];
-    } else if (status === "EXIMA") {
+    } else if (status === "EXIMA" || status === "LISTA_ASIST") {
       row = [
         `${i + 1}`,
         emp.NOMBRE,
@@ -1545,6 +1546,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
   else if (status === "COM_LAB") nameFile = `COMISIONADO_LABORALMENTE`;
   else if (status === "ASIG_LAB") nameFile = `ASIGNADO_LABORALMENTE`;
   else if (status === "EXIMA") nameFile = `EXIMA`;
+  else if (status === "LISTA_ASIST") nameFile = `LISTA_DE_ASISTENCIA`;
 
   const filePath = path.join(
     __dirname,
@@ -1655,7 +1657,7 @@ reportesIncidenciasController.getReportStatus = async (req, res) => {
         "OBSERVACIONES",
       ];
       columns = [30, 150, 40, 130, 60, 60, 150, 95];
-    } else if (status === "EXIMA") {
+    } else if (status === "EXIMA" || status === "LISTA_ASIST") {
       headers = [
         "#",
         "NOMBRE",

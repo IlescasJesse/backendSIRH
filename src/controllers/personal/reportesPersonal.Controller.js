@@ -1197,6 +1197,7 @@ reportesPersonalController.getDataPersonalizada = async (req, res) => {
       COM_LAB: "COMISIONADO LABORALMENTE",
       ASIG_LAB: "ASIGNADO LABORALMENTE",
       EXIMA: "EXIMA",
+      LISTA_ASIST: "LISTA DE ASISTENCIA",
     };
 
     for (const item of empleadosFiltrados) {
