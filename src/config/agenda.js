@@ -901,6 +901,11 @@ agenda.define("realizarBackup", async (job) => {
 
 // Función para iniciar Agenda
 async function startAgenda() {
+  // AGENDA_ENABLED=false apaga el scheduler (p. ej. en el ambiente de pruebas).
+  if (process.env.AGENDA_ENABLED === "false") {
+    console.log("Scheduler desactivado (AGENDA_ENABLED=false)");
+    return;
+  }
   try {
     await agenda.start();
     console.log("Scheduler ONLINE");
@@ -996,6 +1001,7 @@ async function startAgenda() {
 
 // Función para detener Agenda de forma limpia
 async function stopAgenda() {
+  if (process.env.AGENDA_ENABLED === "false") return;
   await agenda.stop();
 }
 

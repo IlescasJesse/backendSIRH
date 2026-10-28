@@ -16,8 +16,10 @@ const EXCLUDED_MYSQL_TABLES = ["cp_2025"];
 // por defecto en la raíz del proyecto (solo como último recurso).
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, "..", "..", "backups", "db");
 const SOURCE_DB = "SIRH2026";
-const TEMP_DB = "SIRH2026_BK";
-const MYSQL_TEMP_DB = "sirh_bk";
+// Bases temporales derivadas del .env: en producción quedan SIRH2026_BK / sirh_bk
+// y en test SIRH2026_test_BK / sirh_test_bk, para que no se pisen entre sí.
+const TEMP_DB = `${process.env.DB || "SIRH2026"}_BK`;
+const MYSQL_TEMP_DB = `${process.env.SQLDB || "sirh"}_bk`;
 const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 // Colecciones que usa el reporte de plantilla por área (getPlantillaReportArea)
