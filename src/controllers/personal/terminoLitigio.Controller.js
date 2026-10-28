@@ -53,7 +53,21 @@ async function ocupanteAnterior(numpla) {
   const [plaza] = await query("PLAZAS", { NUMPLA: numpla });
   const titulares = (plaza?.previousOcuppants || []).filter((o) => o.OWNER === true);
   const ultimo = titulares[titulares.length - 1];
-  return ultimo ? { NOMBRE: ultimo.NOMBRE || "", MOTIVO_BAJA: ultimo.MOTIVO_BAJA || null } : null;
+  if (!ultimo) return null;
+  return { ...separarNombreNota(ultimo.NOMBRE), MOTIVO_BAJA: ultimo.MOTIVO_BAJA || null };
+}
+
+// En el sistema anterior se pegaban notas al nombre con un punto
+// ("PEREZ CRUZ SANDRA TERESA.NO RECIBIO OFIC"). Se corta en el primer "." cuya
+// palabra anterior tenga 3+ letras, para no romper abreviaturas como "MA. DEL CARMEN".
+// Solo es una sugerencia: el dato guardado no se modifica y el front deja editarlo.
+function separarNombreNota(original) {
+  const texto = String(original || "").trim();
+  const corte = /[A-ZÁÉÍÓÚÜÑ]{3,}\./i.exec(texto);
+  if (!corte) return { NOMBRE: texto, NOTA: null, ORIGINAL: texto };
+  const fin = corte.index + corte[0].length - 1;
+  const nota = texto.slice(fin + 1).trim();
+  return { NOMBRE: texto.slice(0, fin).trim(), NOTA: nota || null, ORIGINAL: texto };
 }
 
 // FECHA_TERMINO "YYYY-MM-DD" válida y no futura (hora de México).
@@ -80,7 +94,8 @@ terminoLitigioController.getTerminoLitigio = async (req, res) => {
       claveActual: empleado.CLAVE ?? null,
       adscripcionActual: empleado.ADSCRIPCION ?? null,
       vacante: empleado.status === 2,
-      ocupanteAnterior: await ocupanteAnterior(empleado.NUMPLA),
+      // Solo aplica a plazas vacantes (las 105 heredadas de la migración).
+      ocupanteAnterior: empleado.status === 2 ? await ocupanteAnterior(empleado.NUMPLA) : null,
       sugerencia: elegible ? await sugerenciaPrevia(empleado._id) : null,
     });
   } catch (error) {
@@ -93,7 +108,7 @@ terminoLitigioController.getTerminoLitigio = async (req, res) => {
 // Mongo es standalone (sin transacciones): se valida todo antes de escribir y la
 // primera escritura (PLANTILLA filtrada por CLAVE 105) decide; si no aplica, no se escribe nada.
 terminoLitigioController.terminoLitigio = async (req, res) => {
-  const { _id, NUMPLA, FECHA_TERMINO, ADSCRIPCION, CLAVE, AREA_RESP, OBSERVACIONES, OFICIO, REINCORPORAR } =
+  const { _id, NUMPLA, FECHA_TERMINO, ADSCRIPCION, CLAVE, AREA_RESP, OBSERVACIONES, OFICIO, REINCORPORAR, NOMBRE_REINCORPORA } =
     req.body || {};
   const { user } = req;
 
@@ -153,12 +168,18 @@ terminoLitigioController.terminoLitigio = async (req, res) => {
       if (!reincorpora) {
         return res.status(400).json({ message: "La plaza no tiene un ocupante anterior registrado para reincorporar" });
       }
+      const nombreCapturado = typeof NOMBRE_REINCORPORA === "string" ? NOMBRE_REINCORPORA.trim() : "";
+      if (nombreCapturado.length > 120) {
+        return res.status(400).json({ message: "El nombre de quien se reincorpora no puede pasar de 120 caracteres" });
+      }
+      if (nombreCapturado) reincorpora.NOMBRE = nombreCapturado;
     }
 
     // Mismo tipo que ya tenía el campo en la plantilla (número o texto).
     const claveNueva = typeof empleado.CLAVE === "string" ? String(CLAVE) : Number(CLAVE);
     const currentDateTime = ahoraMx();
     const registro = {
+      TIPO: "TERMINO",
       FECHA_TERMINO: fecha,
       CLAVE_ANTERIOR: empleado.CLAVE,
       ADSCRIPCION_ANTERIOR: empleado.ADSCRIPCION ?? null,
@@ -250,6 +271,115 @@ terminoLitigioController.terminoLitigio = async (req, res) => {
   } catch (error) {
     console.error("Error registrando término de litigio:", error);
     res.status(500).json({ message: "Error al registrar el término de litigio" });
+  }
+};
+
+// POST /api/personal/ponerEnLitigio — pasa la plaza a clave 105. Si está ocupada,
+// la persona sigue ligada a su plaza (no hay baja); se guarda la clave, adscripción
+// y área anteriores para que el término las sugiera al regresarla.
+terminoLitigioController.ponerEnLitigio = async (req, res) => {
+  const { _id, FECHA_INICIO, OBSERVACIONES, OFICIO } = req.body || {};
+  const { user } = req;
+
+  try {
+    const empleado = await buscarEmpleado(_id);
+    if (!empleado) return res.status(404).json({ message: "Empleado no encontrado" });
+    if (enLitigio(empleado)) {
+      return res.status(409).json({ message: "La plaza ya está en litigio (clave 105)." });
+    }
+
+    const fecha = validarFecha(FECHA_INICIO);
+    if (!fecha) {
+      return res.status(400).json({ message: "La fecha de inicio es inválida o es una fecha futura" });
+    }
+    const observaciones = typeof OBSERVACIONES === "string" ? OBSERVACIONES.trim() : "";
+    if (observaciones.length < 10 || observaciones.length > 500) {
+      return res.status(400).json({ message: "Las observaciones deben tener entre 10 y 500 caracteres" });
+    }
+    const oficio = typeof OFICIO === "string" ? OFICIO.trim() : "";
+    if (oficio.length > 100) {
+      return res.status(400).json({ message: "El número de oficio no puede pasar de 100 caracteres" });
+    }
+
+    const claveLitigio = typeof empleado.CLAVE === "string" ? String(CLAVE_LITIGIO) : CLAVE_LITIGIO;
+    const currentDateTime = ahoraMx();
+    const registro = {
+      TIPO: "INICIO",
+      FECHA_INICIO: fecha,
+      CLAVE_ANTERIOR: empleado.CLAVE ?? null,
+      ADSCRIPCION_ANTERIOR: empleado.ADSCRIPCION ?? null,
+      AREA_RESP_ANTERIOR: empleado.AREA_RESP ?? null,
+      PLAZA_OCUPADA: empleado.status === 1,
+      OBSERVACIONES: observaciones,
+      OFICIO: oficio || null,
+      CAPTURADO_POR: user.username,
+      CAPTURADO_EN: new Date(),
+    };
+
+    // El filtro por la clave actual evita aplicarlo dos veces si dos usuarios lo hacen a la vez.
+    const resultado = await updateOne(
+      "PLANTILLA",
+      { _id: empleado._id, CLAVE: empleado.CLAVE ?? null },
+      { $set: { CLAVE: claveLitigio }, $push: { HISTORIAL_LITIGIO: registro } },
+    );
+    if (resultado.matchedCount === 0) {
+      return res.status(409).json({ message: "La plaza cambió mientras se capturaba; vuelve a intentarlo." });
+    }
+
+    const fechaTxt = FECHA_INICIO.split("-").reverse().join("/");
+
+    if (empleado.NUMPLA !== undefined && empleado.NUMPLA !== null) {
+      await updateOne("PLAZAS", { NUMPLA: empleado.NUMPLA }, { $push: { HISTORIAL_LITIGIO: registro } });
+    }
+
+    await insertOne("HSY_AREAS", {
+      tipo: "INICIO_LITIGIO",
+      ADSCRIPCION: empleado.ADSCRIPCION ?? null,
+      AREA_RESP: empleado.AREA_RESP ?? null,
+      CLAVE: claveLitigio,
+      FECHA_INICIO: fecha,
+      OBSERVACIONES: observaciones,
+      OFICIO: oficio || null,
+      currentDateTime,
+      last_adscripcion: registro.ADSCRIPCION_ANTERIOR,
+      last_clave: registro.CLAVE_ANTERIOR,
+      last_area_resp: registro.AREA_RESP_ANTERIOR,
+      id_employee: empleado._id,
+      username: user.username,
+    });
+
+    if (empleado.ID_BITACORA) {
+      await updateOne(
+        "BITACORA",
+        { _id: new ObjectId(String(empleado.ID_BITACORA)) },
+        {
+          $push: {
+            personal: {
+              _id: new ObjectId(),
+              autor: user.username,
+              comentario:
+                `INICIO DE LITIGIO ${fechaTxt}: PASA DE CLAVE ${registro.CLAVE_ANTERIOR ?? "SIN CLAVE"} ` +
+                `(${registro.ADSCRIPCION_ANTERIOR || ""}) A CLAVE ${CLAVE_LITIGIO}` +
+                `${oficio ? `. OFICIO: ${oficio}` : ""}. ${observaciones}`,
+              fecha: currentDateTime,
+            },
+          },
+        },
+      );
+    }
+
+    const quien = empleado.status === 1 ? ` DEL EMPLEADO "${nombreCompleto(empleado)}"` : " (VACANTE)";
+    await insertOne("USER_ACTIONS", {
+      username: user.username,
+      module: "PSL-TL",
+      action: `PUSO EN LITIGIO (${fechaTxt}) LA PLAZA ${empleado.NUMPLA ?? ""}${quien}`,
+      timestamp: currentDateTime,
+    });
+
+    res.status(200).json({ message: "La plaza quedó en litigio (clave 105)", _id: empleado._id });
+  } catch (error) {
+    console.error("Error poniendo plaza en litigio:", error);
+    res.status(500).json({ message: "Error al poner la plaza en litigio" });
   }
 };
 
