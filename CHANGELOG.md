@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.9.1 — 2026-10-29 · ARREGLO
+
+- Cambios para que en el reporte de licencias activas se muestren nuevos campos, como lo son: proyecto, descripción del puesto y nombre de quien se encuentra cubriendo la licencia actualmente — Isidro Noé Salvador Jiménez (`432f157`)
+
 ## v2.9.0 — 2026-10-29 · MENOR
 
 - Nueva función para realizar la entrega de talones de pago, así como realizar el prestamo del talón de pago — Isidro Noé Salvador Jiménez (`9053b23`)
