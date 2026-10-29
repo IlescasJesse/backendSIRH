@@ -17,6 +17,8 @@ require("dotenv").config();
 const allowedOrigins = [
   "http://localhost:4200",
   "https://sirh.local",
+  "https://172.31.246.60",
+  "http://172.31.246.60",
   ...(process.env.FRONTEND_URL || "").split(",").map((o) => o.trim()),
 ].filter(Boolean);
 
