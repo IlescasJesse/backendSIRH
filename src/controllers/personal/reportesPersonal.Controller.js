@@ -15,17 +15,23 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
       return res.status(404).json({ message: "No se encontraron licencias activas" });
     }
 
-    const tipoNomMapping = {
-      M51: "BASE FORÁNEA",
-      F51: "BASE CENTRAL",
-      FCT: "CONTRATO CONFIANZA FORANEO",
-      CCT: "CONTRATO CONFIANZA CENTRAL",
-      FCO: "NOMBRAMIENTO CONFIANZA FORANEO",
-      511: "NOMBRAMIENTO CONFIANZA CENTRAL",
-      F53: "CONTRATO FORÁNEO",
-      M53: "CONTRATO CENTRAL",
-      MMS: "MANDOS MEDIOS FORÁNEOS",
-      FMM: "MANDOS MEDIOS CENTRAL",
+    const ids = [...new Set(
+      licenses
+        .map(item => String(item.id_employee || ''))
+        .filter(id => ObjectId.isValid(id))
+    )].map(id => new ObjectId(id));
+
+    const [plantilla, plantillaForanea] = await Promise.all([
+      query("PLANTILLA", { _id: { $in: ids } }),
+      query("PLANTILLA_FORANEA", { _id: { $in: ids } }),
+    ]);
+
+    const empleadosPorId = new Map();
+    for (const empleado of [...plantillaForanea, ...plantilla]) {
+      empleadosPorId.set(
+        String(empleado._id),
+        `${empleado.APE_PAT || ''} ${empleado.APE_MAT || ''} ${empleado.NOMBRES || ''}`.trim()
+      );
     };
 
     const formatearTiempoLicencia = (dischargeDate, returnDate) => {
@@ -84,7 +90,7 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
     const worksheet = workbook.addWorksheet("LICENCIAS");
 
     const fechaFormato = moment().locale('es').format('DD [DE] MMMM [DEL] YYYY').toUpperCase();
-    worksheet.mergeCells('C2:E2');
+    worksheet.mergeCells('C2:F2');
     worksheet.getCell('C2').value = `LICENCIAS DEL ${fechaFormato}`;
     worksheet.getCell('C2').font = { bold: true };
     worksheet.getCell('C2').font.size = 18;
@@ -95,12 +101,14 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
       "NOM_FONDO",
       "CLAVE_DEPEN",
       "DEPEN",
+      "PROYECTO",
       "RFC",
       "CURP",
       "NOM_EMP",
       "NUM_EMP",
       "PLAZA",
       "TIPO_DE_PERSONAL",
+      "NOM_PUESTO",
       "CAT_PUESTO",
       "NIVELSALARIAL",
       "ZE",
@@ -112,7 +120,8 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
       "MOTIVO",
       "ESTATUS",
       "NUM_LICENCIA",
-      "SOPORTE_LIC"
+      "SOPORTE_LIC",
+      "CUBRIENDO"
     ];
     headerRow.font = { bold: true };
 
@@ -136,12 +145,14 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
         '',
         114,
         'SECRETARÍA DE FINANZAS',
+        item.PROYECTO || '',
         item.RFC || '',
         item.CURP || '',
         nombreCompleto,
         item.NUMEMP || '',
         item.NUMPLA || '',
         'BASE',
+        item.NOMCATE || '',
         item.CLAVECAT || '',
         Number(nivel) || '',
         6,
@@ -153,8 +164,8 @@ reportesPersonalController.getReportLicenses = async (req, res) => {
         '',
         item.reason === 'L-SS' ? 'LICENCIA SIN GOCE DE SUELDO' : 'LICENCIA INDEFINIDA A BASE',
         formatearTiempoLicencia(item.discharge_date, item.end_date),
-        ''
-
+        '',
+        empleadosPorId.get(String(item.id_employee)) || ''
       ];
       rowIndex++;
     }
