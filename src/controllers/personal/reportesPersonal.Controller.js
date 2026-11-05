@@ -1362,6 +1362,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     quinMandos,
     segVida,
     subsidioISR,
+    delegaciones,
     licencias,
     personalGasadmi,
     personalEstimulo
@@ -1375,6 +1376,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
     querysql(`SELECT * FROM quin_mandosmedios`),
     querysql(`SELECT * FROM seg_vida`),
     querysql(`SELECT * FROM subsidio_isr`),
+    querysql(`SELECT * FROM delegaciones`),
 
     query("LICENCIAS", { status: 1 }),
     query("PERSONAL_GASADMI", {}),
@@ -1489,17 +1491,7 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
 
         const sueldoBase = parseFloat(percepciones.sueldo_base);
 
-        // Determinar si la quincena actual es de 16 días (segunda quincena de mes con 31 días) para aunmentar el día de ajuste
-        // const now = new Date();
-        // const day = now.getDate();
-        // const month = now.getMonth() + 1;
-        // const isSegundaQuincena16Dias = day > 15 && [1, 3, 5, 7, 8, 10, 12].includes(month);
-
         let sueldoGravableB;
-        // if (isSegundaQuincena16Dias) {
-        //   const diaAjuste = percepciones.sueldo_base / 30;
-        //   percepciones.dia_ajuste = diaAjuste.toFixed(2);
-        // }
 
         const quinquenioBase =
           obtenerQuinquenio(
@@ -1817,27 +1809,21 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       { header: "API BASE", key: "API_BASE" },
       { header: "API CONFIANZA", key: "API_CONFIANZA" },
       { header: "API MANDOS MEDIOS", key: "API_MANDOS_MEDIOS" },
-
       { header: "DESPENSA", key: "DESPENSA" },
       { header: "ACT_CUL_DEP", key: "ACT_CUL_DEP" },
       { header: "GUARDERIA", key: "GUARDERIA" },
       { header: "DIA_AJUSTE", key: "DIA_AJUSTE" },
-
       { header: "CANASTA", key: "CANASTA" },
       { header: "ESTIMULO", key: "ESTIMULO" },
       { header: "GASADMI", key: "GASADMI" },
-
       { header: "COMP_FIJA_GARAN", key: "COMP_FIJA_GARAN" },
-
       { header: "PERCEPCIONES", key: "TOTAL_PERCEPCIONES" },
-
       { header: "ISR", key: "ISR" },
       { header: "FONDODEP", key: "FONDODEP" },
       { header: "IMSS", key: "IMSS" },
       { header: "CUOTASIN", key: "CUOTA_SINDICAL" },
       { header: "SEGURO_VIDA", key: "SEGURO_VIDA" },
       { header: "DEDUCCIONES", key: "TOTAL_DEDUCCIONES" },
-
       { header: "NETO", key: "NETO" },
 
       // Datos personales
@@ -1887,6 +1873,9 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       { header: "AREAR_ESP", key: "AREA_RESP" },
       { header: "COMISIONADO", key: "COMISIONADO" },
       { header: "LUGAR_COMISIONADO", key: "LUGAR_COMI" },
+      { header: "DELEGACION", key: "DELEGACION" },
+      { header: "DELEGADO(S)", key: "DELEGADO" },
+      { header: "FECHA_AFILIACION", key: "FECHA_AFILIACION" },
 
       // Históricos
       { header: "OCUPANTE_ANTERIOR", key: "OCUPANTE_ANT" },
@@ -1972,6 +1961,8 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
       const totalDeducciones = sumarDeducciones(deducciones);
       const percepcionNeta = totalPercepciones - totalDeducciones;
 
+      const delegado = delegaciones.find(d => d.delegacion === item.SINDICATO?.DELEGACION);
+
       const plaza = mapaPlazas.get(item.NUMPLA) || {};
       const ocupanteReciente = (plaza.previousOcuppants || []).slice(-1)[0] || {};
       const dischargeDate = ocupanteReciente.FECHA_BAJA ? new Date(ocupanteReciente.FECHA_BAJA) : '';
@@ -2017,6 +2008,9 @@ reportesPersonalController.getPlantillaXLSX = async (req, res) => {
         AREA_RESP: areaRespMapping[item.AREA_RESP] || item.AREA_RESP || "",
         COMISIONADO: item.STATUS_EMPLEADO?.find(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB") ? 'SI' : 'NO',
         LUGAR_COMI: item.STATUS_EMPLEADO?.find(s => s.STATUS === "COM_SDCL" || s.STATUS === "COM_LAB")?.LUGAR_COMISIONADO || "",
+        DELEGACION: item.SINDICATO?.DELEGACION || "",
+        DELEGADO: delegado?.delegado || "",
+        FECHA_AFILIACION: item.SINDICATO?.FECHA_AFILIACION || "",
 
         CP: direccion?.CP || item.CP || "",
         DOMICILIO: direccion?.DOMICILIO
