@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.9.2 — 2026-11-05 · ARREGLO
+
+- Cambios realizados para mostrar la delegación a la que se encuentra afiliado el empleado, nombre de su delegado y la fecha de afiliación en el reporte de la plantilla xlsx conforme a lo solicitado en el ticket #TEC-SIS-0021 — Isidro Noé Salvador Jiménez (`5fc38f4`)
+
 ## v2.9.1 — 2026-10-29 · ARREGLO
 
 - Cambios para que en el reporte de licencias activas se muestren nuevos campos, como lo son: proyecto, descripción del puesto y nombre de quien se encuentra cubriendo la licencia actualmente — Isidro Noé Salvador Jiménez (`432f157`)
