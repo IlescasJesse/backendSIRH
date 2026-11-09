@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.10.0 — 2026-11-09 · MENOR
+
+- Nuevas funciones para guardar la información de un segundo empleo al empleado, así como la función para generar el reporte de empleados que tienen ese segundo empleo conforme a lo requerido en el ticket #TEC-SIS-0022 — Isidro Noé Salvador Jiménez (`631750b`)
+
 ## v2.9.2 — 2026-11-05 · ARREGLO
 
 - Cambios realizados para mostrar la delegación a la que se encuentra afiliado el empleado, nombre de su delegado y la fecha de afiliación en el reporte de la plantilla xlsx conforme a lo solicitado en el ticket #TEC-SIS-0021 — Isidro Noé Salvador Jiménez (`5fc38f4`)
