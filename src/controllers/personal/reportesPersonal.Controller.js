@@ -4551,4 +4551,67 @@ reportesPersonalController.getPlantillaModuleRecepcionEcon = async (req, res) =>
     res.status(500).json({ message: "Error al generar el archivo Excel." });
   }
 };
+
+reportesPersonalController.getReportSecondJob = async (req, res) => {
+  try {
+
+    const plantilla = await query("PLANTILLA", { status: 1, "SEGUNDO_EMPLEO.SEGUNDO_TRABAJO": { $exists: true } });
+
+    if (!plantilla || plantilla.length === 0) {
+      return res.status(404).json({ message: "No hay registros de plantilla." });
+    }
+
+    // Crea el libro y la hoja
+    const ExcelJS = require("exceljs");
+    const moment = require("moment");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("PLANTILLA");
+
+    const columnas = [
+      { header: "N/P", key: "INDICE" },
+      { header: "NOMBRE", key: "NOMBRE_COMPLETO" },
+      { header: "NOMCATE", key: "NOMCATE" },
+      { header: "NUMEMP", key: "NUMEMP" },
+      { header: "RFC", key: "RFC" },
+      { header: "CURP", key: "CURP" },
+      { header: "ADSCRIPCIÓN", key: "ADSCRIPCION" },
+      { header: "OTRA FUENTE DE TRABAJO", key: "TRABAJO" },
+      { header: "OBSERVACIONES", key: "OBSERVACIONES" },
+    ];
+
+    worksheet.columns = columnas;
+    let indice = 1;
+    for (const item of plantilla) {
+      const fila = {
+        INDICE: indice++,
+        NOMBRE_COMPLETO: `${item.APE_PAT || ""} ${item.APE_MAT || ""} ${item.NOMBRES || ""}`.trim(),
+        NOMCATE: item.NOMCATE,
+        NUMEMP: item.NUMEMP,
+        RFC: item.RFC,
+        CURP: item.CURP,
+        ADSCRIPCION: item.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || item.ADSCRIPCION,
+        TRABAJO: item.SEGUNDO_EMPLEO?.TRABAJO || "",
+        OBSERVACIONES: item.SEGUNDO_EMPLEO?.OBSERVACIONES || "",
+      };
+
+      worksheet.addRow(fila);
+    };
+
+    worksheet.getRow(1).font = { bold: true };
+
+    // Genera el archivo y responde para descarga
+    const fileName = `PLANTILLA_SEGUNDOS_EMPLEO.xlsx`;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error al generar el archivo Excel:", error.message);
+    res.status(500).json({ message: "Error al generar el archivo Excel." });
+  }
+};
 module.exports = reportesPersonalController;

@@ -922,6 +922,54 @@ employeeController.afiliarSindicato = async (req, res) => {
   }
 }
 
+employeeController.addSecondJob = async (req, res) => {
+  const { _id, SEGUNDO_TRABAJO, TRABAJO, OBSERVACIONES } = req.body;
+  const { user } = req;
+  const currentDateTime = new Date().toLocaleString("es-MX", {
+    timeZone: "America/Mexico_City",
+  });
+
+  try {
+    // Verificar si el empleado existe
+    const employee = await query("PLANTILLA", { _id: new ObjectId(_id) });
+    if (!employee || employee.length === 0) {
+      return res.status(404).json({ message: "Empleado no encontrado" });
+    }
+
+    const update = SEGUNDO_TRABAJO
+      ? {
+        $set: {
+          SEGUNDO_EMPLEO: {
+            SEGUNDO_TRABAJO,
+            TRABAJO,
+            OBSERVACIONES,
+          },
+        },
+      }
+      : { $unset: { SEGUNDO_EMPLEO: "" } };
+
+    await updateOne(
+      "PLANTILLA",
+      { _id: new ObjectId(_id) },
+      update,
+    );
+
+    // Registrar la acción del usuario
+    const userAction = {
+      username: user.username,
+      module: "PSL-CE",
+      action: `AGREGÓ UN SEGUNDO EMPLEO AL EMPLEADO: "${employee[0].APE_PAT || ''} ${employee[0].APE_MAT || ''} ${employee[0].NOMBRES || ''}"`,
+      timestamp: currentDateTime,
+    };
+    await insertOne("USER_ACTIONS", userAction);
+    res.status(200).json({ message: "Empleado actualizado correctamente", _id });
+
+  } catch (error) {
+    console.error("Error al actualizar el empleado:", error);
+    res.status(500).json({ message: "Error al actualizar el empleado", error });
+  }
+}
+
 employeeController.getUnifiedProfileData = async (req, res) => {
   const { id } = req.params;
   const { user } = req;

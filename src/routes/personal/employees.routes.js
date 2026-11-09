@@ -69,6 +69,9 @@ router.put("/recategorizeEmployee", verifyToken, requirePermission(['PSL-REC']),
 // Ruta para afiliar o desafiliar a un empleado del sindicato
 router.post("/afiliarSindicato", verifyToken, requirePermission(['PSL-AS']), employeeController.afiliarSindicato);
 
+// Ruta para agregar un segundo empleo a un empleado
+router.post("/addSecondJob", verifyToken, requirePermission(['PSL-AST']), employeeController.addSecondJob);
+
 // Ruta para obtener las acciones de usuarios dentro del módulo de personal
 router.get("/getUserActionsPersonal", verifyToken, requireAnyPermission(), employeeController.getUserActionsPersonal);
 

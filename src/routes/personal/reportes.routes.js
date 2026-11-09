@@ -46,4 +46,7 @@ router.post("/compararExcelNomina", verifyToken, requirePermission(['PSL-CPN']),
 // Ruta para generar el reporte en excel para los usuarios de percepción de económicos
 router.get("/getPlantillaModuleRecepcionEcon", reportesPersonalController.getPlantillaModuleRecepcionEcon);
 
+// Ruta para generar y descargar el reporte de los empleaos que tienen un segundo empleo
+router.get("/getReportSecondJob", verifyToken, requirePermission(['PSL-RP']), reportesPersonalController.getReportSecondJob);
+
 module.exports = router;
