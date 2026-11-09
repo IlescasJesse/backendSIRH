@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.10.1 — 2026-11-09 · ARREGLO
+
+- Agregación de validaciones para añadir un segundo empleo y comentar los códigos relacionados al módulo de talón de pago — Isidro Noé Salvador Jiménez (`8906d4d`)
+
 ## v2.10.0 — 2026-11-09 · MENOR
 
 - Nuevas funciones para guardar la información de un segundo empleo al empleado, así como la función para generar el reporte de empleados que tienen ese segundo empleo conforme a lo requerido en el ticket #TEC-SIS-0022 — Isidro Noé Salvador Jiménez (`631750b`)
