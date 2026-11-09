@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.10.2 — 2026-11-09 · ARREGLO
+
+- Solución a detalle para no hacer requerido las observaciones al momento de agregar un segundo empleo al empleado — Isidro Noé Salvador Jiménez (`4e0e725`)
+
 ## v2.10.1 — 2026-11-09 · ARREGLO
 
 - Agregación de validaciones para añadir un segundo empleo y comentar los códigos relacionados al módulo de talón de pago — Isidro Noé Salvador Jiménez (`8906d4d`)
