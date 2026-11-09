@@ -923,26 +923,63 @@ employeeController.afiliarSindicato = async (req, res) => {
 }
 
 employeeController.addSecondJob = async (req, res) => {
-  const { _id, SEGUNDO_TRABAJO, TRABAJO, OBSERVACIONES } = req.body;
+  const { _id, SEGUNDO_TRABAJO, TRABAJO, OBSERVACIONES } = req.body || {};
+
+  if (typeof _id !== "string" || !ObjectId.isValid(_id)) {
+    return res.status(400).json({ message: "_id es inválido" });
+  }
+
+  if (typeof SEGUNDO_TRABAJO !== "boolean") {
+    return res.status(400).json({
+      message: "SEGUNDO_TRABAJO debe ser true o false",
+    });
+  }
+
+  let trabajo;
+  let observaciones = "";
+
+  if (SEGUNDO_TRABAJO) {
+    if (typeof TRABAJO !== "string" || !TRABAJO.trim()) {
+      return res.status(400).json({
+        message: "TRABAJO es obligatorio cuando hay un segundo empleo",
+      });
+    }
+
+    if (OBSERVACIONES !== undefined && typeof OBSERVACIONES !== "string") {
+      return res.status(400).json({
+        message: "OBSERVACIONES debe ser texto",
+      });
+    }
+
+    trabajo = TRABAJO.trim();
+    observaciones = OBSERVACIONES?.trim() || "";
+  }
+
   const { user } = req;
   const currentDateTime = new Date().toLocaleString("es-MX", {
     timeZone: "America/Mexico_City",
   });
 
   try {
-    // Verificar si el empleado existe
-    const employee = await query("PLANTILLA", { _id: new ObjectId(_id) });
+    const employee = await query("PLANTILLA", {
+      _id: new ObjectId(_id),
+    });
+
     if (!employee || employee.length === 0) {
       return res.status(404).json({ message: "Empleado no encontrado" });
     }
+
+    const teniaSegundoEmpleo = Boolean(
+      employee[0].SEGUNDO_EMPLEO?.SEGUNDO_TRABAJO,
+    );
 
     const update = SEGUNDO_TRABAJO
       ? {
         $set: {
           SEGUNDO_EMPLEO: {
-            SEGUNDO_TRABAJO,
-            TRABAJO,
-            OBSERVACIONES,
+            SEGUNDO_TRABAJO: true,
+            TRABAJO: trabajo,
+            OBSERVACIONES: observaciones,
           },
         },
       }
@@ -954,21 +991,32 @@ employeeController.addSecondJob = async (req, res) => {
       update,
     );
 
-    // Registrar la acción del usuario
-    const userAction = {
+    const nombre = `${employee[0].APE_PAT || ""} ${employee[0].APE_MAT || ""} ${employee[0].NOMBRES || ""}`.trim();
+    const accion = SEGUNDO_TRABAJO
+      ? teniaSegundoEmpleo
+        ? "ACTUALIZÓ EL SEGUNDO EMPLEO DEL EMPLEADO"
+        : "AGREGÓ UN SEGUNDO EMPLEO AL EMPLEADO"
+      : "ELIMINÓ EL SEGUNDO EMPLEO DEL EMPLEADO";
+
+    await insertOne("USER_ACTIONS", {
       username: user.username,
       module: "PSL-CE",
-      action: `AGREGÓ UN SEGUNDO EMPLEO AL EMPLEADO: "${employee[0].APE_PAT || ''} ${employee[0].APE_MAT || ''} ${employee[0].NOMBRES || ''}"`,
+      action: `${accion}: "${nombre}"`,
       timestamp: currentDateTime,
-    };
-    await insertOne("USER_ACTIONS", userAction);
-    res.status(200).json({ message: "Empleado actualizado correctamente", _id });
+    });
 
+    return res.status(200).json({
+      message: "Empleado actualizado correctamente",
+      _id,
+    });
   } catch (error) {
     console.error("Error al actualizar el empleado:", error);
-    res.status(500).json({ message: "Error al actualizar el empleado", error });
+    return res.status(500).json({
+      message: "Error al actualizar el empleado",
+      error,
+    });
   }
-}
+};
 
 employeeController.getUnifiedProfileData = async (req, res) => {
   const { id } = req.params;
