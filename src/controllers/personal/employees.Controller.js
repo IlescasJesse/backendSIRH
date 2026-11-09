@@ -945,11 +945,17 @@ employeeController.addSecondJob = async (req, res) => {
       });
     }
 
-    if (OBSERVACIONES !== undefined && typeof OBSERVACIONES !== "string") {
+    if (
+      OBSERVACIONES !== undefined &&
+      OBSERVACIONES !== null &&
+      typeof OBSERVACIONES !== "string"
+    ) {
       return res.status(400).json({
-        message: "OBSERVACIONES debe ser texto",
+        message: "OBSERVACIONES debe ser texto o null",
       });
     }
+
+    observaciones = OBSERVACIONES?.trim() || "";
 
     trabajo = TRABAJO.trim();
     observaciones = OBSERVACIONES?.trim() || "";
