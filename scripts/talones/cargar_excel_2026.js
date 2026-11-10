@@ -223,6 +223,7 @@ async function main() {
 
         if (actualIdx >= 0) {
           const actual = actuales[actualIdx];
+          if (actual.ORIGEN === ORIGEN) continue; // ya cargado en una corrida anterior
           const tocadoEnSirh = actual.STATUS !== STATUS.PENDIENTE || actual.PRESTAMO_ID || actual.ENTREGADO_POR;
           if (actual.STATUS === status && !tocadoEnSirh) continue;
           if (tocadoEnSirh) {
@@ -249,10 +250,13 @@ async function main() {
       if (push.length === 0 && Object.keys(sets).length === 0) continue;
       totales.empleados++;
       if (doc) {
-        const update = {};
-        if (Object.keys(sets).length) update.$set = sets;
-        if (push.length) update.$push = { TALONES: { $each: push } };
-        ops.push({ updateOne: { filter: { _id: doc._id }, update } });
+        // Mongo no permite $set y $push sobre TALONES en la misma operación.
+        if (Object.keys(sets).length) {
+          ops.push({ updateOne: { filter: { _id: doc._id }, update: { $set: sets } } });
+        }
+        if (push.length) {
+          ops.push({ updateOne: { filter: { _id: doc._id }, update: { $push: { TALONES: { $each: push } } } } });
+        }
       } else {
         ops.push({ insertOne: { document: { _idEmployee: emp._id, ...identidadEmpleado(emp), TALONES: push } } });
       }
@@ -300,8 +304,15 @@ async function main() {
     console.log(`Respaldo de TALONES (${todos.length} documentos): ${respaldo}`);
 
     if (ops.length > 0) {
-      const res = await db.collection("TALONES").bulkWrite(ops, { ordered: false });
-      console.log("Escrito:", { insertados: res.insertedCount, modificados: res.modifiedCount });
+      try {
+        const res = await db.collection("TALONES").bulkWrite(ops, { ordered: false });
+        console.log("Escrito:", { insertados: res.insertedCount, modificados: res.modifiedCount });
+      } catch (e) {
+        const errores = e.writeErrors || [];
+        console.error(`Fallaron ${errores.length} operaciones. Primera: ${errores[0]?.errmsg || e.message}`);
+        console.error(`Para deshacer, restaura TALONES desde ${respaldo}`);
+        process.exit(1);
+      }
     }
   });
   process.exit(0);
