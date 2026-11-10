@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.10.3 — 2026-11-10 · ARREGLO
+
+- Correción a funciones para entregar los talones de pago — Isidro Noé Salvador Jiménez (`0b2d858`)
+
 ## v2.10.2 — 2026-11-09 · ARREGLO
 
 - Solución a detalle para no hacer requerido las observaciones al momento de agregar un segundo empleo al empleado — Isidro Noé Salvador Jiménez (`4e0e725`)
