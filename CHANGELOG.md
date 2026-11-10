@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.11.1 — 2026-11-10 · ARREGLO
+
+- Separa $set y $push en la carga del Excel de talones — Jesse Ilescas (`a740160`)
+
 ## v2.11.0 — 2026-11-10 · MENOR
 
 - Agrega préstamo y regreso por lote y corrige seguridad en talones de pago — Jesse Ilescas (`f000442`)
