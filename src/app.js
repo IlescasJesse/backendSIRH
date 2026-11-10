@@ -1,3 +1,4 @@
+// app.js
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
@@ -19,6 +20,7 @@ const allowedOrigins = [
   "https://sirh.local",
   "https://172.31.246.60",
   "http://172.31.246.60",
+  "http://localhost:3000",
   ...(process.env.FRONTEND_URL || "").split(",").map((o) => o.trim()),
 ].filter(Boolean);
 

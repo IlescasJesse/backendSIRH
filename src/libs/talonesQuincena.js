@@ -11,12 +11,18 @@ function getQuincenaInfo(fechaBase = new Date()) {
   const anio = fechaMx.year();
   const ultimoDiaMes = fechaMx.clone().endOf("month").date();
 
-  const esQuincena1 = dia === 15;
+  // En mayo y diciembre se paga una sola vez: al cierre del mes.
+  const esQuincena1 = dia === 15 && mes !== 5 && mes !== 12;
   const esQuincena2 = dia === ultimoDiaMes;
   const esDiaPago = esQuincena1 || esQuincena2;
 
-  const quincenaDelMes = esDiaPago ? (esQuincena1 ? 1 : 2) : dia <= 15 ? 1 : 2;
-  const quincenaDelAnio = (mes - 1) * 2 + quincenaDelMes;
+  // Conserva la numeración calendario de 1 a 24; habrá 22 fechas de pago.
+  const quincenaDelMes = dia <= 15 ? 1 : 2;
+  const quincenaDelAnio =
+    (mes - 1) * 2 +
+    quincenaDelMes -
+    (mes >= 5 ? 1 : 0) -
+    (mes === 12 ? 1 : 0);
 
   return {
     fechaMx,
@@ -60,11 +66,14 @@ async function crearTalonesParaFecha({
         _idEmployee: empleado._id,
       });
 
+      const fechaPagoKey = info.fechaMx.format("YYYY-MM-DD");
+
       const nuevoTalon = {
         _id: new ObjectId(),
         QUIN: info.quincenaDelAnio,
+        YEAR: info.anio,
         FECHA_PAG: info.fechaPago,
-        STATUS: 2,
+        STATUS: 1,
         FOLIO: null,
       };
 
@@ -81,9 +90,17 @@ async function crearTalonesParaFecha({
         });
 
         if (empleadoActual.length > 0) {
-          const yaExiste = talonExistente[0].TALONES?.some(
-            (t) => Number(t.QUIN) === Number(info.quincenaDelAnio),
-          );
+          const yaExiste = talonExistente[0].TALONES?.some((talon) => {
+            if (talon.FECHA_PAG) {
+              return moment.tz(talon.FECHA_PAG, TIMEZONE).format("YYYY-MM-DD") === fechaPagoKey;
+            }
+
+            // Compatibilidad con registros sin FECHA_PAG.
+            return (
+              Number(talon.YEAR) === Number(info.anio) &&
+              Number(talon.QUIN) === Number(info.quincenaDelAnio)
+            );
+          });
 
           if (!yaExiste) {
             await updateOne(
@@ -127,7 +144,11 @@ function obtenerFechasPagoHasta(fechaLimite = new Date(), anio = null) {
       .endOf("month")
       .startOf("day");
 
-    if (primera.isSameOrBefore(limite)) {
+    if (
+      mes !== 5 &&
+      mes !== 12 &&
+      primera.isSameOrBefore(limite)
+    ) {
       fechas.push(primera.toDate());
     }
 

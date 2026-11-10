@@ -944,7 +944,7 @@ async function startAgenda() {
 
     // Crear talones - Día 15 de cada mes a las 08:00
     await agenda.every(
-      "0 8 15 * *",
+      "0 8 15 1-4,6-11 *",
       "crearTalones",
       {},
       {
