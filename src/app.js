@@ -19,8 +19,7 @@ const allowedOrigins = [
   "http://localhost:4200",
   "https://sirh.local",
   "https://172.31.246.60",
-  "http://172.31.246.60",
-  "http://localhost:3000",
+  // Otros orígenes (p. ej. de desarrollo) van en FRONTEND_URL del .env; no se permite el servidor por HTTP.
   ...(process.env.FRONTEND_URL || "").split(",").map((o) => o.trim()),
 ].filter(Boolean);
 
