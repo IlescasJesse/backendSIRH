@@ -2,6 +2,11 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.11.0 — 2026-11-10 · MENOR
+
+- Agrega préstamo y regreso por lote y corrige seguridad en talones de pago — Jesse Ilescas (`f000442`)
+- Restringe CORS al origen HTTPS del servidor en app.js — Jesse Ilescas (`c5a31ae`)
+
 ## v2.10.3 — 2026-11-10 · ARREGLO
 
 - Correción a funciones para entregar los talones de pago — Isidro Noé Salvador Jiménez (`0b2d858`)
