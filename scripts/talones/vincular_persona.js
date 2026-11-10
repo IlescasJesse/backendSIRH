@@ -4,6 +4,8 @@
 // nuevo. Los documentos de TALONES viejos solo guardan _idEmployee (la plaza),
 // así que se asignan a quien ocupa hoy la plaza. Desde ese momento, si entra
 // otra persona a la plaza, ya no verá esos talones.
+// También renumera los talones viejos del cron (QUIN 1-24 sin YEAR → 1-22).
+// Se puede correr varias veces: solo toca lo que falta.
 //
 // Uso (por defecto solo simula y no escribe nada):
 //   node scripts/talones/vincular_persona.js            → simulación
@@ -11,7 +13,13 @@
 // Usa MONGO_URI y DB del entorno (.env).
 require("dotenv").config();
 const { connect } = require("../../src/config/mongo");
-const { identidadEmpleado, COLECCIONES_EMPLEADOS } = require("../../src/libs/talonesQuincena");
+const moment = require("moment-timezone");
+const {
+  TIMEZONE,
+  identidadEmpleado,
+  getQuincenaInfo,
+  COLECCIONES_EMPLEADOS,
+} = require("../../src/libs/talonesQuincena");
 
 async function main() {
   const aplicar = process.argv.includes("--aplicar");
@@ -52,10 +60,39 @@ async function main() {
     resumen.vinculados++;
   }
 
+  // Talones viejos del cron: numeración 1-24, sin YEAR y a veces FECHA_PAG
+  // como texto. Se recalculan con la numeración actual (1-22) a partir de
+  // su fecha de pago.
+  const normalizados = { talones: 0, sinFecha: 0 };
+  const cursor = db.collection("TALONES").find(
+    { TALONES: { $elemMatch: { $or: [{ YEAR: { $exists: false } }, { FECHA_PAG: { $type: "string" } }] } } },
+    { projection: { "TALONES.IMAGE": 0, "TALONES.IMAGE_REGRESO": 0 } },
+  );
+  for await (const doc of cursor) {
+    const $set = {};
+    (doc.TALONES || []).forEach((t, i) => {
+      if (t.QUIN === "RETRO") return;
+      if (t.YEAR !== undefined && typeof t.FECHA_PAG !== "string") return;
+      const fecha = t.FECHA_PAG ? moment.tz(t.FECHA_PAG, TIMEZONE) : null;
+      if (!fecha || !fecha.isValid()) {
+        normalizados.sinFecha++;
+        return;
+      }
+      const info = getQuincenaInfo(fecha.toDate());
+      $set[`TALONES.${i}.QUIN`] = info.quincenaDelAnio;
+      $set[`TALONES.${i}.YEAR`] = info.anio;
+      $set[`TALONES.${i}.FECHA_PAG`] = info.fechaPago;
+      normalizados.talones++;
+    });
+    if (Object.keys($set).length) {
+      operaciones.push({ updateOne: { filter: { _id: doc._id }, update: { $set } } });
+    }
+  }
+
   if (aplicar && operaciones.length > 0) {
     await db.collection("TALONES").bulkWrite(operaciones, { ordered: false });
   }
-  console.log(resumen);
+  console.log({ ...resumen, talonesRenumerados: normalizados.talones, talonesSinFecha: normalizados.sinFecha });
   if (!aplicar) console.log("Simulación: no se escribió nada. Usa --aplicar para guardar.");
   process.exit(0);
 }
