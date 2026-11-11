@@ -13,6 +13,9 @@ router.get("/perfil-talon/:id", verifyToken, requirePermission(TP_CONSULTAR), ta
 router.get("/talones-pendientes-entregar", verifyToken, requirePermission(TP_CONSULTAR), talonesController.getAllTalonesPendintesEntregar);
 router.get("/talones-pendientes-regresar", verifyToken, requirePermission(TP_CONSULTAR), talonesController.getAllTalonesPendientesRegresar);
 router.post("/entregar-talon", verifyToken, requirePermission(TP_ENTREGAR), talonesController.uploadTalonImage);
+// Escaneo por hojas: leer una hoja (sin guardar) y entrega automática por escaneo.
+router.post("/analizar-hoja", verifyToken, requirePermission(TP_ENTREGAR), talonesController.analizarHoja);
+router.post("/entregar-escaneo", verifyToken, requirePermission(TP_ENTREGAR), talonesController.entregarEscaneo);
 router.post("/prestar-talon", verifyToken, requirePermission(TP_PRESTAR), talonesController.prestarTalon);
 router.post("/regresar-talon", verifyToken, requirePermission(TP_PRESTAR), talonesController.regresarTalon);
 

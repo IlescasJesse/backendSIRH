@@ -4,7 +4,9 @@ const moment = require("moment");
 const sharp = require("sharp");
 const Tesseract = require("tesseract.js");
 const { querysql } = require("../../config/mysql");
-const { filtroTalonesDe, talonesSonDe } = require("../../libs/talonesQuincena");
+const momentTz = require("moment-timezone");
+const { filtroTalonesDe, talonesSonDe, getQuincenaInfo, TIMEZONE } = require("../../libs/talonesQuincena");
+const { analizarHojaTalon, recortarContenido, coincidenciaNombre } = require("../../libs/talonOcr");
 const { guardarImagenTalon, borrarImagenesTalon, hidratarImagenes } = require("../../libs/talonesImagenes");
 
 // Estados de un talón (TALONES[].STATUS), igual que en el front (perfil-talon):
@@ -108,6 +110,7 @@ const buscarTalon = async (talonObjectId) => {
     {
       $project: {
         _idEmployee: 1,
+        NUMEMP: 1,
         talon: {
           $arrayElemAt: [
             {
@@ -480,99 +483,370 @@ talonesController.getAllTalonesPendintesEntregar = async (req, res) => {
   }
 };
 
-// Realizar la entrega del talón de pago (PENDIENTE → ENTREGADO)
-talonesController.uploadTalonImage = async (req, res) => {
-  const { _idTalon, image } = req.body || {};
-  const user = req.user;
-  const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+// ---------------------------------------------------------------------------
+// Entrega con hojas escaneadas (escáner de hoja, p. ej. Brother DS-640).
+// Un talón trae de 1 a 4 hojas: las intermedias con NETO .00 y la última con
+// el NETO real y la firma. Ver libs/talonOcr.js.
+// ---------------------------------------------------------------------------
+const MAX_HOJAS_TALON = 4;
+const EXIGIR_TINTA_AZUL = process.env.TALONES_EXIGIR_TINTA_AZUL === "1";
+const fechaMx = (valor) => momentTz.tz(valor, TIMEZONE).format("YYYY-MM-DD");
+const fallo = (status, body) => ({ error: { status, body } });
 
-  if (!_idTalon || !image) {
-    return res.status(400).send({
-      codigo: "DATOS_INCOMPLETOS",
-      error: "Faltan datos para procesar el talón de pago."
-    });
+// `images` (lista de hojas) o `image` (una sola) del body.
+const hojasDelBody = ({ images, image } = {}) => {
+  const hojas = Array.isArray(images) ? images : image ? [image] : [];
+  if (hojas.length === 0 || hojas.length > MAX_HOJAS_TALON) {
+    return { error: `Envía de 1 a ${MAX_HOJAS_TALON} hojas del talón.` };
+  }
+  if (hojas.some((h) => typeof h !== "string" || h.length > MAX_IMAGE_BASE64_LENGTH)) {
+    return { error: "Alguna hoja no es una imagen válida o supera los 10 MB." };
+  }
+  return { hojas };
+};
+
+// Une las hojas (ya recortadas al contenido) en una sola imagen JPEG.
+const unirHojas = async (recortes) => {
+  const partes = await Promise.all(
+    recortes.map((r) => sharp(r).resize({ width: STORED_IMAGE_MAX_WIDTH }).jpeg().toBuffer({ resolveWithObject: true })),
+  );
+  const alto = partes.reduce((s, p) => s + p.info.height, 0);
+  let y = 0;
+  const capas = partes.map((p) => {
+    const capa = { input: p.data, left: 0, top: y };
+    y += p.info.height;
+    return capa;
+  });
+  return sharp({ create: { width: STORED_IMAGE_MAX_WIDTH, height: alto, channels: 3, background: "#ffffff" } })
+    .composite(capas)
+    .jpeg({ quality: STORED_IMAGE_QUALITY, mozjpeg: true })
+    .toBuffer();
+};
+
+// Lee y valida las hojas. Regresa { legado: true } si es una sola imagen con
+// otro formato (escáner de cama): se valida como antes con procesarImagenTalon.
+const validarHojasTalon = async (hojas) => {
+  const analisis = [];
+  for (const hoja of hojas) {
+    try {
+      analisis.push(await analizarHojaTalon(hoja));
+    } catch {
+      return fallo(400, { codigo: "IMAGEN_INVALIDA", error: "Alguna hoja no es una imagen válida." });
+    }
+  }
+  if (analisis.some((a) => !a.reconocido)) {
+    if (hojas.length === 1) return { legado: true };
+    const hoja = analisis.findIndex((a) => !a.reconocido) + 1;
+    return fallo(422, { codigo: "HOJA_NO_RECONOCIDA", hoja, error: `No se reconoció el formato del talón en la hoja ${hoja}. Vuelve a escanearla.` });
   }
 
-  if (typeof _idTalon !== "string" || !ObjectId.isValid(_idTalon)) {
-    return res.status(400).send({
-      codigo: "TALON_ID_INVALIDO",
-      error: "El identificador del talón de pago no es válido."
+  const enHoja = (i) => (hojas.length > 1 ? ` (hoja ${i + 1})` : "");
+  const iEmpleado = analisis.findIndex((a) => a.copia === "EMPLEADO");
+  if (iEmpleado >= 0) {
+    return fallo(422, { codigo: "TALON_CONTIENE_EMPLEADO", hoja: iEmpleado + 1, error: `Es la copia del EMPLEADO${enHoja(iEmpleado)}. Escanea la copia del PAGADOR.` });
+  }
+  if (!analisis.some((a) => a.copia === "PAGADOR")) {
+    return fallo(422, { codigo: "TALON_SIN_PAGADOR", error: 'No se identificó la leyenda "PAGADOR" en el talón.' });
+  }
+
+  // La fecha de pago debe ser la misma en todas las hojas. El número de
+  // empleado se vota entre todas las lecturas de todas las hojas.
+  if (new Set(analisis.map((a) => a.fechaPago).filter(Boolean)).size > 1) {
+    return fallo(422, { codigo: "HOJAS_DE_DISTINTOS_TALONES", error: "Las hojas no son del mismo talón (cambia el empleado o la fecha de pago)." });
+  }
+
+  const ultima = analisis[analisis.length - 1];
+  const iConNeto = analisis.findIndex((a) => a.esUltimaHoja);
+  if (iConNeto >= 0 && iConNeto < analisis.length - 1) {
+    return fallo(422, { codigo: "HOJAS_DE_MAS", hoja: iConNeto + 1, error: `La hoja ${iConNeto + 1} ya trae el NETO; sobran las hojas siguientes.` });
+  }
+  if (!ultima.esUltimaHoja) {
+    if (hojas.length >= MAX_HOJAS_TALON) {
+      return fallo(422, { codigo: "NETO_NO_LEIDO", error: "No se pudo leer el NETO en la última hoja. Vuelve a escanearla." });
+    }
+    return fallo(422, {
+      codigo: "FALTAN_HOJAS",
+      hojasLeidas: hojas.length,
+      error: `El talón continúa (NETO en .00). Escanea la hoja ${hojas.length + 1}.`,
     });
+  }
+  if (!ultima.firma.detectada) {
+    return fallo(422, { codigo: "TALON_SIN_FIRMA", error: "No se detectó la firma del empleado en la última hoja." });
+  }
+  if (EXIGIR_TINTA_AZUL && ultima.firma.porcentajeAzul < 30) {
+    return fallo(422, { codigo: "TALON_TINTA_NO_AZUL", error: "La firma no es de tinta azul: escanea el original firmado." });
+  }
+
+  const dato = (campo) => analisis.map((a) => a[campo]).find(Boolean) || null;
+  const totalVotos = {};
+  for (const a of analisis) {
+    for (const [n, v] of Object.entries(a.numempVotos || {})) totalVotos[n] = (totalVotos[n] || 0) + v;
+  }
+  const candidatos = Object.entries(totalVotos).sort((x, y) => y[1] - x[1]).map(([n]) => n);
+  const datos = {
+    numemp: candidatos[0] || null,
+    numempCandidatos: candidatos,
+    texto: analisis.map((a) => a.texto).join(" "),
+    fechaPago: dato("fechaPago"),
+    desde: dato("desde"),
+    hasta: dato("hasta"),
+    neto: ultima.neto,
+  };
+  if (!datos.numemp || !datos.fechaPago) {
+    return fallo(422, { codigo: "DATOS_NO_LEIDOS", error: "No se pudo leer el número de empleado o la fecha de pago. Vuelve a escanear." });
+  }
+  const recortes = [];
+  for (const hoja of hojas) {
+    recortes.push((await recortarContenido(Buffer.from(hoja.replace(/^data:[^,]*,/, ""), "base64"))).recorte);
+  }
+  return { datos, hojas: analisis.length, storedBuffer: await unirHojas(recortes) };
+};
+
+// La quincena que dice el talón (fecha de pago y periodo DESDE/HASTA).
+const quincenaDeHojas = (datos) => {
+  const info = getQuincenaInfo(momentTz.tz(datos.fechaPago, TIMEZONE).toDate());
+  return { QUIN: info.quincenaDelAnio, YEAR: info.anio, inicio: fechaMx(info.inicioPeriodo), pago: fechaMx(info.fechaPago) };
+};
+
+// ¿Las hojas son de este empleado? Se exige el nombre impreso y, si el número
+// leído no coincide (el OCR confunde 9 y 7), el nombre completo.
+const esDelEmpleado = (datos, emp) => {
+  if (!emp) return true;
+  const nombre = coincidenciaNombre(datos.texto, emp);
+  const numempOk = emp.NUMEMP != null && datos.numempCandidatos.includes(String(emp.NUMEMP).trim());
+  return numempOk ? nombre >= 0.66 : nombre === 1;
+};
+
+// Compara lo leído con el talón y su dueño.
+const verificarHojasContraTalon = (datos, talon, dueno) => {
+  if (!esDelEmpleado(datos, dueno)) {
+    return fallo(422, { codigo: "TALON_DE_OTRO_EMPLEADO", error: `El talón escaneado es de otro empleado (No. ${datos.numemp || "?"}).` });
+  }
+  const q = quincenaDeHojas(datos);
+  if (Number(talon.YEAR) !== q.YEAR || Number(talon.QUIN) !== q.QUIN) {
+    return fallo(422, {
+      codigo: "QUINCENA_NO_COINCIDE",
+      error: `El talón escaneado es de la quincena ${q.QUIN}/${q.YEAR} (pago ${datos.fechaPago}), no de la ${talon.QUIN}/${talon.YEAR}.`,
+      leida: { QUIN: q.QUIN, YEAR: q.YEAR, fechaPago: datos.fechaPago, desde: datos.desde, hasta: datos.hasta },
+    });
+  }
+  // Verificación del periodo impreso: HASTA = fecha de pago y DESDE dentro de la quincena.
+  if ((datos.hasta && datos.hasta !== q.pago) || (datos.desde && (datos.desde < q.inicio || datos.desde > q.pago))) {
+    return fallo(422, {
+      codigo: "PERIODO_NO_COINCIDE",
+      error: `El periodo del talón (${datos.desde || "?"} a ${datos.hasta || "?"}) no corresponde a la quincena ${q.QUIN}/${q.YEAR}.`,
+      leida: { desde: datos.desde, hasta: datos.hasta },
+      esperada: { desde: q.inicio, hasta: q.pago },
+    });
+  }
+  return {};
+};
+
+// Empleado activo de las hojas: por los números leídos y confirmando el nombre.
+const empleadoDeHojas = async (datos) => {
+  const numeros = datos.numempCandidatos.flatMap((n) => [n, Number(n)]);
+  const emps = await buscarEmpleado({ NUMEMP: { $in: numeros }, status: 1 });
+  return emps.filter((e) => esDelEmpleado(datos, e));
+};
+
+const buscarEmpleado = async (filtro) => {
+  const [p = [], f = []] = await Promise.all([
+    find("PLANTILLA", filtro, { NOMBRES: 1, APE_PAT: 1, APE_MAT: 1, NUMEMP: 1, RFC: 1, status: 1 }),
+    find("PLANTILLA_FORANEA", filtro, { NOMBRES: 1, APE_PAT: 1, APE_MAT: 1, NUMEMP: 1, RFC: 1, status: 1 }),
+  ]);
+  return [...p, ...f];
+};
+
+// Guarda la imagen y pasa el talón de PENDIENTE a ENTREGADO (solo si sigue pendiente).
+const registrarEntrega = async ({ docId, empleadoId, talon, storedBuffer, user, hojas }) => {
+  const imageId = await guardarImagenTalon(storedBuffer, {
+    talonId: talon._id,
+    empleadoId,
+    tipo: "ENTREGA",
+    hojas,
+    subidoPor: user.username,
+    fecha: new Date(),
+  });
+  const result = await (await connect()).collection("TALONES").updateOne(
+    { _id: docId, TALONES: { $elemMatch: { _id: talon._id, STATUS: TALON_STATUS.PENDIENTE } } },
+    {
+      $set: {
+        "TALONES.$.IMAGE_ID": imageId,
+        "TALONES.$.STATUS": TALON_STATUS.ENTREGADO,
+        "TALONES.$.FECHA_ENTREGA": new Date(),
+        "TALONES.$.ENTREGADO_POR": user.username,
+        ...(hojas ? { "TALONES.$.HOJAS": hojas } : {}),
+      },
+    },
+  );
+  if (result.matchedCount === 0) {
+    await borrarImagenesTalon([imageId]);
+    return false;
+  }
+  await insertOne("USER_ACTIONS", {
+    username: user.username,
+    module: "TP",
+    action: `HIZO LA ENTREGA DEL TALÓN DE PAGO DE LA QUINCENA ${talon.QUIN} DEL AÑO ${talon.YEAR} AL EMPLEADO`,
+    timestamp: moment().format("YYYY-MM-DD HH:mm:ss"),
+  });
+  return true;
+};
+
+const errorInterno = (res, error, texto) => {
+  console.error(texto, error.message);
+  const response = { codigo: "ERROR_INTERNO", error: "Ocurrió un error al procesar el talón de pago." };
+  if (process.env.NODE_ENV !== "production") response.details = error.message;
+  return res.status(500).send(response);
+};
+
+const NO_PENDIENTE = { codigo: "TALON_NO_PENDIENTE", error: "El talón de pago ya fue entregado o está prestado." };
+
+// Realizar la entrega del talón de pago (PENDIENTE → ENTREGADO).
+// Body: { _idTalon, image } o { _idTalon, images: [hoja1, ..., hoja4] }.
+talonesController.uploadTalonImage = async (req, res) => {
+  const { _idTalon } = req.body || {};
+  const user = req.user;
+  const entrada = hojasDelBody(req.body);
+
+  if (!_idTalon || entrada.error) {
+    return res.status(400).send({ codigo: "DATOS_INCOMPLETOS", error: entrada.error || "Faltan datos para procesar el talón de pago." });
+  }
+  if (typeof _idTalon !== "string" || !ObjectId.isValid(_idTalon)) {
+    return res.status(400).send({ codigo: "TALON_ID_INVALIDO", error: "El identificador del talón de pago no es válido." });
   }
 
   try {
     const talonObjectId = new ObjectId(_idTalon);
     const encontrado = await buscarTalon(talonObjectId);
-
     if (!encontrado) {
-      return res.status(404).send({
-        codigo: "TALON_NO_ENCONTRADO",
-        error: "No se encontró el talón de pago solicitado."
-      });
+      return res.status(404).send({ codigo: "TALON_NO_ENCONTRADO", error: "No se encontró el talón de pago solicitado." });
     }
-
     const { talon } = encontrado;
-    if (talon.STATUS !== TALON_STATUS.PENDIENTE) {
-      return res.status(409).send({
-        codigo: "TALON_NO_PENDIENTE",
-        error: "El talón de pago ya fue entregado o está prestado."
-      });
+    if (talon.STATUS !== TALON_STATUS.PENDIENTE) return res.status(409).send(NO_PENDIENTE);
+
+    const v = await validarHojasTalon(entrada.hojas);
+    if (v.error) return res.status(v.error.status).send(v.error.body);
+
+    let storedBuffer = v.storedBuffer;
+    if (v.legado) {
+      const procesada = await procesarImagenTalon(entrada.hojas[0]);
+      if (!procesada.storedBuffer) return res.status(procesada.status).send(procesada.body);
+      storedBuffer = procesada.storedBuffer;
+    } else {
+      const [dueno] = await buscarEmpleado({ _id: encontrado._idEmployee });
+      const chequeo = verificarHojasContraTalon(v.datos, talon, dueno);
+      if (chequeo.error) return res.status(chequeo.error.status).send(chequeo.error.body);
     }
 
-    const procesada = await procesarImagenTalon(image);
-    if (!procesada.storedBuffer) {
-      return res.status(procesada.status).send(procesada.body);
-    }
-    const imageId = await guardarImagenTalon(procesada.storedBuffer, {
-      talonId: talonObjectId,
+    const ok = await registrarEntrega({
+      docId: encontrado._id,
       empleadoId: encontrado._idEmployee,
-      tipo: "ENTREGA",
-      subidoPor: user.username,
-      fecha: new Date(),
+      talon: { ...talon, _id: talonObjectId },
+      storedBuffer,
+      user,
+      hojas: v.legado ? null : v.hojas,
     });
-
-    // Solo actualiza si el talón sigue PENDIENTE (evita entregas dobles simultáneas).
-    const result = await (await connect()).collection("TALONES").updateOne(
-      {
-        _id: encontrado._id,
-        TALONES: { $elemMatch: { _id: talonObjectId, STATUS: TALON_STATUS.PENDIENTE } },
-      },
-      {
-        $set: {
-          "TALONES.$.IMAGE_ID": imageId,
-          "TALONES.$.STATUS": TALON_STATUS.ENTREGADO,
-          "TALONES.$.FECHA_ENTREGA": new Date(),
-          "TALONES.$.ENTREGADO_POR": user.username,
-        },
-      }
-    );
-
-    if (result.matchedCount === 0) {
-      await borrarImagenesTalon([imageId]);
-      return res.status(409).send({
-        codigo: "TALON_NO_PENDIENTE",
-        error: "El talón de pago ya fue entregado o está prestado."
-      });
-    }
-
-    await insertOne("USER_ACTIONS", {
-      username: user.username,
-      module: "TP",
-      action: `HIZO LA ENTREGA DEL TALÓN DE PAGO DE LA QUINCENA ${talon.QUIN} DEL AÑO ${talon.YEAR} AL EMPLEADO`,
-      timestamp: currentDateTime,
-    });
+    if (!ok) return res.status(409).send(NO_PENDIENTE);
 
     res.status(200).send({ message: "Imagen guardada correctamente en el talón.", _id: encontrado._idEmployee });
   } catch (error) {
-    console.error("Error al subir imagen al talón:", error.message);
-    const response = {
-      codigo: "ERROR_INTERNO",
-      error: "Ocurrió un error al procesar el talón de pago."
+    return errorInterno(res, error, "Error al subir imagen al talón:");
+  }
+};
+
+// Lee una hoja escaneada sin guardar nada. El front la usa después de cada
+// hoja para saber si el talón continúa (FALTAN hojas) y de quién es.
+// Body: { image }.
+talonesController.analizarHoja = async (req, res) => {
+  const entrada = hojasDelBody({ image: req.body?.image });
+  if (entrada.error) return res.status(400).send({ codigo: "DATOS_INCOMPLETOS", error: entrada.error });
+  try {
+    const a = await analizarHojaTalon(entrada.hojas[0]);
+    if (!a.reconocido) return res.status(200).send({ reconocido: false, motivo: a.motivo });
+    const respuesta = {
+      reconocido: true,
+      copia: a.copia,
+      numemp: a.numemp,
+      fechaPago: a.fechaPago,
+      desde: a.desde,
+      hasta: a.hasta,
+      neto: a.neto,
+      esUltimaHoja: a.esUltimaHoja,
+      firmaDetectada: a.firma.detectada,
+      tintaAzul: a.firma.porcentajeAzul >= 30,
     };
-    if (process.env.NODE_ENV !== "production") {
-      response.details = error.message;
+    if (a.fechaPago) {
+      const q = quincenaDeHojas(a);
+      respuesta.quincena = { QUIN: q.QUIN, YEAR: q.YEAR };
     }
-    return res.status(500).send(response);
+    if (a.numemp) {
+      const candidatos = Object.entries(a.numempVotos || {}).sort((x, y) => y[1] - x[1]).map(([n]) => n);
+      const emps = await empleadoDeHojas({ numempCandidatos: candidatos, texto: a.texto });
+      if (emps.length === 1) respuesta.empleado = { _id: emps[0]._id, NOMBRE: nombreEmpleado(emps[0]), NUMEMP: emps[0].NUMEMP };
+    }
+    return res.status(200).send(respuesta);
+  } catch (error) {
+    return errorInterno(res, error, "Error al analizar hoja del talón:");
+  }
+};
+
+// Entrega automática: con solo escanear las hojas se identifica al empleado
+// (No. único) y la quincena (fecha de pago), y el talón pasa a ENTREGADO.
+// Body: { images: [hoja1, ..., hoja4] } (o { image }).
+talonesController.entregarEscaneo = async (req, res) => {
+  const user = req.user;
+  const entrada = hojasDelBody(req.body);
+  if (entrada.error) return res.status(400).send({ codigo: "DATOS_INCOMPLETOS", error: entrada.error });
+
+  try {
+    const v = await validarHojasTalon(entrada.hojas);
+    if (v.error) return res.status(v.error.status).send(v.error.body);
+    if (v.legado) {
+      return res.status(422).send({ codigo: "HOJA_NO_RECONOCIDA", error: "No se reconoció el formato del talón. Entrégalo desde el perfil del empleado." });
+    }
+
+    const emps = await empleadoDeHojas(v.datos);
+    if (emps.length === 0) {
+      return res.status(404).send({ codigo: "EMPLEADO_NO_ENCONTRADO", numemp: v.datos.numemp, error: `No se encontró un empleado activo con el número ${v.datos.numemp} y el nombre del talón. Entrégalo desde su perfil.` });
+    }
+    if (emps.length > 1) {
+      return res.status(409).send({ codigo: "EMPLEADO_DUPLICADO", numemp: v.datos.numemp, error: `Hay más de un empleado activo con el número ${v.datos.numemp}. Entrégalo desde su perfil.` });
+    }
+    const emp = emps[0];
+    const q = quincenaDeHojas(v.datos);
+    const docs = await find("TALONES", filtroTalonesDe(emp), { "TALONES.IMAGE": 0, "TALONES.IMAGE_REGRESO": 0 });
+    let doc = null;
+    let talon = null;
+    for (const d of docs) {
+      const t = (d.TALONES || []).find((x) =>
+        x.FECHA_PAG
+          ? fechaMx(x.FECHA_PAG) === q.pago
+          : Number(x.YEAR) === q.YEAR && Number(x.QUIN) === q.QUIN);
+      if (t) { doc = d; talon = t; break; }
+    }
+    const empleado = { _id: emp._id, NOMBRE: nombreEmpleado(emp), NUMEMP: emp.NUMEMP };
+    if (!talon) {
+      return res.status(404).send({ codigo: "TALON_NO_ENCONTRADO", empleado, quincena: { QUIN: q.QUIN, YEAR: q.YEAR }, error: `${empleado.NOMBRE} no tiene registrado el talón de la quincena ${q.QUIN}/${q.YEAR}.` });
+    }
+    const datosTalon = { _id: talon._id, QUIN: talon.QUIN, YEAR: talon.YEAR, STATUS: talon.STATUS };
+    if (talon.STATUS !== TALON_STATUS.PENDIENTE) {
+      return res.status(409).send({ ...NO_PENDIENTE, empleado, talon: datosTalon });
+    }
+    const chequeo = verificarHojasContraTalon(v.datos, talon, emp);
+    if (chequeo.error) return res.status(chequeo.error.status).send({ ...chequeo.error.body, empleado });
+
+    const ok = await registrarEntrega({ docId: doc._id, empleadoId: emp._id, talon, storedBuffer: v.storedBuffer, user, hojas: v.hojas });
+    if (!ok) return res.status(409).send({ ...NO_PENDIENTE, empleado, talon: datosTalon });
+
+    res.status(200).send({
+      message: `Talón de la quincena ${talon.QUIN}/${talon.YEAR} entregado a ${empleado.NOMBRE}.`,
+      empleado,
+      talon: { ...datosTalon, STATUS: TALON_STATUS.ENTREGADO },
+      hojas: v.hojas,
+      neto: v.datos.neto,
+    });
+  } catch (error) {
+    return errorInterno(res, error, "Error en la entrega por escaneo:");
   }
 };
 
@@ -604,6 +878,7 @@ const revisarTalones = async (ids, estadosPermitidos) => {
     {
       $project: {
         _idEmployee: 1,
+        NUMEMP: 1,
         TALONES: {
           $map: {
             input: {
@@ -783,14 +1058,15 @@ talonesController.prestarTalon = async (req, res) => {
 // original firmado; la copia se queda con el empleado.
 // Qué regresar: `PRESTAMO_ID` (todo lo que siga prestado de ese préstamo),
 // `_ids` (lote, mismo empleado) o `_id` (uno). Todo o nada.
-// Imágenes: `imagenes: [{ _id, image }]`, o `image` cuando es un solo talón.
+// Imágenes: `imagenes: [{ _id, image }]` o `[{ _id, images: [hoja1..hoja4] }]`,
+// o `image` / `images` cuando es un solo talón.
 // - Un talón prestado sin haberse entregado (sin IMAGE) necesita la imagen del
 //   original firmado; se valida igual que en entregar-talon y queda como IMAGE_ID.
 // - Si ya tenía imagen, la nueva es opcional y se guarda como IMAGE_REGRESO_ID.
 // Los datos del préstamo y del regreso se agregan a HISTORIAL_PRESTAMOS.
 talonesController.regresarTalon = async (req, res) => {
   const body = req.body || {};
-  const { PRESTAMO_ID, FECHA_REGRESO, NOMBRE_ENTREGA, OBSERVACIONES, image, imagenes } = body;
+  const { PRESTAMO_ID, FECHA_REGRESO, NOMBRE_ENTREGA, OBSERVACIONES, image, images, imagenes } = body;
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
@@ -807,9 +1083,13 @@ talonesController.regresarTalon = async (req, res) => {
   if (!textoOpcional(OBSERVACIONES, 1000)) {
     return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: "OBSERVACIONES debe ser texto de hasta 1000 caracteres." });
   }
+  const hojasValidas = (i) => !hojasDelBody(i).error;
   if (imagenes !== undefined && (!Array.isArray(imagenes) || imagenes.length > MAX_TALONES_LOTE ||
-    !imagenes.every((i) => i && typeof i._id === "string" && ObjectId.isValid(i._id) && typeof i.image === "string"))) {
-    return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: "imagenes debe ser una lista de { _id, image }." });
+    !imagenes.every((i) => i && typeof i._id === "string" && ObjectId.isValid(i._id) && hojasValidas(i)))) {
+    return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: `imagenes debe ser una lista de { _id, image } o { _id, images } (1 a ${MAX_HOJAS_TALON} hojas).` });
+  }
+  if ((image !== undefined || images !== undefined) && !hojasValidas({ image, images })) {
+    return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: hojasDelBody({ image, images }).error });
   }
 
   try {
@@ -861,9 +1141,10 @@ talonesController.regresarTalon = async (req, res) => {
       ids = leidos.ids;
     }
 
-    const imagenPorId = new Map((imagenes || []).map((i) => [String(i._id), i.image]));
-    if (image && ids.length === 1 && !imagenPorId.has(String(ids[0]))) {
-      imagenPorId.set(String(ids[0]), image);
+    // Hojas escaneadas por talón (una o varias).
+    const imagenPorId = new Map((imagenes || []).map((i) => [String(i._id), hojasDelBody(i).hojas]));
+    if ((image || images) && ids.length === 1 && !imagenPorId.has(String(ids[0]))) {
+      imagenPorId.set(String(ids[0]), hojasDelBody({ image, images }).hojas);
     }
 
     // 2) Que todos sigan prestados y sean del mismo empleado.
@@ -894,14 +1175,27 @@ talonesController.regresarTalon = async (req, res) => {
     }
 
     const guardadas = new Map();
+    let duenoRegreso;
     for (const talon of talones) {
-      const img = imagenPorId.get(String(talon._id));
-      if (!img) continue;
-      const procesada = await procesarImagenTalon(img);
-      if (!procesada.storedBuffer) {
-        return res.status(procesada.status).send({ ...procesada.body, _id: talon._id, QUIN: talon.QUIN, YEAR: talon.YEAR });
+      const hojas = imagenPorId.get(String(talon._id));
+      if (!hojas) continue;
+      const deTalon = { _id: talon._id, QUIN: talon.QUIN, YEAR: talon.YEAR };
+      const v = await validarHojasTalon(hojas);
+      if (v.error) return res.status(v.error.status).send({ ...v.error.body, ...deTalon });
+      if (v.legado) {
+        const procesada = await procesarImagenTalon(hojas[0]);
+        if (!procesada.storedBuffer) {
+          return res.status(procesada.status).send({ ...procesada.body, ...deTalon });
+        }
+        guardadas.set(String(talon._id), procesada.storedBuffer);
+        continue;
       }
-      guardadas.set(String(talon._id), procesada.storedBuffer);
+      if (duenoRegreso === undefined) {
+        [duenoRegreso = null] = await buscarEmpleado({ _id: doc._idEmployee });
+      }
+      const chequeo = verificarHojasContraTalon(v.datos, talon, duenoRegreso);
+      if (chequeo.error) return res.status(chequeo.error.status).send({ ...chequeo.error.body, ...deTalon });
+      guardadas.set(String(talon._id), v.storedBuffer);
     }
 
     // Las imágenes ya validadas se suben a GridFS; si algo falla después se borran.
