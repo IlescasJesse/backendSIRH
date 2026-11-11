@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.11.4 — 2026-11-11 · ARREGLO
+
+- Guarda las imágenes de talones en GridFS en lugar de base64 dentro del documento — Jesse Ilescas (`ce0c8e7`)
+
 ## v2.11.3 — 2026-11-10 · ARREGLO
 
 - Alinea los estados de talones con el front y regresa campos del perfil — Jesse Ilescas (`0e762cf`)
