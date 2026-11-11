@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.11.3 — 2026-11-10 · ARREGLO
+
+- Alinea los estados de talones con el front y regresa campos del perfil — Jesse Ilescas (`0e762cf`)
+
 ## v2.11.2 — 2026-11-10 · ARREGLO
 
 - Renumera los talones viejos del cron en vincular_persona.js — Jesse Ilescas (`ebb24aa`)
