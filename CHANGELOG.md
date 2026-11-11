@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.12.1 — 2026-11-11 · ARREGLO
+
+- Mejorar la lectura de talones con impresión tenue y la verificación de quincena por periodo — Jesse Ilescas (`b99b5fa`)
+
 ## v2.12.0 — 2026-11-11 · MENOR
 
 - Agregar entrega de talones por escaneo de varias hojas con verificación de quincena — Jesse Ilescas (`444e395`)
