@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.12.0 — 2026-11-11 · MENOR
+
+- Agregar entrega de talones por escaneo de varias hojas con verificación de quincena — Jesse Ilescas (`444e395`)
+
 ## v2.11.4 — 2026-11-11 · ARREGLO
 
 - Guarda las imágenes de talones en GridFS en lugar de base64 dentro del documento — Jesse Ilescas (`ce0c8e7`)
