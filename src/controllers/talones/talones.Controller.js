@@ -3,18 +3,18 @@ const { ObjectId } = require("mongodb");
 const moment = require("moment");
 const sharp = require("sharp");
 const Tesseract = require("tesseract.js");
+const { querysql } = require("../../config/mysql");
 const { filtroTalonesDe, talonesSonDe } = require("../../libs/talonesQuincena");
 
-// Estados de un talón (TALONES[].STATUS). Es la numeración que ya usan
-// los datos guardados y el front:
-//   2 = PENDIENTE de entregar (así lo crea libs/talonesQuincena)
-//   1 = ENTREGADO (firmado, con IMAGE)
-//   3 = PRESTADO (un talón entregado que se prestó y falta regresar)
+// Estados de un talón (TALONES[].STATUS), igual que en el front (perfil-talon):
+//   1 = PENDIENTE de entregar (así lo crea libs/talonesQuincena)
+//   2 = ENTREGADO / disponible para préstamo (firmado, con IMAGE)
+//   3 = PRESTADO (pendiente de regresar)
 // Transiciones permitidas:
 //   PENDIENTE → ENTREGADO             (entregar-talon, con imagen firmada)
 //   PENDIENTE o ENTREGADO → PRESTADO  (prestar-talon)
 //   PRESTADO → ENTREGADO              (regresar-talon; el original vuelve firmado)
-const TALON_STATUS = { ENTREGADO: 1, PENDIENTE: 2, PRESTADO: 3 };
+const TALON_STATUS = { PENDIENTE: 1, ENTREGADO: 2, PRESTADO: 3 };
 
 // Logs de OCR solo cuando se activa a propósito (nunca en producción por defecto).
 const TALONES_DEBUG = process.env.TALONES_DEBUG === "1";
@@ -43,6 +43,9 @@ const EMPLEADO_PERFIL_PROJECTION = {
   SEXO: 1,
   VACACIONES: 1,
   ID_BITACORA: 1,
+  ID_CTRL_ASIST: 1,
+  FECHA_INGRESO: 1,
+  SINDICATO: 1,
 };
 
 const EMPLEADO_LISTA_PROJECTION = {
@@ -381,18 +384,32 @@ talonesController.getProfile = async (req, res) => {
 
     // De la bitácora la pantalla solo usa la sección de talón. Los talones son
     // solo los de quien ocupa hoy la plaza.
-    const [bitacora, talonesDoc] = await Promise.all([
+    // Incapacidades y permisos: la pantalla avisa si hay uno activo hoy.
+    const ctrlAsist = emp.ID_CTRL_ASIST && ObjectId.isValid(String(emp.ID_CTRL_ASIST))
+      ? new ObjectId(String(emp.ID_CTRL_ASIST))
+      : null;
+    const [bitacora, talonesDoc, incapacidades, permisosExt] = await Promise.all([
       find("BITACORA", { id_plantilla: emp._id }, { talon: 1 }),
       find("TALONES", filtroTalonesDe(emp)),
+      ctrlAsist ? find("INCAPACIDADES", { ID_CTRL_ASIST: ctrlAsist }) : [],
+      ctrlAsist ? find("PERMISOS_EXT", { ID_CTRL_ASIST: ctrlAsist }) : [],
     ]);
     delete emp.RFC; // solo se usó para ligar los talones a la persona
     emp.bitacora = bitacora;
 
+    // El préstamo usa el nombre del delegado sindical como receptor.
+    if (emp.SINDICATO?.DELEGACION) {
+      const delegados = await querysql(
+        "SELECT delegado FROM delegaciones WHERE delegacion = ?",
+        [emp.SINDICATO.DELEGACION],
+      );
+      emp.SINDICATO.DELEGADO = delegados.length > 0 ? delegados[0].delegado : null;
+    }
+
     const ASIST_PROFILE = {
       employee: [emp],
-      // Se conservan en la respuesta por compatibilidad; la pantalla no los usa.
-      incapacidades: [],
-      permisosExt: [],
+      incapacidades,
+      permisosExt,
       talones: talonesDoc, // talón actual y anteriores
     };
 
@@ -542,7 +559,7 @@ talonesController.uploadTalonImage = async (req, res) => {
 };
 
 const MAX_TALONES_LOTE = 48;
-const NOMBRE_STATUS = { 1: "ENTREGADO", 2: "PENDIENTE", 3: "PRESTADO" };
+const NOMBRE_STATUS = { 1: "PENDIENTE", 2: "ENTREGADO", 3: "PRESTADO" };
 
 // Lee del body los talones a procesar: `_ids` (lote) o `_id` (uno).
 const leerIdsTalones = ({ _id, _ids } = {}) => {
@@ -628,7 +645,7 @@ const describirQuincenas = (talones) =>
 
 // Realizar el préstamo del talón de pago.
 // - Uno (`_id`): PENDIENTE o ENTREGADO → PRESTADO.
-// - Lote (`_ids`, mismo empleado): solo PENDIENTES → PRESTADO. Todo o nada.
+// - Lote (`_ids`, mismo empleado): PENDIENTES o ENTREGADOS → PRESTADO. Todo o nada.
 // Todos los talones del préstamo comparten un PRESTAMO_ID para regresarlos juntos.
 talonesController.prestarTalon = async (req, res) => {
   const body = req.body || {};
@@ -660,9 +677,9 @@ talonesController.prestarTalon = async (req, res) => {
     return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: "OBSERVACIONES debe ser texto de hasta 1000 caracteres." });
   }
 
-  const estados = esLote
-    ? [TALON_STATUS.PENDIENTE]
-    : [TALON_STATUS.PENDIENTE, TALON_STATUS.ENTREGADO];
+  // Uno o lote: pendientes (el delegado los lleva a firmar) o entregados
+  // (préstamo del original ya firmado). Nunca uno que ya está prestado.
+  const estados = [TALON_STATUS.PENDIENTE, TALON_STATUS.ENTREGADO];
 
   try {
     const revision = await revisarTalones(ids, estados);
@@ -681,8 +698,8 @@ talonesController.prestarTalon = async (req, res) => {
       return res.status(409).send(
         esLote
           ? {
-            codigo: "TALONES_NO_PENDIENTES",
-            error: "Solo se pueden prestar en lote talones pendientes de entregar. No se prestó ninguno.",
+            codigo: "TALONES_NO_DISPONIBLES",
+            error: "Hay talones que ya están prestados. No se prestó ninguno.",
             fallidos,
           }
           : {

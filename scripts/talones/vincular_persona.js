@@ -4,7 +4,8 @@
 // nuevo. Los documentos de TALONES viejos solo guardan _idEmployee (la plaza),
 // así que se asignan a quien ocupa hoy la plaza. Desde ese momento, si entra
 // otra persona a la plaza, ya no verá esos talones.
-// También renumera los talones viejos del cron (QUIN 1-24 sin YEAR → 1-22).
+// También renumera los talones viejos del cron (QUIN 1-24 sin YEAR → 1-22)
+// y pasa a PENDIENTE (1) los que el cron viejo creó con STATUS 2 sin imagen.
 // Se puede correr varias veces: solo toca lo que falta.
 //
 // Uso (por defecto solo simula y no escribe nada):
@@ -64,6 +65,25 @@ async function main() {
   // como texto. Se recalculan con la numeración actual (1-22) a partir de
   // su fecha de pago.
   const normalizados = { talones: 0, sinFecha: 0 };
+
+  // El cron viejo (antes de v2.11) creaba los talones con STATUS 2. Los que
+  // no tienen imagen nunca se entregaron: pasan a PENDIENTE (1), que es la
+  // numeración del front. Se hace antes del renumerado (usa la falta de YEAR).
+  const filtroViejoPendiente = { STATUS: 2, IMAGE: { $exists: false }, YEAR: { $exists: false } };
+  const [conteoPendientes] = await db.collection("TALONES").aggregate([
+    { $unwind: "$TALONES" },
+    { $match: Object.fromEntries(Object.entries(filtroViejoPendiente).map(([k, v]) => [`TALONES.${k}`, v])) },
+    { $count: "n" },
+  ]).toArray();
+  normalizados.aPendiente = conteoPendientes?.n || 0;
+  if (aplicar && normalizados.aPendiente > 0) {
+    await db.collection("TALONES").updateMany(
+      { TALONES: { $elemMatch: filtroViejoPendiente } },
+      { $set: { "TALONES.$[t].STATUS": 1 } },
+      { arrayFilters: [Object.fromEntries(Object.entries(filtroViejoPendiente).map(([k, v]) => [`t.${k}`, v]))] },
+    );
+  }
+
   const cursor = db.collection("TALONES").find(
     { TALONES: { $elemMatch: { $or: [{ YEAR: { $exists: false } }, { FECHA_PAG: { $type: "string" } }] } } },
     { projection: { "TALONES.IMAGE": 0, "TALONES.IMAGE_REGRESO": 0 } },
@@ -92,7 +112,7 @@ async function main() {
   if (aplicar && operaciones.length > 0) {
     await db.collection("TALONES").bulkWrite(operaciones, { ordered: false });
   }
-  console.log({ ...resumen, talonesRenumerados: normalizados.talones, talonesSinFecha: normalizados.sinFecha });
+  console.log({ ...resumen, talonesRenumerados: normalizados.talones, talonesSinFecha: normalizados.sinFecha, talonesViejosAPendiente: normalizados.aPendiente });
   if (!aplicar) console.log("Simulación: no se escribió nada. Usa --aplicar para guardar.");
   process.exit(0);
 }

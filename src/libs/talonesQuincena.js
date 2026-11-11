@@ -212,8 +212,8 @@ async function crearTalonesParaFecha({
         QUIN: info.quincenaDelAnio,
         YEAR: info.anio,
         FECHA_PAG: info.fechaPago,
-        // 2 = PENDIENTE de entregar (1 = ENTREGADO, 3 = PRESTADO). Ver TALON_STATUS en talones.Controller.
-        STATUS: 2,
+        // 1 = PENDIENTE de entregar (2 = ENTREGADO, 3 = PRESTADO). Ver TALON_STATUS en talones.Controller.
+        STATUS: 1,
         FOLIO: null,
       };
 

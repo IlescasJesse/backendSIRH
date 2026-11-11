@@ -38,7 +38,8 @@ const {
 
 const ANIO = 2026;
 const ORIGEN = "EXCEL_2026";
-const STATUS = { ENTREGADO: 1, PENDIENTE: 2, PRESTADO: 3 };
+// Igual que TALON_STATUS en talones.Controller.
+const STATUS = { PENDIENTE: 1, ENTREGADO: 2, PRESTADO: 3 };
 
 const arg = (nombre) => {
   const i = process.argv.indexOf(nombre);
