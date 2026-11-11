@@ -5,10 +5,11 @@ const sharp = require("sharp");
 const Tesseract = require("tesseract.js");
 const { querysql } = require("../../config/mysql");
 const { filtroTalonesDe, talonesSonDe } = require("../../libs/talonesQuincena");
+const { guardarImagenTalon, borrarImagenesTalon, hidratarImagenes } = require("../../libs/talonesImagenes");
 
 // Estados de un talón (TALONES[].STATUS), igual que en el front (perfil-talon):
 //   1 = PENDIENTE de entregar (así lo crea libs/talonesQuincena)
-//   2 = ENTREGADO / disponible para préstamo (firmado, con IMAGE)
+//   2 = ENTREGADO / disponible para préstamo (firmado, con IMAGE_ID o IMAGE viejo)
 //   3 = PRESTADO (pendiente de regresar)
 // Transiciones permitidas:
 //   PENDIENTE → ENTREGADO             (entregar-talon, con imagen firmada)
@@ -24,8 +25,8 @@ const debugLog = (...args) => {
 
 // Imagen recibida: máximo ~10 MB de archivo (base64 crece ~4/3).
 const MAX_IMAGE_BASE64_LENGTH = Math.ceil((10 * 1024 * 1024 * 4) / 3);
-// Imagen guardada: se reduce y comprime para no inflar el documento TALONES
-// del empleado (MongoDB limita cada documento a 16 MB).
+// Imagen guardada: se reduce, se comprime y va a GridFS (libs/talonesImagenes);
+// el talón solo guarda IMAGE_ID.
 const STORED_IMAGE_MAX_WIDTH = 1600;
 const STORED_IMAGE_QUALITY = 70;
 
@@ -121,7 +122,16 @@ const buscarTalon = async (talonObjectId) => {
         },
       },
     },
-    { $addFields: { tieneImagen: { $ne: [{ $type: "$talon.IMAGE" }, "missing"] } } },
+    {
+      $addFields: {
+        tieneImagen: {
+          $or: [
+            { $ne: [{ $type: "$talon.IMAGE" }, "missing"] },
+            { $ne: [{ $type: "$talon.IMAGE_ID" }, "missing"] },
+          ],
+        },
+      },
+    },
     { $project: { "talon.IMAGE": 0, "talon.IMAGE_REGRESO": 0 } },
   ]);
   return doc && doc.talon ? doc : null;
@@ -209,8 +219,8 @@ const textoObligatorio = (valor, max) =>
   typeof valor === "string" && valor.trim() !== "" && valor.length <= max;
 
 // Valida la foto o escaneo de un talón firmado (OCR de "PAGADOR" y "FIRMA DE
-// RECIBIDO", y tinta en el espacio de firma). Devuelve { storedImage } con la
-// imagen reducida y comprimida, o { status, body } con el error a responder.
+// RECIBIDO", y tinta en el espacio de firma). Devuelve { storedBuffer } con la
+// imagen reducida y comprimida (JPEG), o { status, body } con el error a responder.
 const procesarImagenTalon = async (image) => {
   const fallo = (status, body) => ({ status, body });
 
@@ -355,8 +365,7 @@ const procesarImagenTalon = async (image) => {
     .resize({ width: STORED_IMAGE_MAX_WIDTH, withoutEnlargement: true })
     .jpeg({ quality: STORED_IMAGE_QUALITY, mozjpeg: true })
     .toBuffer();
-  const storedImage = `data:image/jpeg;base64,${storedBuffer.toString("base64")}`;
-  return { storedImage };
+  return { storedBuffer };
 };
 
 const talonesController = {};
@@ -395,6 +404,8 @@ talonesController.getProfile = async (req, res) => {
       ctrlAsist ? find("PERMISOS_EXT", { ID_CTRL_ASIST: ctrlAsist }) : [],
     ]);
     delete emp.RFC; // solo se usó para ligar los talones a la persona
+    // El front recibe IMAGE como antes; ahora se lee de GridFS.
+    await hidratarImagenes(talonesDoc);
     emp.bitacora = bitacora;
 
     // El préstamo usa el nombre del delegado sindical como receptor.
@@ -509,10 +520,16 @@ talonesController.uploadTalonImage = async (req, res) => {
     }
 
     const procesada = await procesarImagenTalon(image);
-    if (!procesada.storedImage) {
+    if (!procesada.storedBuffer) {
       return res.status(procesada.status).send(procesada.body);
     }
-    const { storedImage } = procesada;
+    const imageId = await guardarImagenTalon(procesada.storedBuffer, {
+      talonId: talonObjectId,
+      empleadoId: encontrado._idEmployee,
+      tipo: "ENTREGA",
+      subidoPor: user.username,
+      fecha: new Date(),
+    });
 
     // Solo actualiza si el talón sigue PENDIENTE (evita entregas dobles simultáneas).
     const result = await (await connect()).collection("TALONES").updateOne(
@@ -522,7 +539,7 @@ talonesController.uploadTalonImage = async (req, res) => {
       },
       {
         $set: {
-          "TALONES.$.IMAGE": storedImage,
+          "TALONES.$.IMAGE_ID": imageId,
           "TALONES.$.STATUS": TALON_STATUS.ENTREGADO,
           "TALONES.$.FECHA_ENTREGA": new Date(),
           "TALONES.$.ENTREGADO_POR": user.username,
@@ -531,6 +548,7 @@ talonesController.uploadTalonImage = async (req, res) => {
     );
 
     if (result.matchedCount === 0) {
+      await borrarImagenesTalon([imageId]);
       return res.status(409).send({
         codigo: "TALON_NO_PENDIENTE",
         error: "El talón de pago ya fue entregado o está prestado."
@@ -595,7 +613,14 @@ const revisarTalones = async (ids, estadosPermitidos) => {
             in: {
               $mergeObjects: [
                 "$$t",
-                { TIENE_IMAGEN: { $ne: [{ $type: "$$t.IMAGE" }, "missing"] } },
+                {
+                  TIENE_IMAGEN: {
+                    $or: [
+                      { $ne: [{ $type: "$$t.IMAGE" }, "missing"] },
+                      { $ne: [{ $type: "$$t.IMAGE_ID" }, "missing"] },
+                    ],
+                  },
+                },
               ],
             },
           },
@@ -760,8 +785,8 @@ talonesController.prestarTalon = async (req, res) => {
 // `_ids` (lote, mismo empleado) o `_id` (uno). Todo o nada.
 // Imágenes: `imagenes: [{ _id, image }]`, o `image` cuando es un solo talón.
 // - Un talón prestado sin haberse entregado (sin IMAGE) necesita la imagen del
-//   original firmado; se valida igual que en entregar-talon y queda como IMAGE.
-// - Si ya tenía IMAGE, la imagen es opcional y se guarda como IMAGE_REGRESO.
+//   original firmado; se valida igual que en entregar-talon y queda como IMAGE_ID.
+// - Si ya tenía imagen, la nueva es opcional y se guarda como IMAGE_REGRESO_ID.
 // Los datos del préstamo y del regreso se agregan a HISTORIAL_PRESTAMOS.
 talonesController.regresarTalon = async (req, res) => {
   const body = req.body || {};
@@ -873,10 +898,24 @@ talonesController.regresarTalon = async (req, res) => {
       const img = imagenPorId.get(String(talon._id));
       if (!img) continue;
       const procesada = await procesarImagenTalon(img);
-      if (!procesada.storedImage) {
+      if (!procesada.storedBuffer) {
         return res.status(procesada.status).send({ ...procesada.body, _id: talon._id, QUIN: talon.QUIN, YEAR: talon.YEAR });
       }
-      guardadas.set(String(talon._id), procesada.storedImage);
+      guardadas.set(String(talon._id), procesada.storedBuffer);
+    }
+
+    // Las imágenes ya validadas se suben a GridFS; si algo falla después se borran.
+    const imagenIds = new Map();
+    for (const talon of talones) {
+      const buf = guardadas.get(String(talon._id));
+      if (!buf) continue;
+      imagenIds.set(String(talon._id), await guardarImagenTalon(buf, {
+        talonId: talon._id,
+        empleadoId: doc._idEmployee,
+        tipo: talon.TIENE_IMAGEN ? "REGRESO" : "ENTREGA",
+        subidoPor: user.username,
+        fecha: new Date(),
+      }));
     }
 
     // 4) Una sola actualización para todos (todo o nada).
@@ -897,13 +936,13 @@ talonesController.regresarTalon = async (req, res) => {
       for (const [campo, valor] of Object.entries(datosRegreso)) {
         $set[`${ruta}.${campo}`] = valor;
       }
-      const img = guardadas.get(String(talon._id));
+      const img = imagenIds.get(String(talon._id));
       if (img && !talon.TIENE_IMAGEN) {
-        $set[`${ruta}.IMAGE`] = img;
+        $set[`${ruta}.IMAGE_ID`] = img;
         $set[`${ruta}.FECHA_ENTREGA`] = ahora;
         $set[`${ruta}.ENTREGADO_POR`] = user.username;
       } else if (img) {
-        $set[`${ruta}.IMAGE_REGRESO`] = img;
+        $set[`${ruta}.IMAGE_REGRESO_ID`] = img;
       }
       $push[`${ruta}.HISTORIAL_PRESTAMOS`] = {
         PRESTAMO_ID: talon.PRESTAMO_ID ?? null,
@@ -925,6 +964,7 @@ talonesController.regresarTalon = async (req, res) => {
     );
 
     if (result.matchedCount === 0) {
+      await borrarImagenesTalon([...imagenIds.values()]);
       return res.status(409).send({
         codigo: "TALONES_CAMBIARON",
         error: "Otro usuario modificó estos talones. Vuelve a cargar el perfil."
