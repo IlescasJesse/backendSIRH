@@ -517,9 +517,16 @@ const unirHojas = async (recortes) => {
     y += p.info.height;
     return capa;
   });
-  return sharp({ create: { width: STORED_IMAGE_MAX_WIDTH, height: alto, channels: 3, background: "#ffffff" } })
+  const unida = await sharp({ create: { width: STORED_IMAGE_MAX_WIDTH, height: alto, channels: 3, background: "#ffffff" } })
     .composite(capas)
-    .jpeg({ quality: STORED_IMAGE_QUALITY, mozjpeg: true })
+    .png()
+    .toBuffer();
+  // A color pero más legible: la impresión de matriz de puntos sale muy clara.
+  // Se oscurecen los tonos medios (el blanco se queda blanco) y se enfoca.
+  return sharp(unida)
+    .linear(1.45, -0.45 * 255)
+    .sharpen({ sigma: 1 })
+    .jpeg({ quality: 75, mozjpeg: true })
     .toBuffer();
 };
 
@@ -551,7 +558,8 @@ const validarHojasTalon = async (hojas) => {
 
   // La fecha de pago debe ser la misma en todas las hojas. El número de
   // empleado se vota entre todas las lecturas de todas las hojas.
-  if (new Set(analisis.map((a) => a.fechaPago).filter(Boolean)).size > 1) {
+  const distintas = (campo) => new Set(analisis.map((a) => a[campo]).filter(Boolean)).size > 1;
+  if (distintas("fechaPago") || distintas("hasta")) {
     return fallo(422, { codigo: "HOJAS_DE_DISTINTOS_TALONES", error: "Las hojas no son del mismo talón (cambia el empleado o la fecha de pago)." });
   }
 
@@ -592,8 +600,8 @@ const validarHojasTalon = async (hojas) => {
     hasta: dato("hasta"),
     neto: ultima.neto,
   };
-  if (!datos.numemp || !datos.fechaPago) {
-    return fallo(422, { codigo: "DATOS_NO_LEIDOS", error: "No se pudo leer el número de empleado o la fecha de pago. Vuelve a escanear." });
+  if (!datos.numemp && !/[A-Z]{4,}/.test(datos.texto || "")) {
+    return fallo(422, { codigo: "DATOS_NO_LEIDOS", error: "No se pudo leer el número ni el nombre del empleado. Vuelve a escanear." });
   }
   const recortes = [];
   for (const hoja of hojas) {
@@ -602,19 +610,58 @@ const validarHojasTalon = async (hojas) => {
   return { datos, hojas: analisis.length, storedBuffer: await unirHojas(recortes) };
 };
 
-// La quincena que dice el talón (fecha de pago y periodo DESDE/HASTA).
+// La quincena del talón sale del periodo impreso (HASTA, o DESDE); la fecha de
+// pago solo se usa si no se leyó el periodo. Ojo: la fecha de pago no siempre
+// es igual al HASTA (p. ej. diciembre: pago 13-12, periodo 01-12 a 11-12).
+// Regresa null si no se leyó ninguna fecha.
 const quincenaDeHojas = (datos) => {
-  const info = getQuincenaInfo(momentTz.tz(datos.fechaPago, TIMEZONE).toDate());
-  return { QUIN: info.quincenaDelAnio, YEAR: info.anio, inicio: fechaMx(info.inicioPeriodo), pago: fechaMx(info.fechaPago) };
+  const base = datos.hasta || datos.desde || datos.fechaPago;
+  if (!base) return null;
+  const info = getQuincenaInfo(momentTz.tz(base, TIMEZONE).toDate());
+  const fin = info.quincenaDelMes === 1 && !(info.mes === 5 || info.mes === 12)
+    ? info.fechaMx.clone().date(15)
+    : info.fechaMx.clone().endOf("month");
+  return { QUIN: info.quincenaDelAnio, YEAR: info.anio, inicio: fechaMx(info.inicioPeriodo), fin: fechaMx(fin.toDate()) };
+};
+
+// Distancia de edición entre dos números leídos (9 por 7, un dígito de más o de menos).
+const distanciaDigitos = (a, b) => {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+  }
+  return d[a.length][b.length];
+};
+
+// Números a un dígito de distancia (para buscar al empleado aunque el OCR falle un dígito).
+const vecinosNumero = (n) => {
+  const salida = new Set([n]);
+  for (let i = 0; i <= n.length; i++) {
+    for (const c of "0123456789") {
+      salida.add(n.slice(0, i) + c + n.slice(i));
+      if (i < n.length) salida.add(n.slice(0, i) + c + n.slice(i + 1));
+    }
+    if (i < n.length) salida.add(n.slice(0, i) + n.slice(i + 1));
+  }
+  return [...salida].filter((x) => x.length >= 4);
 };
 
 // ¿Las hojas son de este empleado? Se exige el nombre impreso y, si el número
 // leído no coincide (el OCR confunde 9 y 7), el nombre completo.
+// - Número leído igual al del empleado: basta con la mitad del nombre.
+// - Número a un dígito de distancia: tres cuartas partes del nombre.
+// - Sin número: el nombre completo.
 const esDelEmpleado = (datos, emp) => {
   if (!emp) return true;
   const nombre = coincidenciaNombre(datos.texto, emp);
-  const numempOk = emp.NUMEMP != null && datos.numempCandidatos.includes(String(emp.NUMEMP).trim());
-  return numempOk ? nombre >= 0.66 : nombre === 1;
+  const suyo = emp.NUMEMP != null ? String(emp.NUMEMP).trim() : "";
+  const cands = datos.numempCandidatos || [];
+  if (suyo && cands.includes(suyo)) return nombre >= 0.5;
+  if (suyo && cands.some((c) => distanciaDigitos(c, suyo) <= 1)) return nombre >= 0.75;
+  return nombre >= 0.99;
 };
 
 // Compara lo leído con el talón y su dueño.
@@ -623,20 +670,25 @@ const verificarHojasContraTalon = (datos, talon, dueno) => {
     return fallo(422, { codigo: "TALON_DE_OTRO_EMPLEADO", error: `El talón escaneado es de otro empleado (No. ${datos.numemp || "?"}).` });
   }
   const q = quincenaDeHojas(datos);
+  if (!q) {
+    // No se alcanzó a leer ninguna fecha (impresión muy tenue): se entrega con aviso.
+    return { aviso: "QUINCENA_NO_VERIFICADA" };
+  }
   if (Number(talon.YEAR) !== q.YEAR || Number(talon.QUIN) !== q.QUIN) {
     return fallo(422, {
       codigo: "QUINCENA_NO_COINCIDE",
-      error: `El talón escaneado es de la quincena ${q.QUIN}/${q.YEAR} (pago ${datos.fechaPago}), no de la ${talon.QUIN}/${talon.YEAR}.`,
+      error: `El talón escaneado es de la quincena ${q.QUIN}/${q.YEAR} (periodo ${datos.desde || "?"} a ${datos.hasta || "?"}), no de la ${talon.QUIN}/${talon.YEAR}.`,
       leida: { QUIN: q.QUIN, YEAR: q.YEAR, fechaPago: datos.fechaPago, desde: datos.desde, hasta: datos.hasta },
     });
   }
-  // Verificación del periodo impreso: HASTA = fecha de pago y DESDE dentro de la quincena.
-  if ((datos.hasta && datos.hasta !== q.pago) || (datos.desde && (datos.desde < q.inicio || datos.desde > q.pago))) {
+  // El periodo impreso debe quedar dentro de la quincena.
+  const fuera = (f) => f && (f < q.inicio || f > q.fin);
+  if (fuera(datos.desde) || fuera(datos.hasta) || (datos.desde && datos.hasta && datos.desde > datos.hasta)) {
     return fallo(422, {
       codigo: "PERIODO_NO_COINCIDE",
       error: `El periodo del talón (${datos.desde || "?"} a ${datos.hasta || "?"}) no corresponde a la quincena ${q.QUIN}/${q.YEAR}.`,
       leida: { desde: datos.desde, hasta: datos.hasta },
-      esperada: { desde: q.inicio, hasta: q.pago },
+      esperada: { desde: q.inicio, hasta: q.fin },
     });
   }
   return {};
@@ -644,7 +696,7 @@ const verificarHojasContraTalon = (datos, talon, dueno) => {
 
 // Empleado activo de las hojas: por los números leídos y confirmando el nombre.
 const empleadoDeHojas = async (datos) => {
-  const numeros = datos.numempCandidatos.flatMap((n) => [n, Number(n)]);
+  const numeros = [...new Set(datos.numempCandidatos.slice(0, 4).flatMap(vecinosNumero))].flatMap((n) => [n, Number(n)]);
   const emps = await buscarEmpleado({ NUMEMP: { $in: numeros }, status: 1 });
   return emps.filter((e) => esDelEmpleado(datos, e));
 };
@@ -728,6 +780,7 @@ talonesController.uploadTalonImage = async (req, res) => {
     if (v.error) return res.status(v.error.status).send(v.error.body);
 
     let storedBuffer = v.storedBuffer;
+    let aviso;
     if (v.legado) {
       const procesada = await procesarImagenTalon(entrada.hojas[0]);
       if (!procesada.storedBuffer) return res.status(procesada.status).send(procesada.body);
@@ -736,6 +789,7 @@ talonesController.uploadTalonImage = async (req, res) => {
       const [dueno] = await buscarEmpleado({ _id: encontrado._idEmployee });
       const chequeo = verificarHojasContraTalon(v.datos, talon, dueno);
       if (chequeo.error) return res.status(chequeo.error.status).send(chequeo.error.body);
+      aviso = chequeo.aviso;
     }
 
     const ok = await registrarEntrega({
@@ -748,7 +802,13 @@ talonesController.uploadTalonImage = async (req, res) => {
     });
     if (!ok) return res.status(409).send(NO_PENDIENTE);
 
-    res.status(200).send({ message: "Imagen guardada correctamente en el talón.", _id: encontrado._idEmployee });
+    res.status(200).send({
+      message: aviso
+        ? "Talón entregado. No se pudo leer la quincena impresa para verificarla."
+        : "Imagen guardada correctamente en el talón.",
+      _id: encontrado._idEmployee,
+      ...(aviso ? { aviso } : {}),
+    });
   } catch (error) {
     return errorInterno(res, error, "Error al subir imagen al talón:");
   }
@@ -775,10 +835,8 @@ talonesController.analizarHoja = async (req, res) => {
       firmaDetectada: a.firma.detectada,
       tintaAzul: a.firma.porcentajeAzul >= 30,
     };
-    if (a.fechaPago) {
-      const q = quincenaDeHojas(a);
-      respuesta.quincena = { QUIN: q.QUIN, YEAR: q.YEAR };
-    }
+    const q = quincenaDeHojas(a);
+    if (q) respuesta.quincena = { QUIN: q.QUIN, YEAR: q.YEAR };
     if (a.numemp) {
       const candidatos = Object.entries(a.numempVotos || {}).sort((x, y) => y[1] - x[1]).map(([n]) => n);
       const emps = await empleadoDeHojas({ numempCandidatos: candidatos, texto: a.texto });
@@ -813,18 +871,28 @@ talonesController.entregarEscaneo = async (req, res) => {
       return res.status(409).send({ codigo: "EMPLEADO_DUPLICADO", numemp: v.datos.numemp, error: `Hay más de un empleado activo con el número ${v.datos.numemp}. Entrégalo desde su perfil.` });
     }
     const emp = emps[0];
+    const empleado = { _id: emp._id, NOMBRE: nombreEmpleado(emp), NUMEMP: emp.NUMEMP };
     const q = quincenaDeHojas(v.datos);
     const docs = await find("TALONES", filtroTalonesDe(emp), { "TALONES.IMAGE": 0, "TALONES.IMAGE_REGRESO": 0 });
+    if (!q) {
+      // Impresión demasiado tenue para leer la quincena: el usuario elige el
+      // talón y el front lo entrega con entregar-talon (mismas hojas).
+      const pendientes = docs.flatMap((d) => (d.TALONES || [])
+        .filter((x) => x.STATUS === TALON_STATUS.PENDIENTE)
+        .map((x) => ({ _id: x._id, QUIN: x.QUIN, YEAR: x.YEAR })));
+      return res.status(422).send({
+        codigo: "QUINCENA_NO_LEIDA",
+        empleado,
+        pendientes,
+        error: `No se pudo leer la quincena del talón de ${empleado.NOMBRE}. Elige cuál talón es.`,
+      });
+    }
     let doc = null;
     let talon = null;
     for (const d of docs) {
-      const t = (d.TALONES || []).find((x) =>
-        x.FECHA_PAG
-          ? fechaMx(x.FECHA_PAG) === q.pago
-          : Number(x.YEAR) === q.YEAR && Number(x.QUIN) === q.QUIN);
+      const t = (d.TALONES || []).find((x) => Number(x.YEAR) === q.YEAR && Number(x.QUIN) === q.QUIN);
       if (t) { doc = d; talon = t; break; }
     }
-    const empleado = { _id: emp._id, NOMBRE: nombreEmpleado(emp), NUMEMP: emp.NUMEMP };
     if (!talon) {
       return res.status(404).send({ codigo: "TALON_NO_ENCONTRADO", empleado, quincena: { QUIN: q.QUIN, YEAR: q.YEAR }, error: `${empleado.NOMBRE} no tiene registrado el talón de la quincena ${q.QUIN}/${q.YEAR}.` });
     }

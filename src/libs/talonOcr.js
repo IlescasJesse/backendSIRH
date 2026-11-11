@@ -26,6 +26,7 @@ const PLANTILLA = {
   ancla: { FOLIO: [124, 130], HASTA: [1289, 222] },
   cajas: {
     NUMEMP: [285, 150, 500, 215],
+    NOMBRE: [1440, 148, 2560, 215],
     FECHA_PAGO: [485, 150, 815, 212],
     DESDE: [660, 295, 1000, 360],
     HASTA: [1080, 295, 1420, 360],
@@ -35,16 +36,17 @@ const PLANTILLA = {
   },
 };
 
-let workerPromise = null;
-function worker() {
-  if (!workerPromise) {
-    workerPromise = Tesseract.createWorker("spa", 1, { langPath: RAIZ, cachePath: RAIZ, gzip: false })
-      .catch((e) => { workerPromise = null; throw e; });
+// Tres lectores de OCR: los recuadros de una hoja se leen en paralelo.
+const lectores = [];
+function worker(i = 0) {
+  if (!lectores[i]) {
+    lectores[i] = Tesseract.createWorker("spa", 1, { langPath: RAIZ, cachePath: RAIZ, gzip: false })
+      .catch((e) => { lectores[i] = null; throw e; });
   }
-  return workerPromise;
+  return lectores[i];
 }
 
-// Un solo OCR a la vez (el worker es uno; las peticiones se forman).
+// Una hoja a la vez (los lectores se reparten sus recuadros).
 let cola = Promise.resolve();
 function enCola(fn) {
   const r = cola.then(fn, fn);
@@ -127,9 +129,9 @@ async function quitarVerde(img, reg) {
 // Lee un recuadro de dos formas: tal cual en gris (mejor para números) y sin
 // el verde del formato (mejor cuando el texto toca líneas o barras). Se usa
 // la primera lectura que pase la validación del campo.
-async function leerCaja(img, reg, whitelist, valido = () => true, primeroSinVerde = false) {
+async function leerCaja(img, reg, whitelist, valido = () => true, primeroSinVerde = false, lector = 0) {
   if (!reg) return "";
-  const w = await worker();
+  const w = await worker(lector);
   await w.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: whitelist });
   const formas = [
     () => sharp(img).extract(reg).grayscale(),
@@ -151,32 +153,75 @@ async function leerCaja(img, reg, whitelist, valido = () => true, primeroSinVerd
   return primera;
 }
 
-// Varias lecturas del mismo recuadro (gris / sin verde, a dos tamaños) para
-// votar. Se usa en el número de empleado: en la impresión de matriz de puntos
-// el OCR a veces confunde 9 con 7.
-async function leerCandidatos(img, reg, whitelist) {
-  if (!reg) return [];
-  const w = await worker();
-  await w.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: whitelist });
-  const textos = [];
-  for (const forma of [() => sharp(img).extract(reg).grayscale(), () => quitarVerde(img, reg)]) {
-    for (const alto of [Math.max(reg.height, 80), Math.round(Math.max(reg.height, 80) * 1.6)]) {
-      const buf = await (await forma()).normalize().resize({ height: alto }).withMetadata({ density: 300 }).png().toBuffer();
-      textos.push(((await w.recognize(buf)).data.text || "").replace(/\s/g, ""));
+// Impresión de matriz de puntos tenue: la tinta es translúcida y sobre el
+// fondo verde se ve verdosa, solo más oscura. Se toma como tinta el `corte`%
+// más oscuro del recuadro (sin las barras de verde intenso) y se engruesa cada
+// punto `radio` píxeles para que los números queden continuos.
+async function oscurecer(img, reg, corte, radio) {
+  const { data, info } = await sharp(img).extract(reg).resize({ height: reg.height * 2 })
+    .removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const W = info.width, H = info.height;
+  const lum = new Float32Array(W * H);
+  for (let i = 0, j = 0; i < data.length; i += info.channels, j++) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    lum[j] = g - r > 70 ? 255 : 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+  const umbral = Float32Array.from(lum).sort()[Math.floor((corte / 100) * lum.length)];
+  const out = Buffer.alloc(W * H, 255);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (lum[y * W + x] > umbral) continue;
+      for (let dy = -radio; dy <= radio; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= H) continue;
+        for (let dx = -radio; dx <= radio; dx++) {
+          const xx = x + dx;
+          if (xx >= 0 && xx < W) out[yy * W + xx] = 0;
+        }
+      }
     }
   }
-  return textos;
+  return sharp(out, { raw: { width: W, height: H, channels: 1 } });
+}
+
+// Formas de preparar un recuadro antes del OCR, de la más útil a la menos.
+const FORMAS = [
+  (img, reg) => sharp(img).extract(reg).grayscale().normalize().resize({ height: Math.max(reg.height, 80) }),
+  (img, reg) => oscurecer(img, reg, 13, 2),
+  async (img, reg) => sharp(await sharp(img).extract(reg).grayscale().resize({ height: Math.max(reg.height, 80) * 2 })
+    .blur(3.2).normalize().png().toBuffer()),
+  (img, reg) => oscurecer(img, reg, 9, 2),
+  async (img, reg) => (await quitarVerde(img, reg)).normalize().resize({ height: Math.max(reg.height, 80) }),
+  (img, reg) => oscurecer(img, reg, 13, 1),
+];
+
+// Lee un recuadro con varias formas y vota. `valor(texto)` regresa el dato
+// normalizado o null si no es válido. Se detiene cuando dos lecturas coinciden.
+async function leerVotado(img, reg, whitelist, valor, { lector = 0, minimo = 1 } = {}) {
+  if (!reg) return { valor: null, votos: {} };
+  const w = await worker(lector);
+  await w.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: whitelist });
+  const conteo = {};
+  for (const forma of FORMAS) {
+    const buf = await (await forma(img, reg)).withMetadata({ density: 300 }).png().toBuffer();
+    const v = valor(((await w.recognize(buf)).data.text || "").trim());
+    if (v === null || v === undefined) continue;
+    conteo[v] = (conteo[v] || 0) + 1;
+    if (conteo[v] >= 2) break;
+  }
+  const ganador = masVotado(conteo);
+  // minimo = cuántas lecturas deben coincidir para darlo por leído.
+  return { valor: ganador && conteo[ganador] >= minimo ? ganador : null, votos: conteo };
 }
 
 // Cuenta votos: { valor: veces }.
-const votos = (lista) => lista.reduce((m, v) => ((m[v] = (m[v] || 0) + 1), m), {});
 const masVotado = (conteo) => Object.entries(conteo).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
 const leerFecha = (texto) => {
   const m = String(texto).replace(/\s/g, "").match(/(\d{2})-(\d{2})-(\d{4})/);
   if (!m) return null;
   const [, d, mes, a] = m;
-  if (+d < 1 || +d > 31 || +mes < 1 || +mes > 12) return null;
+  if (+d < 1 || +d > 31 || +mes < 1 || +mes > 12 || +a < 2015 || +a > 2040) return null;
   return `${a}-${mes}-${d}`;
 };
 
@@ -232,7 +277,10 @@ async function analizarSinCache(buffer) {
     const { recorte, ancho, alto } = await recortarContenido(buffer);
     const w = await worker();
     await w.setParameters({ tessedit_pageseg_mode: "6", tessedit_char_whitelist: "" });
-    const gris = await sharp(recorte).grayscale().normalize().toBuffer();
+    // Solo la franja de arriba: ahí están FOLIO, HASTA, el nombre y las fechas.
+    // Leer el talón completo tardaba más del doble.
+    const franja = Math.min(alto, Math.round(ancho * 0.2));
+    const gris = await sharp(recorte).extract({ left: 0, top: 0, width: ancho, height: franja }).grayscale().normalize().toBuffer();
     const res = await w.recognize(gris, {}, { blocks: true, text: true });
     const palabras = [];
     for (const b of res.data.blocks || []) for (const p of b.paragraphs) for (const l of p.lines) palabras.push(...l.words);
@@ -246,23 +294,54 @@ async function analizarSinCache(buffer) {
     const FECHA = "0123456789-";
     const IMPORTE = "0123456789.,$";
 
-    const esFecha = (x) => leerFecha(x) !== null;
     const esCopia = (x) => /PAGAD|AGADOR|EMPLE|MPLEAD/.test(normalizar(x));
-    const numempLecturas = (await leerCandidatos(recorte, reg("NUMEMP"), DIGITOS)).filter((x) => /^\d{4,7}$/.test(x));
-    const numempTexto = numempLecturas.join(",");
-    const fechaPagoTexto = await leerCaja(recorte, reg("FECHA_PAGO"), FECHA, esFecha);
-    const desdeTexto = await leerCaja(recorte, reg("DESDE"), FECHA, esFecha);
-    const hastaTexto = await leerCaja(recorte, reg("HASTA"), FECHA, esFecha);
-    const netoTexto = await leerCaja(recorte, reg("NETO"), IMPORTE, (x) => leerImporte(x) !== null);
-    const copiaTexto = normalizar(await leerCaja(recorte, reg("COPIA"), "ABCDEFGHIJKLMNOPQRSTUVWXYZ", esCopia, true));
+    const comoNumemp = (x) => {
+      const n = x.replace(/\s/g, "");
+      return /^\d{4,7}$/.test(n) ? n : null;
+    };
+    const comoImporte = (x) => {
+      const n = leerImporte(x);
+      return n === null ? null : n.toFixed(2);
+    };
+    // Nombre impreso (para confirmar al empleado): se lee aparte, oscurecido.
+    const leerNombre = async (lector) => {
+      const regNombre = reg("NOMBRE");
+      if (!regNombre) return "";
+      const wn = await worker(lector);
+      await wn.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ " });
+      let texto = "";
+      for (const forma of [FORMAS[1], FORMAS[0]]) {
+        const buf = await (await forma(recorte, regNombre)).withMetadata({ density: 300 }).png().toBuffer();
+        texto += " " + ((await wn.recognize(buf)).data.text || "");
+      }
+      return texto;
+    };
+    // Cada lector lee sus recuadros en orden; los tres trabajan a la vez.
+    // Las fechas solo cuentan si dos lecturas coinciden (mejor "no leída" que equivocada).
+    const fecha = { minimo: 2 };
+    const [[numempL, nombreTexto, copiaCruda], [fechaPagoL, netoL], [desdeL, hastaL]] = await Promise.all([
+      (async () => [
+        await leerVotado(recorte, reg("NUMEMP"), DIGITOS, comoNumemp, { lector: 0 }),
+        await leerNombre(0),
+        await leerCaja(recorte, reg("COPIA"), "ABCDEFGHIJKLMNOPQRSTUVWXYZ", esCopia, true, 0),
+      ])(),
+      (async () => [
+        await leerVotado(recorte, reg("FECHA_PAGO"), FECHA, leerFecha, { ...fecha, lector: 1 }),
+        await leerVotado(recorte, reg("NETO"), IMPORTE, comoImporte, { lector: 1 }),
+      ])(),
+      (async () => [
+        await leerVotado(recorte, reg("DESDE"), FECHA, leerFecha, { ...fecha, lector: 2 }),
+        await leerVotado(recorte, reg("HASTA"), FECHA, leerFecha, { ...fecha, lector: 2 }),
+      ])(),
+    ]);
+    const copiaTexto = normalizar(copiaCruda);
     const firma = await medirFirma(recorte, reg("FIRMA"));
 
-    // Respaldo con el texto completo de la hoja cuando un recuadro sale vacío.
-    const textoCompleto = normalizar(res.data.text);
-    const fechasTexto = [...textoCompleto.matchAll(/(\d{2})-(\d{2})-(\d{4})/g)].map((m) => `${m[3]}-${m[2]}-${m[1]}`);
-    const numempVotos = votos(numempLecturas);
-    const numemp = masVotado(numempVotos);
-    const neto = leerImporte(netoTexto);
+    // Respaldo con el texto de la franja cuando un recuadro sale vacío.
+    const textoCompleto = normalizar(`${res.data.text} ${nombreTexto}`);
+    const numempVotos = numempL.votos;
+    const numemp = numempL.valor;
+    const neto = netoL.valor === null ? null : Number(netoL.valor);
 
     let copia = null;
     if (/PAGAD|AGADOR/.test(copiaTexto)) copia = "PAGADOR";
@@ -276,9 +355,9 @@ async function analizarSinCache(buffer) {
       numempVotos,
       // Texto completo de la hoja (para comparar el nombre impreso). Uso interno.
       texto: textoCompleto,
-      fechaPago: leerFecha(fechaPagoTexto) || fechasTexto[0] || null,
-      desde: leerFecha(desdeTexto),
-      hasta: leerFecha(hastaTexto),
+      fechaPago: fechaPagoL.valor,
+      desde: desdeL.valor,
+      hasta: hastaL.valor,
       neto,
       // Hoja final del talón: la que trae el NETO real (las demás traen .00).
       esUltimaHoja: neto !== null && neto > 0,
@@ -288,7 +367,7 @@ async function analizarSinCache(buffer) {
         porcentajeAzul: Number(firma.azul.toFixed(1)),
       },
       giroGrados: Number(t.angulo.toFixed(2)),
-      leido: { numempTexto, fechaPagoTexto, desdeTexto, hastaTexto, netoTexto, copiaTexto },
+      leido: { numemp: numempL.votos, fechaPago: fechaPagoL.votos, desde: desdeL.votos, hasta: hastaL.votos, neto: netoL.votos, copiaTexto, nombreTexto: normalizar(nombreTexto).trim() },
     };
   });
 }
