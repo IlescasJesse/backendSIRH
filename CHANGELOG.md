@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.13.0 — 2026-11-12 · MENOR
+
+- Agregar generación de talones del retroactivo y mejorar la identificación del empleado en talones — Jesse Ilescas (`cb17ab6`)
+
 ## v2.12.4 — 2026-11-12 · ARREGLO
 
 - Identificar al empleado por su nombre cuando no se lee el número del talón — Jesse Ilescas (`3c925c6`)
