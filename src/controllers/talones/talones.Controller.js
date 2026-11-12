@@ -996,11 +996,40 @@ talonesController.entregarEscaneo = async (req, res) => {
   }
 };
 
+// PIN de administrador para generar el retroactivo. La base vive solo en el
+// .env del servidor (TALONES_PIN_RETRO_BASE, TALONES_PIN_RETRO_ANIO) y sube 2
+// cada año: PIN = base + 2 × (año actual en México − año base).
+// Sin la variable no se puede generar (falla cerrado).
+// Tras 5 intentos fallidos el usuario queda bloqueado 15 minutos.
+const crypto = require("crypto");
+const PIN_MAX_INTENTOS = 5;
+const PIN_BLOQUEO_MS = 15 * 60 * 1000;
+const intentosPin = new Map(); // username -> { fallos, desde }
+const pinRetroactivoDelAnio = () => {
+  const crudo = String(process.env.TALONES_PIN_RETRO_BASE || "").trim();
+  if (!/^[0-9]{4,}$/.test(crudo)) return null;
+  const base = Number(crudo);
+  const anioBase = Number(process.env.TALONES_PIN_RETRO_ANIO) || 2026;
+  return String(base + 2 * (momentTz.tz(TIMEZONE).year() - anioBase));
+};
+const pinBloqueado = (usuario) => {
+  const r = intentosPin.get(usuario);
+  if (!r) return false;
+  if (Date.now() - r.desde > PIN_BLOQUEO_MS) { intentosPin.delete(usuario); return false; }
+  return r.fallos >= PIN_MAX_INTENTOS;
+};
+const pinCorrecto = (recibido) => {
+  const esperado = pinRetroactivoDelAnio();
+  if (!esperado || typeof recibido !== "string" || recibido.length !== esperado.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(recibido), Buffer.from(esperado));
+};
+
 // Generar los talones del retroactivo (sin fecha fija; lo pide un usuario).
-// Body: { YEAR, FECHA_PAGO? (YYYY-MM-DD, por defecto hoy), simular? }.
-// Con simular: true solo regresa cuántos se crearían.
+// Body: { YEAR, FECHA_PAGO? (YYYY-MM-DD, por defecto hoy), simular?, PIN }.
+// Con simular: true solo regresa cuántos se crearían (no pide PIN). Para
+// crearlos se exige el PIN de administrador.
 talonesController.generarRetroactivo = async (req, res) => {
-  const { YEAR, FECHA_PAGO, simular } = req.body || {};
+  const { YEAR, FECHA_PAGO, simular, PIN } = req.body || {};
   const user = req.user;
   const anio = Number(YEAR);
   if (!Number.isInteger(anio) || anio < 2020 || anio > 2040) {
@@ -1015,6 +1044,20 @@ talonesController.generarRetroactivo = async (req, res) => {
   }
   if (fecha.year() !== anio) {
     return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: `La fecha de pago debe ser del año ${anio}.` });
+  }
+  if (simular !== true) {
+    if (pinBloqueado(user.username)) {
+      return res.status(429).send({ codigo: "PIN_BLOQUEADO", error: "Demasiados intentos con PIN incorrecto. Espera 15 minutos." });
+    }
+    if (!pinCorrecto(PIN)) {
+      const r = intentosPin.get(user.username) || { fallos: 0, desde: Date.now() };
+      r.fallos++;
+      intentosPin.set(user.username, r);
+      // No se registra el PIN recibido.
+      console.warn(`PIN incorrecto al generar retroactivo (usuario ${user.username}, intento ${r.fallos})`);
+      return res.status(403).send({ codigo: "PIN_INCORRECTO", error: "El PIN de administrador no es correcto." });
+    }
+    intentosPin.delete(user.username);
   }
   try {
     const r = await crearTalonesRetroactivo({ anio, fechaPago: fecha.toDate(), simular: simular === true, usuario: user.username });
