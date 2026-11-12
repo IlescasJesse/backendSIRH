@@ -695,9 +695,11 @@ const verificarHojasContraTalon = (datos, talon, dueno) => {
 };
 
 // Empleado activo de las hojas: por los números leídos y confirmando el nombre.
-const empleadoDeHojas = async (datos) => {
+// Con activos: false busca entre los que ya no están activos (baja), para
+// avisar por qué no se entrega.
+const empleadoDeHojas = async (datos, { activos = true } = {}) => {
   const numeros = [...new Set(datos.numempCandidatos.slice(0, 4).flatMap(vecinosNumero))].flatMap((n) => [n, Number(n)]);
-  const emps = await buscarEmpleado({ NUMEMP: { $in: numeros }, status: 1 });
+  const emps = await buscarEmpleado({ NUMEMP: { $in: numeros }, status: activos ? 1 : { $ne: 1 } });
   return emps.filter((e) => esDelEmpleado(datos, e));
 };
 
@@ -865,6 +867,15 @@ talonesController.entregarEscaneo = async (req, res) => {
 
     const emps = await empleadoDeHojas(v.datos);
     if (emps.length === 0) {
+      const deBaja = await empleadoDeHojas(v.datos, { activos: false });
+      if (deBaja.length > 0) {
+        const e = deBaja[0];
+        return res.status(409).send({
+          codigo: "EMPLEADO_DE_BAJA",
+          empleado: { _id: e._id, NOMBRE: nombreEmpleado(e), NUMEMP: e.NUMEMP },
+          error: `${nombreEmpleado(e)} (No. ${e.NUMEMP}) está dado de baja; el talón no se entregó.`,
+        });
+      }
       return res.status(404).send({ codigo: "EMPLEADO_NO_ENCONTRADO", numemp: v.datos.numemp, error: `No se encontró un empleado activo con el número ${v.datos.numemp} y el nombre del talón. Entrégalo desde su perfil.` });
     }
     if (emps.length > 1) {
