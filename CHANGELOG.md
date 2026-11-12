@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.13.1 — 2026-11-12 · ARREGLO
+
+- Pedir PIN de administrador para generar los talones del retroactivo — Jesse Ilescas (`2233853`)
+
 ## v2.13.0 — 2026-11-12 · MENOR
 
 - Agregar generación de talones del retroactivo y mejorar la identificación del empleado en talones — Jesse Ilescas (`cb17ab6`)
