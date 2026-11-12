@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.12.4 — 2026-11-12 · ARREGLO
+
+- Identificar al empleado por su nombre cuando no se lee el número del talón — Jesse Ilescas (`3c925c6`)
+
 ## v2.12.3 — 2026-11-12 · ARREGLO
 
 - Avisar en la entrega rápida cuando el talón es de un empleado dado de baja — Jesse Ilescas (`0b8b752`)
