@@ -6,7 +6,7 @@ const Tesseract = require("tesseract.js");
 const { querysql } = require("../../config/mysql");
 const momentTz = require("moment-timezone");
 const { filtroTalonesDe, talonesSonDe, getQuincenaInfo, TIMEZONE } = require("../../libs/talonesQuincena");
-const { analizarHojaTalon, recortarContenido, coincidenciaNombre } = require("../../libs/talonOcr");
+const { analizarHojaTalon, recortarContenido, compararNombre, palabrasLeidas } = require("../../libs/talonOcr");
 const { guardarImagenTalon, borrarImagenesTalon, hidratarImagenes } = require("../../libs/talonesImagenes");
 
 // Estados de un talón (TALONES[].STATUS), igual que en el front (perfil-talon):
@@ -594,6 +594,7 @@ const validarHojasTalon = async (hojas) => {
   const datos = {
     numemp: candidatos[0] || null,
     numempCandidatos: candidatos,
+    numempVotos: totalVotos,
     texto: analisis.map((a) => a.texto).join(" "),
     fechaPago: dato("fechaPago"),
     desde: dato("desde"),
@@ -653,15 +654,20 @@ const vecinosNumero = (n) => {
 // leído no coincide (el OCR confunde 9 y 7), el nombre completo.
 // - Número leído igual al del empleado: basta con la mitad del nombre.
 // - Número a un dígito de distancia: tres cuartas partes del nombre.
-// - Sin número: el nombre completo.
+// - Número leído con seguridad (2+ lecturas iguales) y es de otro: no es suyo
+//   (protege contra hermanos con los mismos apellidos).
+// - Sin número o lectura dudosa: dos palabras y la mitad del nombre.
 const esDelEmpleado = (datos, emp) => {
   if (!emp) return true;
-  const nombre = coincidenciaNombre(datos.texto, emp);
+  const { encontradas, total } = compararNombre(datos.texto, emp);
+  const nombre = total ? encontradas / total : 0;
   const suyo = emp.NUMEMP != null ? String(emp.NUMEMP).trim() : "";
   const cands = datos.numempCandidatos || [];
   if (suyo && cands.includes(suyo)) return nombre >= 0.5;
   if (suyo && cands.some((c) => distanciaDigitos(c, suyo) <= 1)) return nombre >= 0.75;
-  return nombre >= 0.99;
+  const votosNum = datos.numempVotos || {};
+  if (cands.some((c) => (votosNum[c] || 0) >= 2)) return false;
+  return encontradas >= 2 && nombre >= 0.5;
 };
 
 // Compara lo leído con el talón y su dueño.
@@ -697,10 +703,27 @@ const verificarHojasContraTalon = (datos, talon, dueno) => {
 // Empleado activo de las hojas: por los números leídos y confirmando el nombre.
 // Con activos: false busca entre los que ya no están activos (baja), para
 // avisar por qué no se entrega.
+// Si no se leyó el número o no coincide con nadie, se busca por el nombre
+// impreso: por apellidos leídos, con al menos dos palabras del nombre y la
+// mitad del nombre completo, y solo si queda una sola persona.
 const empleadoDeHojas = async (datos, { activos = true } = {}) => {
-  const numeros = [...new Set(datos.numempCandidatos.slice(0, 4).flatMap(vecinosNumero))].flatMap((n) => [n, Number(n)]);
-  const emps = await buscarEmpleado({ NUMEMP: { $in: numeros }, status: activos ? 1 : { $ne: 1 } });
-  return emps.filter((e) => esDelEmpleado(datos, e));
+  const status = activos ? 1 : { $ne: 1 };
+  const cands = (datos.numempCandidatos || []).slice(0, 6);
+  if (cands.length > 0) {
+    const numeros = [...new Set(cands.flatMap(vecinosNumero))].flatMap((n) => [n, Number(n)]);
+    const emps = (await buscarEmpleado({ NUMEMP: { $in: numeros }, status })).filter((e) => esDelEmpleado(datos, e));
+    if (emps.length > 0) return emps;
+  }
+  const palabras = palabrasLeidas(datos.texto || "");
+  if (palabras.length === 0) return [];
+  const porApellido = await buscarEmpleado({ $or: [{ APE_PAT: { $in: palabras } }, { APE_MAT: { $in: palabras } }], status });
+  const porNombre = porApellido.filter((e) => {
+    const { encontradas, total } = compararNombre(datos.texto, e);
+    return encontradas >= 2 && encontradas / total >= 0.5;
+  });
+  if (porNombre.length !== 1) return porNombre.length > 1 ? [] : porNombre;
+  porNombre[0].identificadoPorNombre = true;
+  return porNombre;
 };
 
 const buscarEmpleado = async (filtro) => {
@@ -876,7 +899,9 @@ talonesController.entregarEscaneo = async (req, res) => {
           error: `${nombreEmpleado(e)} (No. ${e.NUMEMP}) está dado de baja; el talón no se entregó.`,
         });
       }
-      return res.status(404).send({ codigo: "EMPLEADO_NO_ENCONTRADO", numemp: v.datos.numemp, error: `No se encontró un empleado activo con el número ${v.datos.numemp} y el nombre del talón. Entrégalo desde su perfil.` });
+      return res.status(404).send({ codigo: "EMPLEADO_NO_ENCONTRADO", numemp: v.datos.numemp, error: v.datos.numemp
+        ? `No se encontró un empleado activo con el número ${v.datos.numemp} y el nombre del talón. Entrégalo desde su perfil.`
+        : "No se pudo leer el número de empleado y el nombre impreso no coincide con una sola persona. Entrégalo desde su perfil." });
     }
     if (emps.length > 1) {
       return res.status(409).send({ codigo: "EMPLEADO_DUPLICADO", numemp: v.datos.numemp, error: `Hay más de un empleado activo con el número ${v.datos.numemp}. Entrégalo desde su perfil.` });

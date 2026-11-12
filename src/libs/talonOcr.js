@@ -339,8 +339,13 @@ async function analizarSinCache(buffer) {
 
     // Respaldo con el texto de la franja cuando un recuadro sale vacío.
     const textoCompleto = normalizar(`${res.data.text} ${nombreTexto}`);
-    const numempVotos = numempL.votos;
-    const numemp = numempL.valor;
+    // Respaldo del número: tokens de 5 o 6 dígitos en la franja de arriba
+    // (el folio trae 4 y la dependencia muchos más). Valen un voto.
+    const numempVotos = { ...numempL.votos };
+    for (const m of normalizar(res.data.text).matchAll(/(?<!\d)(\d{5,6})(?!\d)/g)) {
+      if (!numempVotos[m[1]]) numempVotos[m[1]] = 0.5;
+    }
+    const numemp = numempL.valor || Object.keys(numempVotos)[0] || null;
     const neto = netoL.valor === null ? null : Number(netoL.valor);
 
     let copia = null;
@@ -376,10 +381,21 @@ async function analizarSinCache(buffer) {
 // nombre (apellidos y nombres) se busca permitiendo un error de OCR por
 // palabra. Regresa la fracción de palabras encontradas (0 a 1).
 function coincidenciaNombre(texto, emp = {}) {
+  const { encontradas, total } = compararNombre(texto, emp);
+  return total ? encontradas / total : 0;
+}
+
+// Palabras de 4+ letras del texto leído (para buscar empleados por apellido).
+function palabrasLeidas(texto) {
+  return [...new Set(normalizar(texto).replace(/[^A-Z\s]/g, " ").split(/\s+/).filter((p) => p.length >= 4))];
+}
+
+// Cuántas palabras del nombre del empleado aparecen en el texto.
+function compararNombre(texto, emp = {}) {
   const palabrasTexto = new Set(normalizar(texto).replace(/[^A-Z\s]/g, " ").split(/\s+/).filter((p) => p.length >= 2));
   const palabrasNombre = normalizar([emp.APE_PAT, emp.APE_MAT, emp.NOMBRES].filter(Boolean).join(" "))
     .replace(/[^A-Z\s]/g, " ").split(/\s+/).filter((p) => p.length >= 2);
-  if (palabrasNombre.length === 0) return 0;
+  if (palabrasNombre.length === 0) return { encontradas: 0, total: 0 };
   const distancia = (a, b) => {
     if (Math.abs(a.length - b.length) > 1) return 2;
     const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
@@ -393,7 +409,7 @@ function coincidenciaNombre(texto, emp = {}) {
   };
   const encontradas = palabrasNombre.filter((p) =>
     palabrasTexto.has(p) || [...palabrasTexto].some((t) => p.length >= 4 && distancia(p, t) <= 1));
-  return encontradas.length / palabrasNombre.length;
+  return { encontradas: encontradas.length, total: palabrasNombre.length };
 }
 
-module.exports = { analizarHojaTalon, recortarContenido, coincidenciaNombre, PLANTILLA };
+module.exports = { analizarHojaTalon, recortarContenido, coincidenciaNombre, compararNombre, palabrasLeidas, PLANTILLA };
