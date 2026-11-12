@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.12.2 — 2026-11-12 · ARREGLO
+
+- Correción para a función de modificar la fecha de vacaciones para que ahora se pueda modificar el total de días de vacaciones del empleado — Isidro Noé Salvador Jiménez (`e75e6dc`)
+
 ## v2.12.1 — 2026-11-11 · ARREGLO
 
 - Mejorar la lectura de talones con impresión tenue y la verificación de quincena por periodo — Jesse Ilescas (`b99b5fa`)
