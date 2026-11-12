@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.12.3 — 2026-11-12 · ARREGLO
+
+- Avisar en la entrega rápida cuando el talón es de un empleado dado de baja — Jesse Ilescas (`0b8b752`)
+
 ## v2.12.2 — 2026-11-12 · ARREGLO
 
 - Correción para a función de modificar la fecha de vacaciones para que ahora se pueda modificar el total de días de vacaciones del empleado — Isidro Noé Salvador Jiménez (`e75e6dc`)
