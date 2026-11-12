@@ -5,7 +5,7 @@ const sharp = require("sharp");
 const Tesseract = require("tesseract.js");
 const { querysql } = require("../../config/mysql");
 const momentTz = require("moment-timezone");
-const { filtroTalonesDe, talonesSonDe, getQuincenaInfo, TIMEZONE } = require("../../libs/talonesQuincena");
+const { filtroTalonesDe, talonesSonDe, getQuincenaInfo, TIMEZONE, crearTalonesRetroactivo } = require("../../libs/talonesQuincena");
 const { analizarHojaTalon, recortarContenido, compararNombre, palabrasLeidas } = require("../../libs/talonOcr");
 const { guardarImagenTalon, borrarImagenesTalon, hidratarImagenes } = require("../../libs/talonesImagenes");
 
@@ -599,9 +599,11 @@ const validarHojasTalon = async (hojas) => {
     fechaPago: dato("fechaPago"),
     desde: dato("desde"),
     hasta: dato("hasta"),
+    curp: dato("curp"),
+    rfc: dato("rfc"),
     neto: ultima.neto,
   };
-  if (!datos.numemp && !/[A-Z]{4,}/.test(datos.texto || "")) {
+  if (!datos.numemp && !datos.rfc && !datos.curp && !/[A-Z]{4,}/.test(datos.texto || "")) {
     return fallo(422, { codigo: "DATOS_NO_LEIDOS", error: "No se pudo leer el número ni el nombre del empleado. Vuelve a escanear." });
   }
   const recortes = [];
@@ -650,24 +652,39 @@ const vecinosNumero = (n) => {
   return [...salida].filter((x) => x.length >= 4);
 };
 
-// ¿Las hojas son de este empleado? Se exige el nombre impreso y, si el número
-// leído no coincide (el OCR confunde 9 y 7), el nombre completo.
-// - Número leído igual al del empleado: basta con la mitad del nombre.
-// - Número a un dígito de distancia: tres cuartas partes del nombre.
-// - Número leído con seguridad (2+ lecturas iguales) y es de otro: no es suyo
-//   (protege contra hermanos con los mismos apellidos).
-// - Sin número o lectura dudosa: dos palabras y la mitad del nombre.
-const esDelEmpleado = (datos, emp) => {
-  if (!emp) return true;
+// Datos del talón que coinciden con el empleado: número, nombre, RFC y CURP.
+// - número: igual al leído, o a un dígito si además coincide 3/4 del nombre.
+// - nombre: al menos dos palabras y la mitad del nombre.
+// - RFC: los 10 primeros caracteres, con un error de OCR.
+// - CURP: completa, con hasta dos errores de OCR.
+// - numeroDeOtro: se leyó con seguridad (2+ lecturas iguales) un número que
+//   no es suyo; protege contra hermanos con los mismos apellidos.
+const base10 = (x) => (x ? String(x).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) : "");
+const senalesEmpleado = (datos, emp) => {
   const { encontradas, total } = compararNombre(datos.texto, emp);
-  const nombre = total ? encontradas / total : 0;
+  const fraccion = total ? encontradas / total : 0;
   const suyo = emp.NUMEMP != null ? String(emp.NUMEMP).trim() : "";
   const cands = datos.numempCandidatos || [];
-  if (suyo && cands.includes(suyo)) return nombre >= 0.5;
-  if (suyo && cands.some((c) => distanciaDigitos(c, suyo) <= 1)) return nombre >= 0.75;
   const votosNum = datos.numempVotos || {};
-  if (cands.some((c) => (votosNum[c] || 0) >= 2)) return false;
-  return encontradas >= 2 && nombre >= 0.5;
+  const numeroExacto = Boolean(suyo) && cands.includes(suyo);
+  const numeroCerca = !numeroExacto && Boolean(suyo) && cands.some((c) => distanciaDigitos(c, suyo) <= 1);
+  const senales = {
+    numero: numeroExacto || (numeroCerca && fraccion >= 0.75),
+    nombre: encontradas >= 2 && fraccion >= 0.5,
+    rfc: Boolean(datos.rfc && emp.RFC) && distanciaDigitos(base10(datos.rfc), base10(emp.RFC)) <= 1,
+    curp: Boolean(datos.curp && emp.CURP) && distanciaDigitos(String(datos.curp), String(emp.CURP).toUpperCase()) <= 2,
+  };
+  const coincidencias = Object.values(senales).filter(Boolean).length;
+  const numeroDeOtro = !numeroExacto && !numeroCerca && cands.some((c) => (votosNum[c] || 0) >= 2);
+  return { ...senales, coincidencias, numeroDeOtro };
+};
+
+// ¿Las hojas son de este empleado (ya elegido en el perfil)? Basta un dato
+// que coincida, salvo que se haya leído con seguridad el número de otro.
+const esDelEmpleado = (datos, emp) => {
+  if (!emp) return true;
+  const s = senalesEmpleado(datos, emp);
+  return !s.numeroDeOtro && s.coincidencias >= 1;
 };
 
 // Compara lo leído con el talón y su dueño.
@@ -700,36 +717,46 @@ const verificarHojasContraTalon = (datos, talon, dueno) => {
   return {};
 };
 
-// Empleado activo de las hojas: por los números leídos y confirmando el nombre.
-// Con activos: false busca entre los que ya no están activos (baja), para
-// avisar por qué no se entrega.
-// Si no se leyó el número o no coincide con nadie, se busca por el nombre
-// impreso: por apellidos leídos, con al menos dos palabras del nombre y la
-// mitad del nombre completo, y solo si queda una sola persona.
+// Empleado de las hojas (entrega rápida). Se buscan candidatos por número
+// (y números a un dígito), por RFC/CURP y por apellidos, y se cuentan los
+// datos que coinciden:
+// - 2 o más datos: es él (si hay uno solo así).
+// - 1 dato y es el único candidato: se regresa con requiereConfirmacion para
+//   que el usuario confirme eligiendo el talón.
+// Con activos: false busca entre los no activos (baja), para avisar por qué
+// no se entrega.
 const empleadoDeHojas = async (datos, { activos = true } = {}) => {
   const status = activos ? 1 : { $ne: 1 };
+  const filtros = [];
   const cands = (datos.numempCandidatos || []).slice(0, 6);
   if (cands.length > 0) {
     const numeros = [...new Set(cands.flatMap(vecinosNumero))].flatMap((n) => [n, Number(n)]);
-    const emps = (await buscarEmpleado({ NUMEMP: { $in: numeros }, status })).filter((e) => esDelEmpleado(datos, e));
-    if (emps.length > 0) return emps;
+    filtros.push({ NUMEMP: { $in: numeros } });
+  }
+  for (const b of new Set([base10(datos.rfc), base10(datos.curp)].filter((x) => x.length === 10))) {
+    filtros.push({ RFC: { $regex: `^${b}`, $options: "i" } }, { CURP: { $regex: `^${b}`, $options: "i" } });
   }
   const palabras = palabrasLeidas(datos.texto || "");
-  if (palabras.length === 0) return [];
-  const porApellido = await buscarEmpleado({ $or: [{ APE_PAT: { $in: palabras } }, { APE_MAT: { $in: palabras } }], status });
-  const porNombre = porApellido.filter((e) => {
-    const { encontradas, total } = compararNombre(datos.texto, e);
-    return encontradas >= 2 && encontradas / total >= 0.5;
-  });
-  if (porNombre.length !== 1) return porNombre.length > 1 ? [] : porNombre;
-  porNombre[0].identificadoPorNombre = true;
-  return porNombre;
+  if (palabras.length > 0) filtros.push({ APE_PAT: { $in: palabras } }, { APE_MAT: { $in: palabras } });
+  if (filtros.length === 0) return [];
+
+  const vistos = new Map();
+  for (const e of await buscarEmpleado({ $or: filtros, status })) vistos.set(String(e._id), e);
+  const evaluados = [...vistos.values()]
+    .map((e) => ({ e, s: senalesEmpleado(datos, e) }))
+    .filter(({ s }) => !s.numeroDeOtro && s.coincidencias >= 1);
+  const seguros = evaluados.filter(({ s }) => s.coincidencias >= 2);
+  if (seguros.length > 0) return seguros.map(({ e, s }) => Object.assign(e, { senales: s }));
+  if (evaluados.length === 1) {
+    return [Object.assign(evaluados[0].e, { senales: evaluados[0].s, requiereConfirmacion: true })];
+  }
+  return [];
 };
 
 const buscarEmpleado = async (filtro) => {
   const [p = [], f = []] = await Promise.all([
-    find("PLANTILLA", filtro, { NOMBRES: 1, APE_PAT: 1, APE_MAT: 1, NUMEMP: 1, RFC: 1, status: 1 }),
-    find("PLANTILLA_FORANEA", filtro, { NOMBRES: 1, APE_PAT: 1, APE_MAT: 1, NUMEMP: 1, RFC: 1, status: 1 }),
+    find("PLANTILLA", filtro, { NOMBRES: 1, APE_PAT: 1, APE_MAT: 1, NUMEMP: 1, RFC: 1, CURP: 1, status: 1 }),
+    find("PLANTILLA_FORANEA", filtro, { NOMBRES: 1, APE_PAT: 1, APE_MAT: 1, NUMEMP: 1, RFC: 1, CURP: 1, status: 1 }),
   ]);
   return [...p, ...f];
 };
@@ -864,7 +891,7 @@ talonesController.analizarHoja = async (req, res) => {
     if (q) respuesta.quincena = { QUIN: q.QUIN, YEAR: q.YEAR };
     if (a.numemp) {
       const candidatos = Object.entries(a.numempVotos || {}).sort((x, y) => y[1] - x[1]).map(([n]) => n);
-      const emps = await empleadoDeHojas({ numempCandidatos: candidatos, texto: a.texto });
+      const emps = await empleadoDeHojas({ numempCandidatos: candidatos, numempVotos: a.numempVotos, texto: a.texto, rfc: a.rfc, curp: a.curp });
       if (emps.length === 1) respuesta.empleado = { _id: emps[0]._id, NOMBRE: nombreEmpleado(emps[0]), NUMEMP: emps[0].NUMEMP };
     }
     return res.status(200).send(respuesta);
@@ -910,6 +937,21 @@ talonesController.entregarEscaneo = async (req, res) => {
     const empleado = { _id: emp._id, NOMBRE: nombreEmpleado(emp), NUMEMP: emp.NUMEMP };
     const q = quincenaDeHojas(v.datos);
     const docs = await find("TALONES", filtroTalonesDe(emp), { "TALONES.IMAGE": 0, "TALONES.IMAGE_REGRESO": 0 });
+    const pendientesDe = () => docs.flatMap((d) => (d.TALONES || [])
+      .filter((x) => x.STATUS === TALON_STATUS.PENDIENTE)
+      .map((x) => ({ _id: x._id, QUIN: x.QUIN, YEAR: x.YEAR })));
+    if (emp.requiereConfirmacion) {
+      // Solo coincidió un dato (p. ej. el nombre): el usuario confirma
+      // eligiendo el talón, igual que cuando no se lee la quincena.
+      const dato = Object.entries({ numero: "el número", nombre: "el nombre", rfc: "el RFC", curp: "la CURP" })
+        .filter(([k]) => emp.senales?.[k]).map(([, v]) => v).join(", ") || "un dato";
+      return res.status(422).send({
+        codigo: "CONFIRMAR_EMPLEADO",
+        empleado,
+        pendientes: pendientesDe(),
+        error: `Solo coincidió ${dato} con ${empleado.NOMBRE}. Si es su talón, elige cuál es.`,
+      });
+    }
     if (!q) {
       // Impresión demasiado tenue para leer la quincena: el usuario elige el
       // talón y el front lo entrega con entregar-talon (mismas hojas).
@@ -951,6 +993,47 @@ talonesController.entregarEscaneo = async (req, res) => {
     });
   } catch (error) {
     return errorInterno(res, error, "Error en la entrega por escaneo:");
+  }
+};
+
+// Generar los talones del retroactivo (sin fecha fija; lo pide un usuario).
+// Body: { YEAR, FECHA_PAGO? (YYYY-MM-DD, por defecto hoy), simular? }.
+// Con simular: true solo regresa cuántos se crearían.
+talonesController.generarRetroactivo = async (req, res) => {
+  const { YEAR, FECHA_PAGO, simular } = req.body || {};
+  const user = req.user;
+  const anio = Number(YEAR);
+  if (!Number.isInteger(anio) || anio < 2020 || anio > 2040) {
+    return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: "YEAR debe ser un año válido." });
+  }
+  let fecha = momentTz.tz(TIMEZONE);
+  if (FECHA_PAGO !== undefined && FECHA_PAGO !== null && FECHA_PAGO !== "") {
+    fecha = momentTz.tz(String(FECHA_PAGO), "YYYY-MM-DD", true, TIMEZONE);
+    if (!fecha.isValid()) {
+      return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: "FECHA_PAGO debe tener el formato YYYY-MM-DD." });
+    }
+  }
+  if (fecha.year() !== anio) {
+    return res.status(400).send({ codigo: "DATOS_INVALIDOS", error: `La fecha de pago debe ser del año ${anio}.` });
+  }
+  try {
+    const r = await crearTalonesRetroactivo({ anio, fechaPago: fecha.toDate(), simular: simular === true, usuario: user.username });
+    if (!r.simulado) {
+      await insertOne("USER_ACTIONS", {
+        username: user.username,
+        module: "TP",
+        action: `GENERÓ ${r.creados} TALONES DEL RETROACTIVO ${anio} (PAGO ${r.fechaPago})`,
+        timestamp: moment().format("YYYY-MM-DD HH:mm:ss"),
+      });
+    }
+    return res.status(200).send({
+      ...r,
+      message: r.simulado
+        ? `Se crearían ${r.creados} talones del retroactivo ${anio}.`
+        : `Se crearon ${r.creados} talones del retroactivo ${anio}.`,
+    });
+  } catch (error) {
+    return errorInterno(res, error, "Error al generar talones del retroactivo:");
   }
 };
 

@@ -4,6 +4,11 @@ const { connect, query } = require("../config/mongo");
 
 const TIMEZONE = "America/Mexico_City";
 
+// Mayo y diciembre tienen un solo pago, que suele hacerse antes de fin de mes
+// (p. ej. diciembre 2024 se pagó el 13). Ese talón se crea este día del mes
+// para que ya exista cuando se entregue.
+const DIA_PAGO_UNICO = Number(process.env.TALONES_DIA_PAGO_UNICO) || 10;
+
 // Colecciones de empleados que reciben talón de pago.
 const COLECCIONES_EMPLEADOS = ["PLANTILLA", "PLANTILLA_FORANEA"];
 
@@ -18,13 +23,15 @@ function getQuincenaInfo(fechaBase = new Date()) {
   const pagoUnicoMes = mes === 5 || mes === 12;
   const esQuincena1 = dia === 15 && !pagoUnicoMes;
   const esQuincena2 = dia === ultimoDiaMes;
-  const esDiaPago = esQuincena1 || esQuincena2;
+  const esDiaPagoUnico = pagoUnicoMes && dia === DIA_PAGO_UNICO;
+  const esDiaPago = esQuincena1 || esQuincena2 || esDiaPagoUnico;
 
   // Numeración de 1 a 22: una por fecha de pago (mayo y diciembre cuentan una sola).
   const quincenaDelMes = dia <= 15 ? 1 : 2;
+  // En mayo y diciembre cualquier día del mes es la quincena única (9 y 22).
   const quincenaDelAnio =
     (mes - 1) * 2 +
-    quincenaDelMes -
+    (pagoUnicoMes ? 2 : quincenaDelMes) -
     (mes >= 5 ? 1 : 0) -
     (mes === 12 ? 1 : 0);
 
@@ -195,16 +202,13 @@ async function crearTalonesParaFecha({
         talonesSonDe(d, empleado),
       );
 
-      const yaExiste = doc?.TALONES?.some((talon) => {
-        if (talon.FECHA_PAG) {
-          return moment.tz(talon.FECHA_PAG, TIMEZONE).format("YYYY-MM-DD") === fechaPagoKey;
-        }
-        // Compatibilidad con registros sin FECHA_PAG.
-        return (
-          Number(talon.YEAR) === Number(info.anio) &&
-          Number(talon.QUIN) === Number(info.quincenaDelAnio)
-        );
-      });
+      // Ya existe si tiene la misma quincena del año (así mayo y diciembre no
+      // se duplican entre el día de pago único y el fin de mes) o la misma fecha.
+      const yaExiste = doc?.TALONES?.some((talon) =>
+        (Number(talon.YEAR) === Number(info.anio) &&
+          Number(talon.QUIN) === Number(info.quincenaDelAnio)) ||
+        (talon.FECHA_PAG &&
+          moment.tz(talon.FECHA_PAG, TIMEZONE).format("YYYY-MM-DD") === fechaPagoKey));
       if (yaExiste) continue;
 
       const nuevoTalon = {
@@ -246,6 +250,70 @@ async function crearTalonesParaFecha({
   };
 }
 
+// Talones del retroactivo: un sobre extra al año sin fecha fija (QUIN "RETRO",
+// TIPO "RETROACTIVO"). Lo genera un usuario desde la pantalla de talones.
+// - Uno por empleado y año: si ya lo tiene, no se crea otro.
+// - Respeta alta y baja con la fecha de pago indicada (o hoy).
+// - simular: true solo cuenta, no escribe.
+async function crearTalonesRetroactivo({ anio, fechaPago = new Date(), simular = false, usuario = null } = {}) {
+  const db = await connect();
+  const info = getQuincenaInfo(fechaPago);
+  const empleadosActivos = (
+    await Promise.all(
+      COLECCIONES_EMPLEADOS.map((col) =>
+        db.collection(col).find({ status: 1 }, { projection: { _id: 1, NUMEMP: 1, RFC: 1, FECHA_INGRESO: 1 } }).toArray(),
+      ),
+    )
+  ).flat();
+  const bajasPendientes = await obtenerBajasPendientes();
+  const docsTalones = await db
+    .collection("TALONES")
+    .find(
+      { _idEmployee: { $in: empleadosActivos.map((e) => e._id) } },
+      { projection: { _idEmployee: 1, NUMEMP: 1, RFC: 1, "TALONES.QUIN": 1, "TALONES.YEAR": 1 } },
+    )
+    .toArray();
+  const docsPorEmpleado = new Map();
+  for (const doc of docsTalones) {
+    const k = String(doc._idEmployee);
+    if (!docsPorEmpleado.has(k)) docsPorEmpleado.set(k, []);
+    docsPorEmpleado.get(k).push(doc);
+  }
+
+  const resumen = { anio, fechaPago: info.fechaMx.format("YYYY-MM-DD"), empleados: empleadosActivos.length, creados: 0, yaTenian: 0, omitidosAltaBaja: 0 };
+  const operaciones = [];
+  for (const empleado of empleadosActivos) {
+    if (!correspondeTalon(empleado, info, bajasPendientes.get(String(empleado._id))).corresponde) {
+      resumen.omitidosAltaBaja++;
+      continue;
+    }
+    const doc = (docsPorEmpleado.get(String(empleado._id)) || []).find((d) => talonesSonDe(d, empleado));
+    if (doc?.TALONES?.some((t) => t.QUIN === "RETRO" && Number(t.YEAR) === Number(anio))) {
+      resumen.yaTenian++;
+      continue;
+    }
+    const talon = {
+      _id: new ObjectId(),
+      QUIN: "RETRO",
+      TIPO: "RETROACTIVO",
+      YEAR: Number(anio),
+      FECHA_PAG: info.fechaPago,
+      STATUS: 1,
+      FOLIO: null,
+      GENERADO_POR: usuario,
+      FECHA_GENERADO: new Date(),
+    };
+    operaciones.push(doc
+      ? { updateOne: { filter: { _id: doc._id }, update: { $push: { TALONES: talon } } } }
+      : { insertOne: { document: { _idEmployee: empleado._id, ...identidadEmpleado(empleado), TALONES: [talon] } } });
+    resumen.creados++;
+  }
+  if (!simular && operaciones.length > 0) {
+    await db.collection("TALONES").bulkWrite(operaciones, { ordered: false });
+  }
+  return { ...resumen, simulado: simular };
+}
+
 function obtenerFechasPagoHasta(fechaLimite = new Date(), anio = null) {
   const limite = moment.tz(fechaLimite, TIMEZONE).endOf("day");
   const anioObjetivo = anio || limite.year();
@@ -268,8 +336,12 @@ function obtenerFechasPagoHasta(fechaLimite = new Date(), anio = null) {
       fechas.push(primera.toDate());
     }
 
-    if (ultima.isSameOrBefore(limite)) {
-      fechas.push(ultima.toDate());
+    // Mayo y diciembre: un solo pago, el día DIA_PAGO_UNICO.
+    const fechaFinal = mes === 5 || mes === 12
+      ? moment.tz({ year: anioObjetivo, month: mes - 1, day: DIA_PAGO_UNICO }, TIMEZONE).startOf("day")
+      : ultima;
+    if (fechaFinal.isSameOrBefore(limite)) {
+      fechas.push(fechaFinal.toDate());
     }
   }
 
@@ -278,9 +350,11 @@ function obtenerFechasPagoHasta(fechaLimite = new Date(), anio = null) {
 
 module.exports = {
   TIMEZONE,
+  DIA_PAGO_UNICO,
   COLECCIONES_EMPLEADOS,
   getQuincenaInfo,
   crearTalonesParaFecha,
+  crearTalonesRetroactivo,
   obtenerFechasPagoHasta,
   identidadEmpleado,
   filtroTalonesDe,

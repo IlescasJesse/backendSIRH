@@ -16,6 +16,8 @@ router.post("/entregar-talon", verifyToken, requirePermission(TP_ENTREGAR), talo
 // Escaneo por hojas: leer una hoja (sin guardar) y entrega automática por escaneo.
 router.post("/analizar-hoja", verifyToken, requirePermission(TP_ENTREGAR), talonesController.analizarHoja);
 router.post("/entregar-escaneo", verifyToken, requirePermission(TP_ENTREGAR), talonesController.entregarEscaneo);
+// Retroactivo: no tiene fecha fija, se genera a mano (mismo permiso que préstamos).
+router.post("/generar-retroactivo", verifyToken, requirePermission(TP_PRESTAR), talonesController.generarRetroactivo);
 router.post("/prestar-talon", verifyToken, requirePermission(TP_PRESTAR), talonesController.prestarTalon);
 router.post("/regresar-talon", verifyToken, requirePermission(TP_PRESTAR), talonesController.regresarTalon);
 

@@ -27,6 +27,9 @@ const PLANTILLA = {
   cajas: {
     NUMEMP: [285, 150, 500, 215],
     NOMBRE: [1440, 148, 2560, 215],
+    // Recuadro "CLAVE ÚNICA DE REGISTRO DE POBLACIÓN": CURP arriba, RFC abajo.
+    CURP: [1820, 240, 2480, 296],
+    RFC: [1820, 296, 2480, 354],
     FECHA_PAGO: [485, 150, 815, 212],
     DESDE: [660, 295, 1000, 360],
     HASTA: [1080, 295, 1420, 360],
@@ -217,6 +220,30 @@ async function leerVotado(img, reg, whitelist, valor, { lector = 0, minimo = 1 }
 // Cuenta votos: { valor: veces }.
 const masVotado = (conteo) => Object.entries(conteo).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
+// Corrige confusiones típicas del OCR según lo que debe ir en cada posición
+// (letra o número) y valida el formato. tipo: "L" letra, "D" dígito, "X" cualquiera.
+const A_LETRA = { 0: "O", 1: "I", 2: "Z", 5: "S", 8: "B", 6: "G", 4: "A" };
+const A_DIGITO = { O: "0", Q: "0", D: "0", I: "1", L: "1", T: "1", Z: "2", S: "5", B: "8", G: "6", A: "4" };
+function corregirClave(texto, formato) {
+  const limpio = normalizar(texto).replace(/[^A-Z0-9]/g, "");
+  for (let ini = 0; ini + formato.length <= limpio.length; ini++) {
+    const trozo = limpio.slice(ini, ini + formato.length);
+    let salida = "";
+    for (let i = 0; i < formato.length; i++) {
+      const c = trozo[i];
+      const t = formato[i];
+      if (t === "L") salida += /[A-Z]/.test(c) ? c : A_LETRA[c] || "?";
+      else if (t === "D") salida += /[0-9]/.test(c) ? c : A_DIGITO[c] || "?";
+      else if (t === "S") salida += c === "H" || c === "M" ? c : "?";
+      else salida += c;
+    }
+    if (!salida.includes("?")) return salida;
+  }
+  return null;
+}
+const FORMATO_CURP = "LLLLDDDDDDSLLLLLXD";
+const FORMATO_RFC = "LLLLDDDDDDXXX"; // si la homoclave no se lee, se usan los 10 primeros
+
 const leerFecha = (texto) => {
   const m = String(texto).replace(/\s/g, "").match(/(\d{2})-(\d{2})-(\d{4})/);
   if (!m) return null;
@@ -319,7 +346,8 @@ async function analizarSinCache(buffer) {
     // Cada lector lee sus recuadros en orden; los tres trabajan a la vez.
     // Las fechas solo cuentan si dos lecturas coinciden (mejor "no leída" que equivocada).
     const fecha = { minimo: 2 };
-    const [[numempL, nombreTexto, copiaCruda], [fechaPagoL, netoL], [desdeL, hastaL]] = await Promise.all([
+    const CLAVE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const [[numempL, nombreTexto, copiaCruda], [fechaPagoL, netoL, curpL], [desdeL, hastaL, rfcL]] = await Promise.all([
       (async () => [
         await leerVotado(recorte, reg("NUMEMP"), DIGITOS, comoNumemp, { lector: 0 }),
         await leerNombre(0),
@@ -328,10 +356,12 @@ async function analizarSinCache(buffer) {
       (async () => [
         await leerVotado(recorte, reg("FECHA_PAGO"), FECHA, leerFecha, { ...fecha, lector: 1 }),
         await leerVotado(recorte, reg("NETO"), IMPORTE, comoImporte, { lector: 1 }),
+        await leerVotado(recorte, reg("CURP"), CLAVE, (x) => corregirClave(x, FORMATO_CURP), { lector: 1 }),
       ])(),
       (async () => [
         await leerVotado(recorte, reg("DESDE"), FECHA, leerFecha, { ...fecha, lector: 2 }),
         await leerVotado(recorte, reg("HASTA"), FECHA, leerFecha, { ...fecha, lector: 2 }),
+        await leerVotado(recorte, reg("RFC"), CLAVE, (x) => corregirClave(x, FORMATO_RFC) || corregirClave(x, "LLLLDDDDDD"), { lector: 2 }),
       ])(),
     ]);
     const copiaTexto = normalizar(copiaCruda);
@@ -360,6 +390,8 @@ async function analizarSinCache(buffer) {
       numempVotos,
       // Texto completo de la hoja (para comparar el nombre impreso). Uso interno.
       texto: textoCompleto,
+      curp: curpL.valor,
+      rfc: rfcL.valor,
       fechaPago: fechaPagoL.valor,
       desde: desdeL.valor,
       hasta: hastaL.valor,
@@ -412,4 +444,4 @@ function compararNombre(texto, emp = {}) {
   return { encontradas: encontradas.length, total: palabrasNombre.length };
 }
 
-module.exports = { analizarHojaTalon, recortarContenido, coincidenciaNombre, compararNombre, palabrasLeidas, PLANTILLA };
+module.exports = { corregirClave, FORMATO_CURP, FORMATO_RFC, analizarHojaTalon, recortarContenido, coincidenciaNombre, compararNombre, palabrasLeidas, PLANTILLA };

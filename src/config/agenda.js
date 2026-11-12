@@ -942,19 +942,13 @@ async function startAgenda() {
       },
     );
 
-    // Crear talones - Día 15 de cada mes a las 08:00
+    // Crear talones a las 08:00 los días 10, 15 y 28-31. La tarea revisa si es
+    // día de pago: 15 y último día del mes; en mayo y diciembre el día de pago
+    // único (TALONES_DIA_PAGO_UNICO, 10 por defecto).
+    // Debe ser UNA sola programación: agenda.every() con el mismo nombre
+    // reemplaza la anterior (antes la del día 15 se perdía).
     await agenda.every(
-      "0 8 15 1-4,6-11 *",
-      "crearTalones",
-      {},
-      {
-        timezone: "America/Mexico_City",
-      },
-    );
-
-    // Crear talones - Último día del mes a las 08:00 (28-31)
-    await agenda.every(
-      "0 8 28-31 * *",
+      "0 8 10,15,28-31 * *",
       "crearTalones",
       {},
       {
