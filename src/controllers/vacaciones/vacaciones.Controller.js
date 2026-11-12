@@ -188,6 +188,17 @@ vacacionesController.getProfile = async (req, res) => {
       }
     }
 
+    const diasManuales = Number(emp.VACACIONES?.DIAS);
+    const tieneDiasManuales =
+      emp.VACACIONES?.DIAS !== undefined &&
+      emp.VACACIONES?.DIAS !== null &&
+      Number.isFinite(diasManuales) &&
+      diasManuales >= 0;
+
+    if (tieneDiasManuales) {
+      totalDays = diasManuales;
+    }
+
     const diasKey = String(totalDays);
     const diasNumber = Number(diasKey);
 
@@ -290,7 +301,7 @@ vacacionesController.getProfile = async (req, res) => {
     const userAction = {
       timestamp: currentDateTime,
       username: user.username,
-      module: "AEI-PI",
+      module: "VA",
       action: `CONSULTÓ EL PERFIL DE VACACIONES DEL EMPLEADO "${emp.NOMBRES} ${emp.APE_PAT} ${emp.APE_MAT}"`,
     };
     await insertOne("USER_ACTIONS", userAction);
@@ -300,18 +311,14 @@ vacacionesController.getProfile = async (req, res) => {
     res.status(500).send({ error: "An error occurred while fetching data" });
   }
 };
+
 vacacionesController.updateEmployee = async (req, res) => {
   const data = req.body || {};
   const id = data._id;
   const fecha_vacaciones = data.FECHA_VACACIONES;
+  const dias = data.DIAS;
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
-  const userAction = {
-    timestamp: currentDateTime,
-    username: user && user.username ? user.username : "unknown",
-    module: "VACV-PI",
-    action: `ACTUALIZÓ LA FECHA DE VACACIONES DEL EMPLEADO CON ID "${id}"`,
-  };
 
   try {
     if (!id || !ObjectId.isValid(id)) {
@@ -321,8 +328,24 @@ vacacionesController.updateEmployee = async (req, res) => {
     // Evitar sobrescribir el _id si viene en el body
     if (data._id) delete data._id;
 
+    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(id) }),
+    ]);
+
+    const employee = employeePlantilla.length
+      ? employeePlantilla
+      : employeeForanea.length
+        ? employeeForanea
+        : [];
+
+    if (!employee || employee.length === 0) {
+      res.status(404).send({ error: "No data found" });
+      return;
+    }
+
     const update = {
-      $set: { "VACACIONES.FECHA_VACACIONES": fecha_vacaciones },
+      $set: { "VACACIONES.FECHA_VACACIONES": fecha_vacaciones, "VACACIONES.DIAS": dias },
     };
 
     // Intentar actualizar en PLANTILLA primero
@@ -346,13 +369,14 @@ vacacionesController.updateEmployee = async (req, res) => {
       return res.status(404).send({ error: "Empleado no encontrado" });
     }
 
-    // Registrar acción del usuario (no bloquear respuesta si falla el logging)
-    try {
-      await insertOne("USER_ACTIONS", userAction);
-    } catch (logErr) {
-      console.warn("No se pudo registrar user action:", logErr);
-    }
+    const userAction = {
+      timestamp: currentDateTime,
+      username: user.username,
+      module: "VA",
+      action: `ACTUALIZÓ LA FECHA DE VACACIONES DEL EMPLEADO "${employee[0].APE_PAT || ''} ${employee[0].APE_MAT || ''} ${employee[0].NOMBRES || ''}"`,
+    };
 
+    await insertOne("USER_ACTIONS", userAction);
     res.send({ message: "Employee updated successfully", _id: id });
   } catch (error) {
     console.error("Error updating employee:", error);
@@ -361,6 +385,7 @@ vacacionesController.updateEmployee = async (req, res) => {
       .send({ error: "An error occurred while updating employee" });
   }
 };
+
 vacacionesController.updateVacacionesBase = async (req, res) => {
   const data = req.body;
   const { PERIODO, ...objectsToUpdate } = data;
@@ -369,7 +394,7 @@ vacacionesController.updateVacacionesBase = async (req, res) => {
   const userAction = {
     timestamp: currentDateTime,
     username: user.username,
-    module: "VAC-PI",
+    module: "VA",
     action: `ACTUALIZÓ EL PERIODO DE VACACIONES BASE "${PERIODO}"`,
   };
 
@@ -409,7 +434,7 @@ vacacionesController.updateVacacionesContrato = async (req, res) => {
   const userAction = {
     timestamp: currentDateTime,
     username: user.username,
-    module: "VAC-PI",
+    module: "VA",
     action: `ACTUALIZÓ EL PERIODO DE VACACIONES DEL CONTRATO "${PERIODO}"`,
   };
   try {
@@ -435,6 +460,7 @@ vacacionesController.updateVacacionesContrato = async (req, res) => {
       .send({ error: "An error occurred while updating vacaciones contrato" });
   }
 };
+
 vacacionesController.getPeriodosVacacionales = async (req, res) => {
   try {
     const periodosBase = await query("PER_VACACIONALES_BASE", {});
@@ -447,17 +473,12 @@ vacacionesController.getPeriodosVacacionales = async (req, res) => {
     });
   }
 };
+
 vacacionesController.savePeriodoVacacionalEmpleado = async (req, res) => {
   const data = req.body;
   const id = req.body._id;
   const user = req.user;
   const currentDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
-  const userAction = {
-    timestamp: currentDateTime,
-    username: user.username,
-    module: "VACV-PI",
-    action: `ACTUALIZÓ LA CONFIGURACIÓN DE VACACIONES DEL EMPLEADO CON ID "${id}"`,
-  };
 
   try {
     if (!id || !ObjectId.isValid(id)) {
@@ -473,6 +494,22 @@ vacacionesController.savePeriodoVacacionalEmpleado = async (req, res) => {
 
     // Evitar sobrescribir el _id si viene en el body
     if (data._id) delete data._id;
+
+    const [employeePlantilla = [], employeeForanea = []] = await Promise.all([
+      query("PLANTILLA", { _id: new ObjectId(id) }),
+      query("PLANTILLA_FORANEA", { _id: new ObjectId(id) }),
+    ]);
+
+    const employee = employeePlantilla.length
+      ? employeePlantilla
+      : employeeForanea.length
+        ? employeeForanea
+        : [];
+
+    if (!employee || employee.length === 0) {
+      res.status(404).send({ error: "No data found" });
+      return;
+    }
 
     const update = {
       $set: {
@@ -502,12 +539,13 @@ vacacionesController.savePeriodoVacacionalEmpleado = async (req, res) => {
       return res.status(404).send({ error: "Empleado no encontrado" });
     }
 
-    // Registrar acción del usuario (no bloquear la respuesta si falla el logging)
-    try {
-      await insertOne("USER_ACTIONS", userAction);
-    } catch (logErr) {
-      console.warn("No se pudo registrar user action:", logErr);
-    }
+    const userAction = {
+      timestamp: currentDateTime,
+      username: user.username,
+      module: "VACV-PI",
+      action: `GUARDÓ EL PERIODO VACACIONAL DEL EMPLEADO "${employee[0].APE_PAT || ''} ${employee[0].APE_MAT || ''} ${employee[0].NOMBRES || ''}"`,
+    };
+    await insertOne("USER_ACTIONS", userAction);
 
     res.status(200).send({ message: "Employee updated successfully", _id: id });
   } catch (error) {
