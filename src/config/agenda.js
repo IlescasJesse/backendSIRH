@@ -4,6 +4,7 @@ const { query, insertOne, updateOne } = require("./mongo");
 const {
   crearTalonesParaFecha,
   getQuincenaInfo,
+  fechaPagoParaCrear,
 } = require("../libs/talonesQuincena");
 const {
   ADSCRIPCIONES_AUDI,
@@ -497,7 +498,9 @@ agenda.define("crearTalones", async (job) => {
       ? new Date(job.attrs.data.fecha)
       : new Date();
     const forzar = Boolean(job?.attrs?.data?.forzar);
-    const infoQuincena = getQuincenaInfo(fechaJob);
+    // Día de creación anticipada (13): se toma la quincena del pago del 15.
+    const fechaPagoCrear = fechaPagoParaCrear(fechaJob);
+    const infoQuincena = { ...getQuincenaInfo(fechaPagoCrear || fechaJob), esDiaPago: Boolean(fechaPagoCrear) };
 
     if (!infoQuincena.esDiaPago && !forzar) {
       await registrarActividadAgenda({
@@ -942,13 +945,14 @@ async function startAgenda() {
       },
     );
 
-    // Crear talones a las 08:00 los días 10, 15 y 28-31. La tarea revisa si es
-    // día de pago: 15 y último día del mes; en mayo y diciembre el día de pago
-    // único (TALONES_DIA_PAGO_UNICO, 10 por defecto).
+    // Crear talones a las 06:00 los días 10, 13, 15 y 28-31. La tarea revisa
+    // si toca: el 13 se crean los del pago del 15 (TALONES_DIA_CREACION_Q1), el
+    // 15 y el último día del mes; en mayo y diciembre el día de pago único
+    // (TALONES_DIA_PAGO_UNICO, 10 por defecto). Si ya existen, no se duplican.
     // Debe ser UNA sola programación: agenda.every() con el mismo nombre
     // reemplaza la anterior (antes la del día 15 se perdía).
     await agenda.every(
-      "0 8 10,15,28-31 * *",
+      "0 6 10,13,15,28-31 * *",
       "crearTalones",
       {},
       {

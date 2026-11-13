@@ -9,6 +9,22 @@ const TIMEZONE = "America/Mexico_City";
 // para que ya exista cuando se entregue.
 const DIA_PAGO_UNICO = Number(process.env.TALONES_DIA_PAGO_UNICO) || 10;
 
+// Los talones de la primera quincena (pago del 15) se crean antes, este día,
+// para que ya existan cuando lleguen los sobres. La fecha de pago sigue
+// siendo el 15; el día 15 el cron vuelve a pasar sin duplicar.
+const DIA_CREACION_Q1 = Number(process.env.TALONES_DIA_CREACION_Q1) || 13;
+
+// Fecha de pago que corresponde crear en una fecha dada, o null si ese día no
+// se crean talones. Día DIA_CREACION_Q1 (no mayo ni diciembre) → el 15.
+function fechaPagoParaCrear(fecha = new Date()) {
+  const f = moment.tz(fecha, TIMEZONE);
+  const mes = f.month() + 1;
+  if (f.date() === DIA_CREACION_Q1 && mes !== 5 && mes !== 12) {
+    return f.clone().date(15).startOf("day").toDate();
+  }
+  return getQuincenaInfo(fecha).esDiaPago ? f.clone().startOf("day").toDate() : null;
+}
+
 // Colecciones de empleados que reciben talón de pago.
 const COLECCIONES_EMPLEADOS = ["PLANTILLA", "PLANTILLA_FORANEA"];
 
@@ -142,9 +158,11 @@ async function crearTalonesParaFecha({
   fechaBase = new Date(),
   forzar = false,
 } = {}) {
-  const info = getQuincenaInfo(fechaBase);
+  // El día de creación anticipada (13) se crean los talones del pago del 15.
+  const fechaPagoCrear = fechaPagoParaCrear(fechaBase);
+  const info = getQuincenaInfo(fechaPagoCrear || fechaBase);
 
-  if (!info.esDiaPago && !forzar) {
+  if (!fechaPagoCrear && !forzar) {
     return {
       omitido: true,
       motivo: `No es día de pago. Día actual: ${info.dia}/${info.mes}/${info.anio}`,
@@ -350,6 +368,8 @@ function obtenerFechasPagoHasta(fechaLimite = new Date(), anio = null) {
 
 module.exports = {
   TIMEZONE,
+  DIA_CREACION_Q1,
+  fechaPagoParaCrear,
   DIA_PAGO_UNICO,
   COLECCIONES_EMPLEADOS,
   getQuincenaInfo,
