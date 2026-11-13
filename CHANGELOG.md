@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.13.3 — 2026-11-13 · ARREGLO
+
+- Crear los talones de la primera quincena el día 13 a las 06:00 — Jesse Ilescas (`d266ce3`)
+
 ## v2.13.2 — 2026-11-12 · ARREGLO
 
 - Dejar trabajar a los administradores durante el mantenimiento — Jesse Ilescas (`4a1e0b6`)
