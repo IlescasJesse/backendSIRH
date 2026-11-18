@@ -2,6 +2,10 @@
 
 Versiones generadas automáticamente al hacer push (ver VERSIONADO.md). Las entradas anteriores al versionado automático (hasta la primera versión de abajo) son un resumen.
 
+## v2.13.4 — 2026-11-18 · ARREGLO
+
+- Correción para que cuando se generen las tarjetas de asistencia se muestre correctamente el área conforme al ticket solicitado #TEC-SIS-0024, y se añadio el nuevo permiso en las rutas para que usuarios de personal puedan modificar el estatus laboral del empleado — Isidro Noé Salvador Jiménez (`6d35962`)
+
 ## v2.13.3 — 2026-11-13 · ARREGLO
 
 - Crear los talones de la primera quincena el día 13 a las 06:00 — Jesse Ilescas (`d266ce3`)
