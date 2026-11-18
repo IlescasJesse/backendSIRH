@@ -21,6 +21,7 @@ router.get("/getemployee/:queryParam", verifyToken, requirePermission(
     'PSL-AS',
     'PSL-ASQ',
     'PSL-RPE',
+    'PSL-EE',
     'AEI-CL',
     'AEI-PI',
     'AEI-VE',
@@ -48,7 +49,8 @@ router.post("/getemployee/profile/:id", verifyToken, requirePermission(
     'PSL-CA',
     'PSL-CPE',
     'PSL-REC',
-    'PSL-AS'
+    'PSL-AS',
+    'PSL-EE'
   ]), employeeController.getProfileData);
 
 // Ruta para obtener el total de empleados activos por tipo de nombramiento y por sexo

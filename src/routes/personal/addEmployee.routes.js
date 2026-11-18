@@ -16,6 +16,7 @@ router.get("/getinternalInformation", verifyToken, requirePermission(
         'PSL-RP',
         'PSL-NP',
         'PSL-RPV',
+        'PSL-EE',
         'AEI-CL',
         'AEI-EE',
         'GF-RG',
@@ -36,6 +37,7 @@ router.post("/getMpios", verifyToken, requirePermission(
         'PSL-CPE',
         'PSL-REC',
         'PSL-AS',
+        'PSL-EE',
         'GF-RG',
         'GF-IP'
     ]), addEmployeeController.getMpio);

@@ -1828,9 +1828,10 @@ incidenciasController.printAsistenceCards = async (req, res) => {
   ]);
 
   // Quien registra su asistencia en lista no lleva tarjeta impresa.
-  let employees = [...plantilla, ...foranea].filter(
-    (emp) => !tieneListaAsistencia(emp.STATUS_EMPLEADO),
-  );
+  let employees = [
+    ...plantilla.map((emp) => ({ ...emp, _esPlantillaForanea: false })),
+    ...foranea.map((emp) => ({ ...emp, _esPlantillaForanea: true })),
+  ].filter((emp) => !tieneListaAsistencia(emp.STATUS_EMPLEADO));
 
   if (employees.length === 0) {
     return res
@@ -1859,49 +1860,85 @@ incidenciasController.printAsistenceCards = async (req, res) => {
     "DEPARTAMENTO DE SERVICIOS GENERALES",
     "DEPARTAMENTO DE SERVICIOS CENTRALES",
     "DEPARTAMENTO DE SEGUIMIENTO ADMINISTRATIVO",
+    "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE",
+    "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE DE SANTA CRUZ AMILPAS",
+    "MODULO DE ATENCIÓN AL CONTRIBUYENTE DE OAXACA DE JUÁREZ",
+    "TESORERÍA",
+    "PERSONAL ADSCRITO A LA SECRETARÍA DE FINANZAS (HANGAR)",
   ];
 
   // función para obtener adscripción correcta
-  function obtenerAdscripcionNivel3(nombreAdscripcion) {
-    const ads = Object.values(mapaAdscripciones).find((a) =>
-      a.nombre.toUpperCase().includes(nombreAdscripcion.toUpperCase())
-    );
+  function obtenerAdscripcionNivel3(nombreAdscripcion, sexo) {
+    const normalizar = (nombre) =>
+      (nombre || "")
+        .trim()
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    const nombreBuscado = normalizar(nombreAdscripcion);
+    if (!nombreBuscado) return nombreAdscripcion;
+
+    const listaAdscripciones = Object.values(mapaAdscripciones);
+
+    // Prioriza la coincidencia exacta para no confundir TESORERÍA
+    // con SUBSECRETARÍA DE EGRESOS, CONTABILIDAD Y TESORERÍA.
+    const ads =
+      listaAdscripciones.find((a) => normalizar(a.nombre) === nombreBuscado) ||
+      listaAdscripciones.find((a) => normalizar(a.nombre).includes(nombreBuscado));
 
     if (!ads) return nombreAdscripcion;
 
     if (
-      departamentosEspeciales.some((dep) =>
-        ads.nombre.toUpperCase().includes(dep)
+      departamentosEspeciales.some(
+        (departamento) => normalizar(departamento) === normalizar(ads.nombre)
       )
     ) {
       return ads.nombre;
     }
 
-    if (ads.nivel <= 3) {
-      return ads.nombre;
-    }
-
     let actual = ads;
-    let nivel2 = null
+    let nivel3 = null;
+    let nivel2 = null;
+    let coordinacion = null;
+    let tesoreria = null;
 
-    while (actual.parent_id && mapaAdscripciones[actual.parent_id]) {
-      const padre = mapaAdscripciones[actual.parent_id];
+    while (actual) {
+      const nombreActual = normalizar(actual.nombre);
 
-      if (padre.nivel === 3) {
-        return padre.nombre;
+      if (nombreActual.includes("COORDINACION DE CENTROS INTEGRALES")) {
+        coordinacion = actual;
       }
 
-      if (padre.nivel === 2) {
-        nivel2 = padre;
+      if (nombreActual === "TESORERIA") {
+        tesoreria = actual;
       }
 
-      actual = padre;
+      if (
+        nombreActual.includes(
+          "DIRECCION GENERAL DEL INSTITUTO CATASTRAL DEL ESTADO DE OAXACA"
+        )
+      ) {
+        return sexo === "M" ? "ASIGNADA A I.C.E.O." : "ASIGNADO A I.C.E.O.";
+      }
+
+      if (actual.nivel === 3 && !nivel3) nivel3 = actual;
+      if (actual.nivel === 2 && !nivel2) nivel2 = actual;
+
+      if (!actual.parent_id) break;
+      actual = mapaAdscripciones[actual.parent_id];
     }
 
-    // si no encontró nivel 3 usar nivel 2
-    if (nivel2) {
+    if (coordinacion) return coordinacion.nombre;
+    if (tesoreria) return tesoreria.nombre;
+
+    if (normalizar(nivel2?.nombre) === "PROCURADURIA FISCAL") {
       return nivel2.nombre;
     }
+
+    if (ads.nivel <= 3) return ads.nombre;
+    if (nivel3) return nivel3.nombre;
+    if (nivel2) return nivel2.nombre;
 
     return ads.nombre;
   }
@@ -1934,7 +1971,15 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
     "DIRECCIÓN DE LA INSTANCIA TÉCNICA DE EVALUACIÓN": "DIREC. DE LA INST. TÉC. DE EVAL.",
 
-    "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS"
+    "OTORGAMIENTO DE SERVICIOS ADMINISTRATIVOS(DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN)": "OTORG. DE SERV. ADMINISTRATIVOS",
+
+    "COORDINACIÓN DE CENTROS INTEGRALES DE ATENCIÓN AL CONTRIBUYENTE": "COORD. DE C.I.A.C.",
+    "CENTRO INTEGRAL DE ATENCIÓN AL CONTRIBUYENTE DE SANTA CRUZ AMILPAS": "C.I.A.C. STA. CRUZ AMILPAS",
+    "MODULO DE ATENCIÓN AL CONTRIBUYENTE DE OAXACA DE JUÁREZ": "M.A.C. OAXACA DE JUÁREZ",
+
+    "COORDINACIÓN DE GIRAS Y PROTOCOLO": "COORD. DE GIRAS Y PROTOCOLO",
+
+    "PERSONAL ADSCRITO A LA SECRETARÍA DE FINANZAS (HANGAR)": "HANGAR OFICIAL DEL GOBIERNO DEL ESTADO"
   };
 
   function abreviarAdscripcion(nombre) {
@@ -1952,12 +1997,22 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
   // aplicar a los empleados
   employees = employees.map((emp) => {
-    const adscripcionOriginal = emp.STATUS_EMPLEADO?.find(s => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO || emp.ADSCRIPCION;
-    const adscripcion = obtenerAdscripcionNivel3(adscripcionOriginal);
+    const {
+      _esPlantillaForanea,
+      ...empleado
+    } = emp;
+
+    const adscripcionOriginal =
+      emp.STATUS_EMPLEADO?.find((s) => s.STATUS === "ASIG_LAB")?.LUGAR_COMISIONADO ||
+      emp.ADSCRIPCION;
+
+    const adscripcion = obtenerAdscripcionNivel3(adscripcionOriginal, emp.SEXO);
+    const area = abreviarAdscripcion(adscripcion);
+
     return {
-      ...emp,
-      ADSCRIPCION: abreviarAdscripcion(adscripcion),
-    }
+      ...empleado,
+      ADSCRIPCION: _esPlantillaForanea && area ? `COMIS. ${area}` : area,
+    };
   });
 
 
@@ -2032,18 +2087,6 @@ incidenciasController.printAsistenceCards = async (req, res) => {
       const statusArray = emp.STATUS_EMPLEADO || [];
       return statusArray.some(s => statuses.includes(s.STATUS));
     }
-
-    // const comisionados = employees
-    //   .filter(emp =>
-    //     hasStatus(emp, ["COM_SDCL", "COM_LAB"])
-    //   )
-    //   .sort(ordenarPorTarjeta);
-
-    // const noComisionados = employees
-    //   .filter(emp =>
-    //     !hasStatus(emp, ["COM_SDCL", "COM_LAB"])
-    //   )
-    //   .sort(ordenarPorTarjeta);
 
     // Calcular quincenas
     const today = new Date();
@@ -2270,11 +2313,27 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             }
 
             const rangeAreaWidth = xEndArea - xStartArea;
-            doc.text(area, numAreaX, numAreaY, {
+
+            let areaFontSize = bodyFontSize;
+            doc.font("Helvetica");
+
+            while (areaFontSize > 5) {
+              doc.fontSize(areaFontSize);
+
+              if (doc.widthOfString(area) <= rangeAreaWidth - 8) {
+                break;
+              }
+
+              areaFontSize = Math.max(5, areaFontSize - 0.5);
+            }
+
+            doc.fontSize(areaFontSize).text(area, numAreaX, numAreaY, {
               width: rangeAreaWidth,
               align: "center",
               lineBreak: false,
             });
+
+            doc.fontSize(bodyFontSize);
 
             let numNameX, numNameY, xStartName, xEndName;
 
@@ -2291,11 +2350,27 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             }
 
             const rangeNameWidth = xEndName - xStartName;
-            doc.text(name, numNameX, numNameY, {
+
+            let nameFontSize = bodyFontSize;
+            doc.font("Helvetica");
+
+            while (nameFontSize > 5) {
+              doc.fontSize(nameFontSize);
+
+              if (doc.widthOfString(name) <= rangeNameWidth - 8) {
+                break;
+              }
+
+              nameFontSize = Math.max(5, nameFontSize - 0.5);
+            }
+
+            doc.fontSize(nameFontSize).text(name, numNameX, numNameY, {
               width: rangeNameWidth,
               align: "center",
               lineBreak: false,
             });
+
+            doc.fontSize(bodyFontSize);
 
             let numRelLX, numRelLY, xStartRelL, xEndRelL;
 
@@ -2354,9 +2429,23 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             const rangeQuinWidth = xEndQuin - xStartQuin;
             // doc.rect(xStartQuin, numQuinY, rangeQuinWidth, 5).fill("black");
-            const quincenaFont = 9;
-            doc.fontSize(quincenaFont).font("Helvetica-Bold");
-            doc.text(quincena.texto, numQuinX, numQuinY, {
+            const textoQuincena = String(quincena.texto || "");
+            let quincenaFont = 9;
+
+            doc.font("Helvetica-Bold");
+
+            while (quincenaFont > 4) {
+              doc.fontSize(quincenaFont);
+
+              if (doc.widthOfString(textoQuincena) <= rangeQuinWidth - 8) {
+                break;
+              }
+
+              quincenaFont -= 0.5;
+            }
+
+            doc.fontSize(quincenaFont);
+            doc.text(textoQuincena, numQuinX, numQuinY, {
               width: rangeQuinWidth,
               align: "center",
               lineBreak: false,
@@ -2490,11 +2579,26 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             }
 
             const rangeAreaWidth = xEndArea - xStartArea;
-            doc.text(area, numAreaX, numAreaY, {
+            let areaFontSize = bodyFontSize;
+            doc.font("Helvetica");
+
+            while (areaFontSize > 5) {
+              doc.fontSize(areaFontSize);
+
+              if (doc.widthOfString(area) <= rangeAreaWidth - 8) {
+                break;
+              }
+
+              areaFontSize = Math.max(5, areaFontSize - 0.5);
+            }
+
+            doc.fontSize(areaFontSize).text(area, numAreaX, numAreaY, {
               width: rangeAreaWidth,
               align: "center",
               lineBreak: false,
             });
+
+            doc.fontSize(bodyFontSize);
 
             let numNameX, numNameY, xStartName, xEndName;
 
@@ -2511,11 +2615,27 @@ incidenciasController.printAsistenceCards = async (req, res) => {
             }
 
             const rangeNameWidth = xEndName - xStartName;
-            doc.text(name, numNameX, numNameY, {
+
+            let nameFontSize = bodyFontSize;
+            doc.font("Helvetica");
+
+            while (nameFontSize > 5) {
+              doc.fontSize(nameFontSize);
+
+              if (doc.widthOfString(name) <= rangeNameWidth - 8) {
+                break;
+              }
+
+              nameFontSize = Math.max(5, nameFontSize - 0.5);
+            }
+
+            doc.fontSize(nameFontSize).text(name, numNameX, numNameY, {
               width: rangeNameWidth,
               align: "center",
               lineBreak: false,
             });
+
+            doc.fontSize(bodyFontSize);
 
             let numRelLX, numRelLY, xStartRelL, xEndRelL;
 
@@ -2574,9 +2694,23 @@ incidenciasController.printAsistenceCards = async (req, res) => {
 
             const rangeQuinWidth = xEndQuin - xStartQuin;
             // doc.rect(xStartQuin, numQuinY, rangeQuinWidth, 5).fill("black");
-            const quincenaFont = 9;
-            doc.fontSize(quincenaFont).font("Helvetica-Bold");
-            doc.text(quincena.texto, numQuinX, numQuinY, {
+            const textoQuincena = String(quincena.texto || "");
+            let quincenaFont = 9;
+
+            doc.font("Helvetica-Bold");
+
+            while (quincenaFont > 4) {
+              doc.fontSize(quincenaFont);
+
+              if (doc.widthOfString(textoQuincena) <= rangeQuinWidth - 8) {
+                break;
+              }
+
+              quincenaFont -= 0.5;
+            }
+
+            doc.fontSize(quincenaFont);
+            doc.text(textoQuincena, numQuinX, numQuinY, {
               width: rangeQuinWidth,
               align: "center",
               lineBreak: false,

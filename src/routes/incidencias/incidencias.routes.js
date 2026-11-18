@@ -103,7 +103,7 @@ router.post("/updateCardInformation", verifyToken, requirePermission(['AEI-EIC',
 router.post("/printAsistenceCards", verifyToken, requirePermission(['AEI-TJC', 'AEI-TJA', 'AEI-TJP']), incidenciasController.printAsistenceCards);
 
 // Ruta para modificar el status employee de un empleado
-router.put("/updateStatusEmployee", verifyToken, requirePermission(['AEI-EE']), incidenciasController.updateStatusEmployee);
+router.put("/updateStatusEmployee", verifyToken, requirePermission(['AEI-EE', 'PSL-EE']), incidenciasController.updateStatusEmployee);
 
 // Ruta para obtener todos los empleados que tienen un status employee
 router.post("/getAllEmployeesByStatus", verifyToken, requirePermission(['AEI-EE']), incidenciasController.getAllEmployeesByStatus);
